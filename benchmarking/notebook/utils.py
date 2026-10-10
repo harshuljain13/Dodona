@@ -19,6 +19,7 @@ about.
 from __future__ import annotations
 
 import json
+import os
 import socket
 import urllib.error
 import urllib.parse
@@ -373,22 +374,42 @@ class Report:
 
     def bar(self, title: str, labels: list[str], series: dict[str, list[float]],
             *, ylabel: str = "", log: bool = False, hline: float | None = None,
-            note: str = "", show: bool = True) -> "Report":
+            note: str = "", conclusion: str = "", show: bool = True) -> "Report":
         spec = {"kind": "bar", "title": title, "labels": labels, "series": series,
                 "ylabel": ylabel, "log": log, "hline": hline}
         self.blocks.append(_Block("spec", spec, note))
         if show:
             _show_interactive(spec, note)
+            if note:
+                print(f"  how to read it: {note}")
+        if conclusion:
+            self.conclusion(conclusion, show=show)
         return self
 
     def line(self, title: str, x: list[float], series: dict[str, list[float]],
              *, xlabel: str = "", ylabel: str = "", hlines: dict[str, float] | None = None,
-             note: str = "", show: bool = True) -> "Report":
+             note: str = "", conclusion: str = "", show: bool = True) -> "Report":
         spec = {"kind": "line", "title": title, "x": x, "series": series,
                 "xlabel": xlabel, "ylabel": ylabel, "hlines": hlines or {}}
         self.blocks.append(_Block("spec", spec, note))
         if show:
             _show_interactive(spec, note)
+            if note:
+                print(f"  how to read it: {note}")
+        if conclusion:
+            self.conclusion(conclusion, show=show)
+        return self
+
+    def conclusion(self, text: str, *, show: bool = True) -> "Report":
+        """What the measurement above turned out to mean.
+
+        Stated separately from the chart because a chart without a sentence is
+        left to the reader, and a reader who has to interpret it will interpret
+        it the way they already expected.
+        """
+        self.blocks.append(_Block("conclusion", text))
+        if show:
+            print(f"\n  >> {text}\n")
         return self
 
     def links(self, rows: list[tuple[str, str]], note: str = "",
@@ -418,6 +439,12 @@ class Report:
             elif b.kind == "verdict":
                 ok, msg = b.payload
                 lines.append(("pass" if ok else "fail", f"{'PASS' if ok else 'FAIL'}  {msg}"))
+            elif b.kind == "conclusion":
+                lines.append(("text", ""))
+                for part in _wrap(str(b.payload), 92):
+                    lines.append(("bold", f">> {part}" if part == _wrap(str(b.payload), 92)[0]
+                                  else f"   {part}"))
+                lines.append(("text", ""))
             elif b.kind == "slo":
                 ok, label, detail, why = b.payload
                 lines.append(("pass" if ok else "fail",
@@ -457,6 +484,8 @@ class Report:
                 elif kind == "fail":
                     fig.text(0.07, y, body, size=9, color="#c0392b",
                              family="monospace", weight="bold")
+                elif kind == "bold":
+                    fig.text(0.07, y, body, size=9.5, weight="bold", color="#0b3d91")
                 elif kind == "mono":
                     fig.text(0.07, y, body, size=8, family="monospace")
                 else:
@@ -555,20 +584,27 @@ def _draw_spec_mpl(ax, spec: dict) -> None:
     ax.set_title(spec["title"])
 
 
-def _show_interactive(spec: dict, note: str = "") -> None:
-    """Interactive in the notebook via plotly; static matplotlib if absent.
+#: matplotlib by default: the notebook shows exactly what the PDF will contain.
+#: Set DODONA_PLOTLY=1 for hover and zoom, at the cost of that guarantee.
+USE_PLOTLY = os.environ.get("DODONA_PLOTLY", "") not in ("", "0", "false")
 
-    Falling back rather than requiring plotly keeps the notebook runnable on a
-    machine that only has matplotlib — which is the one the PDF needs anyway.
-    """
+
+def _show_interactive(spec: dict, note: str = "") -> None:
+    """Draw the chart inline. matplotlib unless DODONA_PLOTLY is set."""
+    if not USE_PLOTLY:
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(8.2, 3.8))
+        _draw_spec_mpl(ax, spec)
+        fig.tight_layout()
+        plt.show()
+        return
     try:
         import plotly.graph_objects as go
     except ImportError:
         import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(figsize=(8, 3.6))
+        fig, ax = plt.subplots(figsize=(8.2, 3.8))
         _draw_spec_mpl(ax, spec)
-        if note:
-            fig.text(0.02, -0.04, note, size=8, color="#555")
+        fig.tight_layout()
         plt.show()
         return
 
@@ -593,3 +629,16 @@ def _show_interactive(spec: dict, note: str = "") -> None:
     fig.show()
     if note:
         print(f"  -- {note}")
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    """Greedy wrap. textwrap would do, but this keeps the import list honest."""
+    out, line = [], ""
+    for word in text.split():
+        if len(line) + len(word) + 1 > width and line:
+            out.append(line); line = word
+        else:
+            line = f"{line} {word}".strip()
+    if line:
+        out.append(line)
+    return out or [""]
