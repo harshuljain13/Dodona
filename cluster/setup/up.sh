@@ -113,11 +113,14 @@ check_capacity() {
     the cluster. Read docs/project/01-capacity.md before going further."
 }
 
+# $1 is the port on the box to talk to: 8000 is vLLM direct, 8080 is the
+# gateway. Pointing it at vLLM bypasses guardrails, admission and placement.
 start_webui() {
-  announce "Open WebUI  —  :3000"
+  local upstream_port="$1"
+  announce "Open WebUI  —  :3000, upstream :$upstream_port"
   "${SSH[@]}" "$BOX" "docker rm -f open-webui >/dev/null 2>&1 || true; \
     docker run -d --name open-webui -p 3000:8080 \
-      -e OPENAI_API_BASE_URL=http://host.docker.internal:8000/v1 \
+      -e OPENAI_API_BASE_URL=http://host.docker.internal:$upstream_port/v1 \
       -e OPENAI_API_KEY=dummy -e WEBUI_AUTH=False \
       --add-host=host.docker.internal:host-gateway \
       -v open-webui:/app/backend/data \
@@ -156,8 +159,10 @@ cmd_cluster() {
   start_engine
   wait_for_engine
   check_capacity
-  start_webui
   start_fleet
+  # After the fleet, so the WebUI points at the gateway rather than at the
+  # whole-card engine that start_fleet has just stopped.
+  start_webui 8080
   announce "cluster up"
   echo "    make observability   Prometheus + Grafana"
   echo "    make ssh             open the tunnel"

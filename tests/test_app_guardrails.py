@@ -49,9 +49,16 @@ def test_all_local_harness_behaviors() -> None:
         result = run_behavior(name)
         assert result.passed, result.summary
 
-def test_orch_lists_local_vllm_models() -> None:
+def test_orch_lists_only_aliases_it_can_serve(monkeypatch) -> None:
+    """A listed model that always 400s is worse than one that is absent."""
+    monkeypatch.delenv("VISION_MODEL", raising=False)
+    monkeypatch.setenv("TEXT_MODEL", "Qwen/Qwen2.5-7B-Instruct-AWQ")
     ids = {row["id"] for row in listed_models()["data"]}
-    assert {"text", "vision"} <= ids
+    assert "text" in ids and "Qwen/Qwen2.5-7B-Instruct-AWQ" in ids
+    assert "vision" not in ids, "no VISION_MODEL deployed, so do not advertise it"
+
+    monkeypatch.setenv("VISION_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct")
+    assert "vision" in {row["id"] for row in listed_models()["data"]}
 
 def test_sse_from_completion_is_openai_stream() -> None:
     raw = sse_from_completion(

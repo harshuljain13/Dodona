@@ -1,70 +1,85 @@
+# The gateway: guardrails, admission, placement, the KV hop, then decode.
+#
+# Until this is applied, Open WebUI talks straight to vLLM and every one of
+# those is bypassed. It mounts the synced repo rather than baking an image, so
+# `make cluster` picks up code changes without a build step.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: orch-serve
+  labels: { app: orch-serve }
 spec:
   replicas: 1
   selector:
-    matchLabels:
-      app: orch-serve
+    matchLabels: { app: orch-serve }
   template:
     metadata:
-      labels:
-        app: orch-serve
+      labels: { app: orch-serve }
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
-        prometheus.io/path: "/metrics"
+        prometheus.io/path: /metrics
     spec:
       containers:
         - name: orch
           image: python:3.12-slim
           workingDir: /lab
-          command:
-            - sh
-            - -c
-            - pip install -q -r requirements.txt && python -m gateway.serve
+          command: ["sh", "-c", "pip install -q -r requirements.txt && python -m gateway.serve"]
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
+            # control/ holds gateway, router and edge; cluster/ holds
+            # observability. Both are import roots, same as tests/pytest.ini.
+            - name: PYTHONPATH
+              value: /lab/control:/lab/cluster
             - name: SERVE_HOST
               value: "0.0.0.0"
+            # Service DNS, resolved inside the cluster. Two distinct values is
+            # what makes queue.py do a real prefill → hop → decode sequence
+            # instead of short-circuiting to one pod.
             - name: PREFILL_URLS
               value: http://vllm-prefill:8000
             - name: DECODE_URLS
               value: http://vllm-decode:8000
             - name: LAB_TOPOLOGY
               value: disaggregated
+            # phase, NOT capability: every pod in this fleet serves the same
+            # model, and a capability split would ask decode for VISION_MODEL.
             - name: LAB_SPLIT
-              value: capability
+              value: phase
+            # Must match cluster/k8s/fleet/*.yaml --served-model-name, or vLLM
+            # 400s on every request with an unknown model.
             - name: TEXT_MODEL
-              value: Qwen/Qwen2.5-3B-Instruct
-            - name: VISION_MODEL
-              value: Qwen/Qwen2.5-VL-3B-Instruct
-            - name: MOONCAKE_URL
-              value: http://mooncake-store:50051
+              value: Qwen/Qwen2.5-7B-Instruct-AWQ
             - name: TRACE_PATH
-              value: /lab/traces/requests.jsonl
+              value: /lab/metrics/traces/requests.jsonl
+            # MOONCAKE_URL is deliberately unset. kvbus skips the POST when it
+            # is empty; pointing it at a service that does not exist costs a
+            # 2-second timeout on every hop.
           ports:
             - containerPort: 8080
               hostPort: 8080
           volumeMounts:
-            - name: lab
-              mountPath: /lab
+            - { name: lab, mountPath: /lab }
+          # Without a probe the rollout reports success while the container
+          # crash-loops on an import error.
+          readinessProbe:
+            httpGet: { path: /metrics, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12
       volumes:
         - name: lab
-          hostPath:
-            path: /home/ubuntu/dodona
-            type: Directory
+          hostPath: { path: /home/ubuntu/dodona, type: Directory }
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: orch-serve
+  labels: { app: orch-serve }
 spec:
-  selector:
-    app: orch-serve
-  ports:
-    - port: 8080
-      nodePort: 30080
+  # NodePort, not ClusterIP: ClusterIP is invisible from the host, so the ssh
+  # tunnel has nothing to forward.
   type: NodePort
+  selector: { app: orch-serve }
+  ports: [{ name: http, port: 8080, targetPort: 8080, nodePort: 30080 }]

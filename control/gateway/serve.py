@@ -53,14 +53,20 @@ def sse_from_completion(body: dict, *, model: str = "text") -> bytes:
     return f"data: {json.dumps(chunk)}\n\ndata: [DONE]\n\n".encode("utf-8")
 
 def listed_models() -> dict:
+    """What /v1/models advertises. Only aliases that can actually be served.
+
+    Listing `vision` with no VISION_MODEL deployed puts a model in Open WebUI's
+    picker that returns 400 on every message.
+    """
     ids: list[str] = []
     for env in ("TEXT_MODEL", "VISION_MODEL", "LOCAL_MODEL"):
         value = os.environ.get(env, "").strip()
         if value and value not in ids:
             ids.append(value)
-    for alias in ("text", "vision"):
-        if alias not in ids:
-            ids.append(alias)
+    if "text" not in ids:
+        ids.append("text")
+    if os.environ.get("VISION_MODEL", "").strip() and "vision" not in ids:
+        ids.append("vision")
     return {"object": "list", "data": [{"id": name, "object": "model", "owned_by": "local-vllm"} for name in ids]}
 
 def evict_prefixes(gateway: Gateway, prefix_hash: str | None = None) -> int:
