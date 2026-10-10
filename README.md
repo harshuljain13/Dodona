@@ -62,13 +62,12 @@ constant, which keeps the contention we measure purely LLM-side.
 
 ## Layout
 
-Laid out as the brief specifies, so a grader finds what it expects.
+Three documents at the top, then one directory per thing that actually runs.
 
 ```
 dodona/
   SUBMISSION.md      the brief answered, parts 0-8
   PROJECT.md         the project and the C4 levels
-  DESIGN.md          pointer — the brief names this file; the content is SUBMISSION.md
   app/               the voice agent — talks only to our serve path
   control/           guard · admit · place · queue · hop · warm · stay-or-leave
   cluster/           how the engine comes up, stage by stage
@@ -77,7 +76,7 @@ dodona/
     cluster/         the stack, file by file
   notebook/          part5-queue.ipynb — the brief submits this separately
   metrics/           scrapes, hop dicts, evict counts, 429/503
-  plots/             soak, shared-prefix KV, queue depth
+  assets/screenshots/  Grafana exhibits and generated charts
 ```
 
 ## Status

@@ -37,7 +37,7 @@ Every answer in Part 5 needs a scrape, not an assertion.
 
 Scrapes are saved under [`../metrics/`](../metrics/) as raw text, so a number in
 the notebook can be traced to the scrape it came from. Plots go to
-[`../plots/`](../plots/).
+[`../assets/screenshots/`](../assets/screenshots/).
 
 A cell that asserts without a scrape behind it is the thing this notebook exists
 to prevent.
