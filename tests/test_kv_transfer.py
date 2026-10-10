@@ -71,3 +71,89 @@ def test_evict_drops_prefix_and_counts() -> None:
     assert bus.cached("d0", "share") == 0
     assert METRICS.kv_evict_total == 1
     assert "orch_kv_evict_total 1" in METRICS.render()
+
+
+# ── the disaggregated handshake ────────────────────────────────────────────
+#
+# Without this, MooncakeConnector logs "Missing transfer_id in
+# kv_transfer_params from router!" and answers every lookup with a miss. We ran
+# 53,675 connector queries and got 0 hits before these existed.
+
+def test_both_legs_carry_the_same_transfer_id() -> None:
+    """The id IS the correlation. Different ids and the consumer finds nothing."""
+    from gateway.queue import enqueue
+    from gateway.types import Handoff
+
+    class Spy:
+        def __init__(self, name):
+            self.id, self.bus, self.sent = name, KVBus(), []
+            self.bootstrap_url = "http://vllm-prefill:8998"
+
+        def engine_id(self):
+            return "engine-abc"
+
+        def enqueue(self, req, phase="both", kv_transfer_params=None):
+            self.sent.append((phase, kv_transfer_params))
+            return {"choices": []}
+
+    prefill, decode = Spy("p0"), Spy("d0")
+    enqueue(Handoff(prefill=prefill, decode=decode), _req(id="r1"))
+
+    (_, p_kv), = prefill.sent
+    (_, d_kv), = decode.sent
+    assert p_kv["transfer_id"] == d_kv["transfer_id"] == "xfer-r1"
+    assert p_kv["do_remote_decode"] is True and p_kv["do_remote_prefill"] is False
+    assert d_kv["do_remote_prefill"] is True and d_kv["do_remote_decode"] is False
+    # The consumer must also name WHICH producer to pull from.
+    assert d_kv["remote_bootstrap_addr"] == "http://vllm-prefill:8998"
+    assert d_kv["remote_engine_id"] == "engine-abc"
+
+
+def test_colocated_handoff_sends_no_transfer_params() -> None:
+    """src == dst has nothing to transfer; asking would have it pull from itself."""
+    from gateway.queue import enqueue
+    from gateway.types import Handoff
+
+    class Spy:
+        def __init__(self):
+            self.id, self.bus, self.sent = "e0", KVBus(), []
+
+        def enqueue(self, req, phase="both", kv_transfer_params=None):
+            self.sent.append((phase, kv_transfer_params))
+            return {"choices": []}
+
+    worker = Spy()
+    hop, _ = enqueue(Handoff(prefill=worker, decode=worker), _req())
+    assert worker.sent == [("both", None)]
+    assert hop is None
+
+
+def test_the_worker_puts_transfer_params_on_the_wire() -> None:
+    """Built correctly and then dropped before the POST is the same as absent."""
+    import json
+
+    from router.pools import VLLMWorker
+
+    sent = {}
+
+    class Wire(VLLMWorker):
+        def _post(self, path, payload):
+            sent.update(payload)
+            return json.dumps({"choices": []})
+
+    Wire("p0", "http://x:8000", model="m").enqueue(
+        _req(), phase="prefill",
+        kv_transfer_params={"transfer_id": "xfer-1", "do_remote_decode": True})
+
+    assert sent["kv_transfer_params"]["transfer_id"] == "xfer-1"
+    assert sent["max_tokens"] == 1, "the prefill leg must not generate"
+    # The producer has to finish storing before the consumer asks.
+    assert sent["stream"] is False
+
+
+def test_bootstrap_url_is_the_worker_host_on_the_mooncake_port() -> None:
+    from router.pools import _bootstrap_url
+
+    assert _bootstrap_url("http://vllm-prefill:8000") == "http://vllm-prefill:8998"
+    assert _bootstrap_url("http://10.0.0.5:8000/") == "http://10.0.0.5:8998"
+    assert _bootstrap_url("") == ""

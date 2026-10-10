@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -72,7 +74,9 @@ class FakeWorker:
     def kv_used(self) -> int:
         return int(sum(self._kv_by_req.values()))
 
-    def enqueue(self, req: Request, phase: str = "both") -> dict | None:
+    def enqueue(self, req: Request, phase: str = "both",
+                kv_transfer_params: dict | None = None) -> dict | None:
+        # Accepted and ignored: there is no engine here to transfer to.
         if req.aborted:
             return
         cached = self.bus.cached(self.id, req.prefix_hash)
@@ -176,6 +180,7 @@ class VLLMWorker:
         timeout_s: float = 8.0,
         bus: KVBus | None = None,
         model: str = "",
+        bootstrap_url: str = "",
     ) -> None:
         self.id = id
         self.base_url = base_url.rstrip("/")
@@ -186,24 +191,52 @@ class VLLMWorker:
         self.healthy = True
         self.saturating = False
         self.kv_capacity = 0
+        #: Mooncake's bootstrap server on this worker. Only a producer has one.
+        self.bootstrap_url = bootstrap_url.rstrip("/")
+        self._engine_id: str | None = None
 
-    def enqueue(self, req: Request, phase: str = "both") -> dict | None:
+    def engine_id(self) -> str | None:
+        """Mooncake's id for this engine, asked once and cached.
+
+        The consumer has to name the producer it wants blocks from, and this is
+        where that name comes from: GET <bootstrap>/query returns one entry per
+        data-parallel rank, each carrying an engine_id. We run dp_size 1.
+        """
+        if self._engine_id or not self.bootstrap_url:
+            return self._engine_id
+        try:
+            raw = self._get_url(f"{self.bootstrap_url}/query", timeout_s=5.0)
+            ranks = json.loads(raw)
+        except (urllib.error.URLError, OSError, TimeoutError, ValueError):
+            return None
+        entry = ranks.get("0") or next(iter(ranks.values()), {})
+        self._engine_id = entry.get("engine_id") if isinstance(entry, dict) else None
+        return self._engine_id
+
+    def enqueue(self, req: Request, phase: str = "both",
+                kv_transfer_params: dict | None = None) -> dict | None:
         """Send one leg of the request to a real vLLM worker.
 
           prefill  max_tokens=1 — one forward pass to build the prompt's KV here
           decode   the real generation
           both     src == dst, no split, one call
 
-        The decode worker still recomputes the prompt: moving blocks needs
-        --kv-transfer-config, which we do not set. See docs/project/topology.md.
+        `kv_transfer_params` is what makes the hop move bytes rather than a row.
+        The connector cannot match what prefill stored to what decode asks for
+        unless both legs carry the same transfer_id — without it the pod logs
+        "Missing transfer_id in kv_transfer_params from router!" and answers
+        every lookup with a miss. queue.py builds it.
         """
-        import json
-
         payload = {
             "model": self.model,
             "messages": request_messages(req),
             "max_tokens": 1 if phase == "prefill" else max(1, int(req.max_new_tokens)),
         }
+        if kv_transfer_params:
+            payload["kv_transfer_params"] = kv_transfer_params
+            # The producer must finish storing before the consumer asks, so the
+            # prefill leg cannot stream.
+            payload["stream"] = False
         # An allowlist, not a pass-through: our own keys are a 400 here. `tools`
         # is the one that matters, or a tool-calling agent gets no schemas.
         if req.extra:
@@ -257,13 +290,13 @@ class VLLMWorker:
         return None
 
     def _get(self, path: str, timeout_s: float | None = None) -> str:
-        url = self.base_url + path
+        return self._get_url(self.base_url + path, timeout_s)
+
+    def _get_url(self, url: str, timeout_s: float | None = None) -> str:
         with urllib.request.urlopen(url, timeout=timeout_s or self.timeout_s) as resp:
             return resp.read().decode("utf-8")
 
     def _post(self, path: str, payload: dict[str, Any]) -> str:
-        import json
-
         url = self.base_url + path
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
@@ -280,6 +313,18 @@ class VLLMWorker:
             if exc.code >= 500:
                 raise
             return raw
+
+#: Mooncake's embedded bootstrap server, on the producer. Matches
+#: VLLM_MOONCAKE_BOOTSTRAP_PORT in cluster/k8s/fleet/vllm-prefill.yaml.
+BOOTSTRAP_PORT = int(os.environ.get("MOONCAKE_BOOTSTRAP_PORT") or 8998)
+
+
+def _bootstrap_url(worker_url: str) -> str:
+    """Same host as the worker, different port."""
+    parsed = urllib.parse.urlparse(worker_url)
+    host = parsed.hostname or ""
+    return f"{parsed.scheme or 'http'}://{host}:{BOOTSTRAP_PORT}" if host else ""
+
 
 def _rewrite_url(url: str) -> str:
     return url.replace("YOUR_LAMBDA_IP", "127.0.0.1")
@@ -334,7 +379,8 @@ def build_pools(n_fake: int = 2, bus: KVBus | None = None) -> tuple[list[Any], l
         return text, vision
 
     prefill = [
-        VLLMWorker(f"prefill-{i}", url, bus=bus, model=text_model)
+        VLLMWorker(f"prefill-{i}", url, bus=bus, model=text_model,
+                   bootstrap_url=_bootstrap_url(url))
         for i, url in enumerate(prefill_urls)
     ]
     decode = [
