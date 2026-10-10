@@ -12,6 +12,22 @@ common way to waste ten minutes.
 
 ---
 
+## The short version
+
+```bash
+cp .env.example .env     # set LAMBDA and LAMBDA_SSH_KEY
+./up.sh
+```
+
+`up.sh` runs steps 1 through 7 below over ssh — it is not a second
+implementation, it calls the same scripts in `cluster/setup/`. **If a step is
+wrong, fix the script, not `up.sh`.**
+
+Everything after this point is that sequence broken out, which is what you want
+when something fails and you need to run one piece at a time.
+
+---
+
 ## Step 0 — `.env` `[Mac]`
 
 ```bash

@@ -194,25 +194,34 @@ metrics/    scrapes, decision logs, reports
 
 ## Quick start
 
-Needs a ≥40 GiB NVIDIA card, Docker with the NVIDIA runtime, and Python 3.11+.
+Needs a ≥40 GiB NVIDIA card you can ssh to, and Python 3.11+ locally.
 
 ```bash
 git clone https://github.com/harshuljain13/Dodona.git && cd Dodona
-cp .env.example .env                    # set LAMBDA and LAMBDA_SSH_KEY
-bash cluster/setup/sync_to_lambda.sh    # ship it to the box
-bash cluster/setup/ssh.sh               # tunnel + shell, leave it open
+cp .env.example .env     # set LAMBDA and LAMBDA_SSH_KEY
+./up.sh
 ```
 
-Then on the box:
+That is the whole thing. `up.sh` syncs the project to the box, builds the venv,
+installs vLLM, starts the engine detached so it survives the ssh session, waits
+for it to answer, **runs the four gate checks**, brings up Open WebUI, and leaves
+you holding the tunnel. Then open **http://127.0.0.1:3000** and talk to it.
 
 ```bash
-bash cluster/setup/lambda_setup.sh      # venv, requirements, vllm, verify
-bash cluster/setup/lambda_vllm.sh       # serve on :8000
+./up.sh --stage 0     # stop once the engine serves and the gate has run
+./up.sh --logs        # tail the engine log
+./up.sh --down        # stop the engine and Open WebUI
 ```
 
-**[COMMANDS.md](COMMANDS.md)** has the rest, including the gate that must pass
-before stage 1: `config.json` has to read 28 layers / 4 KV heads / `head_dim` 128,
-because every concurrency number in the project is derived from it.
+The gate is the part worth watching. Two of its four checks decide whether
+anything else is worth doing — `config.json` must read 28 layers / 4 KV heads /
+`head_dim` 128 (**P6**, = 56 KiB per token), and the weights on the card must
+match the 5.20 GiB estimate. **Every concurrency number in the project is
+derived from those two.** If either fails, redo the arithmetic before renting
+more time.
+
+→ Every command individually, and what each failure means:
+[**COMMANDS.md**](COMMANDS.md) · [**RUNBOOK.md**](RUNBOOK.md)
 
 ## Status
 
