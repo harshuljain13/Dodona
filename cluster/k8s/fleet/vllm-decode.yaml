@@ -14,6 +14,11 @@ metadata:
   labels: { app: vllm-decode, phase: decode }
 spec:
   replicas: 2
+  # Recreate, not RollingUpdate. The default surges a new pod before retiring
+  # the old one, and on a fully-allocated GPU the replacement can never be
+  # scheduled — it sits Pending forever and the rollout hangs. A single card
+  # cannot be rolled without downtime; pretending otherwise just deadlocks.
+  strategy: { type: Recreate }
   selector:
     matchLabels: { app: vllm-decode, phase: decode }
   template:
@@ -42,6 +47,13 @@ spec:
             - --max-num-seqs=64
             - --gpu-memory-utilization=0.90
             - --enable-prefix-caching
+            # Qwen2.5 emits <tool_call>{...}</tool_call> as TEXT. Without a
+            # parser it lands in message.content, never in tool_calls — the
+            # agent then thinks the model answered in prose and its loop ends
+            # after one turn. Open WebUI sends tool_choice:"auto" by default,
+            # so the engine rejects the request outright without these.
+            - --enable-auto-tool-choice
+            - --tool-call-parser=hermes
             - --host=0.0.0.0
             - --port=8000
           ports: [{ name: http, containerPort: 8000 }]

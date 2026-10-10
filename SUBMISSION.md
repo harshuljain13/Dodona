@@ -40,6 +40,11 @@ other half: what actually went wrong, recorded as it happened.
 | `make observability` ran the whole cluster stage first | `--only` was `>= 2 then >= 3`, i.e. "skip 0 and 1", not "just this one" | A `case` on the stage |
 | Three `Operation not permitted` from `pkill` | Unscoped, so it reached for the vLLM processes **inside the pods**, which run as root | `pkill -u "$(id -u)"` |
 | Grafana unreachable at `127.0.0.1:31495` | The chart assigns a **random** NodePort — it landed on 31457, while the tunnel forwards a fixed list | `nodePort: 31495` pinned in `grafana-values.yaml` |
+| Nothing on the fleet reachable from the Mac | Services were **ClusterIP**, which exists only inside the cluster network — the tunnel had nothing on the host to forward. The pods were serving correctly all along | `NodePort` 30800 prefill, 30801 decode, 30030 Open WebUI |
+| Open WebUI vanished after stage 2 | It was a docker container from stage 1 and the k3s install took it | Now a pod, pointed at the `vllm-decode` Service so hand testing goes through the decode pool |
+| `make ssh` printed nine "Address already in use" and gave a shell with no forwards | A **second** tunnel cannot bind ports the first already holds. The first was working the whole time | `ssh.sh` closes any tunnel it already holds, and `ExitOnForwardFailure=yes` so it refuses rather than pretending |
+| Open WebUI: *"auto tool choice requires --enable-auto-tool-choice"* | Deferred those flags to stage 9 on the grounds that stage 0 has no tools — but **every OpenAI-compatible client sends `tool_choice: "auto"`**, so the engine rejects the request outright | Both flags on the fleet from the start. Verified: `get_weather {"city": "Delhi"}`, `finish_reason: tool_calls` |
+| Rollout hung — new pods `Pending` forever | A full GPU **cannot do a RollingUpdate**. The default surges a replacement before retiring the old pod, and with 36 GiB allocated it can never be scheduled | `strategy: { type: Recreate }`. A single card cannot be rolled without downtime |
 
 ---
 
