@@ -53,9 +53,19 @@ for pool in prefill decode; do
   # `|| true` is load-bearing: grep exits 1 on no match, and under
   # `set -euo pipefail` that fails the substitution and kills the script. This
   # block aborted the whole bring-up before the capacity checks could run.
-  found=$(kubectl logs -l "app=vllm-$pool" --tail=400 2>/dev/null \
-          | grep -iE "HCAs|Using .* transport|No RDMA devices" | tail -2 || true)
-  printf '  %-8s %s\n' "$pool" "${found:-no Mooncake lines — connector did not initialise}"
+  # --tail=-1, not a window. The connector initialises once at pod startup and
+  # is thousands of health-check lines back by the time anyone looks; a windowed
+  # grep reports "did not initialise" for a connector that is running fine,
+  # which is a worse answer than none.
+  found=$(kubectl logs --tail=-1 -l "app=vllm-$pool" 2>/dev/null \
+          | grep -iE "HCAs|Using .* transport|No RDMA devices|Mooncake Transfer Engine is using" \
+          | tail -3 || true)
+  if [[ -n "$found" ]]; then
+    printf '  %-8s\n' "$pool"
+    printf '    %s\n' "$found"
+  else
+    printf '  %-8s no connector lines in the full log — check --kv-transfer-config\n' "$pool"
+  fi
 done
 cat <<'NOTE'
     >=1 HCAs + RDMA transport   the fast path
