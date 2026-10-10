@@ -13,9 +13,9 @@ description: >-
 
 | File | Owns | Never contains |
 |---|---|---|
-| `README.md` | What it is, the config block, the stage status table | Reasoning. It is a map |
-| `PROJECT.md` | The project, the C4 levels, alternatives rejected, risks | The brief's part structure |
-| `SUBMISSION.md` | **The brief answered, parts 0–8**, a decision tree per part | Project motivation — that is `PROJECT.md` |
+| `README.md` | What it is, why the workload is hard, the config, setup, status, alternatives rejected, risks, contributing | The brief's part structure |
+| `SUBMISSION.md` | **The brief answered, parts 0–8**, a decision tree per part | Project motivation — that is `README.md` |
+| `docs/project/architecture.md` | The C4 levels | — |
 | `docs/project/01-capacity.md` | **Every number.** The authority | — |
 | `docs/project/0N-*.md` | Per-part depth | Numbers that disagree with `01-capacity.md` |
 | `docs/cluster/*.md` | How the code works, file by file | This project's decisions |
@@ -25,8 +25,8 @@ Two splits worth holding onto:
 
 - **`docs/project/` is ours and carries the predictions. `docs/cluster/` documents code**
   and stays accurate as the code does.
-- **`SUBMISSION.md` answers the brief. `PROJECT.md` explains the project.** When something
-  belongs in both, put the reasoning in `PROJECT.md` and the answer in `SUBMISSION.md` with
+- **`SUBMISSION.md` answers the brief. `README.md` explains the project.** When something
+  belongs in both, put the reasoning in `README.md` and the answer in `SUBMISSION.md` with
   a link.
 
 ## The predicted / measured convention

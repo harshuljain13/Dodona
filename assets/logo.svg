@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 220" width="900" height="220" role="img" aria-label="Dodona — a voice research agent, and the cluster that gates it">
+  <title>Dodona</title>
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111c2e"/>
+      <stop offset="1" stop-color="#0a1120"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#86efac"/>
+      <stop offset="0.5" stop-color="#5eead4"/>
+      <stop offset="1" stop-color="#93c5fd"/>
+    </linearGradient>
+    <linearGradient id="wave" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5eead4"/>
+      <stop offset="1" stop-color="#93c5fd"/>
+    </linearGradient>
+  </defs>
+
+  <!-- dark panel, so the lockup reads on a light or a dark page -->
+  <rect x="0" y="0" width="900" height="220" rx="28" fill="url(#panel)"/>
+
+  <!-- emblem: an oak leaf whose midrib is a waveform.
+       The oracle at Dodona read answers from the sound of wind in the oak leaves. -->
+  <g transform="translate(56,46)">
+    <rect x="0" y="0" width="128" height="128" rx="30" fill="#172336"/>
+    <g transform="translate(64,64)">
+      <!-- leaf -->
+      <path d="M-44 0 C-26 -42 26 -42 44 0 C26 42 -26 42 -44 0 Z"
+            fill="none" stroke="url(#leaf)" stroke-width="4.5" stroke-linejoin="round"/>
+      <!-- midrib as a sound wave -->
+      <polyline points="-38,0 -28,0 -23,-13 -17,13 -11,-20 -5,20 1,-11 7,11 13,-6 19,6 25,0 38,0"
+                fill="none" stroke="url(#wave)" stroke-width="3.4"
+                stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- stem -->
+      <path d="M44 0 L58 0" stroke="url(#leaf)" stroke-width="4.5" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <!-- wordmark -->
+  <text x="228" y="108" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif"
+        font-size="64" font-weight="700" letter-spacing="-1.5" fill="#f1f5f9">Dodona</text>
+  <text x="230" y="146" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif"
+        font-size="21" font-weight="400" fill="#94a3b8">a voice research agent, and the cluster that decides what it may ask</text>
+
+  <!-- three arcs: sound leaving the leaf -->
+  <g fill="none" stroke="#5eead4" stroke-linecap="round" opacity="0.55">
+    <path d="M826 86 A 28 28 0 0 1 826 134" stroke-width="3"/>
+    <path d="M846 72 A 44 44 0 0 1 846 148" stroke-width="3" opacity="0.7"/>
+    <path d="M866 58 A 60 60 0 0 1 866 162" stroke-width="3" opacity="0.45"/>
+  </g>
+</svg>

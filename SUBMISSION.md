@@ -6,7 +6,8 @@ and links out.
 
 | Go deeper | |
 |---|---|
-| [`PROJECT.md`](PROJECT.md) | The project, and the **C4-style architecture levels** — context, containers, inside the gateway |
+| [`README.md`](README.md) | What Dodona is, why the workload is hard, setup, and contributing |
+| [`docs/project/architecture.md`](docs/project/architecture.md) | The **C4 levels** — context, containers, inside the gateway |
 | [`docs/project/`](docs/README.md) | Per-part deep dives: the full arithmetic, the run protocol, the results report |
 | [`docs/cluster/`](docs/cluster/README.md) | The serving stack, file by file — gateway, router, KV bus, observability |
 
@@ -67,7 +68,7 @@ support that claim.
 ### High level
 
 Three boxes: the app, the control plane we write, the engine we configure.
-Detailed C4 levels are in [`PROJECT.md`](PROJECT.md#architecture).
+Detailed C4 levels are in [`docs/project/architecture.md`](docs/project/architecture.md).
 
 ```mermaid
 %%{init: {

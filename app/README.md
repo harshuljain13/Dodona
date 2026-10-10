@@ -45,7 +45,7 @@ they cause.
 Deepgram for both directions, off-GPU. The agent speaks an acknowledgement
 immediately (**time-to-first-audio < 1 s**) and narrates the researched answer
 when it lands (**10–30 s**). Those are two different SLOs on one request; see
-[`../PROJECT.md`](../PROJECT.md#two-slos-on-one-request).
+[`../README.md`](../README.md#voice-puts-a-real-deadline-on-every-request).
 
 A listener talking over the answer **aborts** mid-generation, which makes the
 `aborted` KV-release path common rather than exotic. Part 5 covers who frees it.
