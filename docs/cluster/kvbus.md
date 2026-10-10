@@ -19,11 +19,11 @@ pods read and write the same map.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart LR
     POOLS["build_pools()<br/>creates ONE KVBus"]
@@ -46,11 +46,11 @@ asks the bus to transfer, then drives decode.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
-  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
-  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'actorBkg':'#ecfdf5','actorBorder':'#059669','actorTextColor':'#0f172a','actorLineColor':'#d1fae5',
+  'signalColor':'#64748b','signalTextColor':'#1e293b',
+  'noteBkgColor':'#f0fdf4','noteBorderColor':'#16a34a','noteTextColor':'#0f172a',
+  'activationBkgColor':'#d1fae5','activationBorderColor':'#047857',
+  'labelBoxBkgColor':'#ffffff','labelBoxBorderColor':'#a7f3d0','labelTextColor':'#0f172a',
   'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
 }}}%%
 sequenceDiagram
@@ -88,11 +88,11 @@ no component calls the bus directly during scoring — it arrives via `Snapshot`
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
-  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
-  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'actorBkg':'#ecfdf5','actorBorder':'#059669','actorTextColor':'#0f172a','actorLineColor':'#d1fae5',
+  'signalColor':'#64748b','signalTextColor':'#1e293b',
+  'noteBkgColor':'#f0fdf4','noteBorderColor':'#16a34a','noteTextColor':'#0f172a',
+  'activationBkgColor':'#d1fae5','activationBorderColor':'#047857',
+  'labelBoxBkgColor':'#ffffff','labelBoxBorderColor':'#a7f3d0','labelTextColor':'#0f172a',
   'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
 }}}%%
 sequenceDiagram
@@ -126,11 +126,11 @@ Three different callers can drop entries:
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
-  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
-  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'actorBkg':'#ecfdf5','actorBorder':'#059669','actorTextColor':'#0f172a','actorLineColor':'#d1fae5',
+  'signalColor':'#64748b','signalTextColor':'#1e293b',
+  'noteBkgColor':'#f0fdf4','noteBorderColor':'#16a34a','noteTextColor':'#0f172a',
+  'activationBkgColor':'#d1fae5','activationBorderColor':'#047857',
+  'labelBoxBkgColor':'#ffffff','labelBoxBorderColor':'#a7f3d0','labelTextColor':'#0f172a',
   'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
 }}}%%
 sequenceDiagram
@@ -163,11 +163,11 @@ its `snapshot()` hardcodes `prefix_tokens=None` (`router/pools.py:237`).
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart LR
     FW["FakeWorker<br/>laptop, harness, REPL"] -->|"record + prefixes_for"| BUS1["KVBus<br/>fully used"]

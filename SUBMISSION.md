@@ -72,11 +72,11 @@ Detailed C4 levels are in [`PROJECT.md`](PROJECT.md#architecture).
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart LR
     USER(["Listener<br/>speaks a question"])
@@ -135,22 +135,22 @@ flowchart LR
     class OBS neutral
     class REP success
 
-    classDef primary   fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#d1fae5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef gate      fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef data      fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
-    classDef success   fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef out       fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef input     fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#0f172a
-    classDef highlight fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#0f172a
-    classDef pick      fill:#d1fae5,stroke:#059669,stroke-width:1.8px,color:#064e3b
-    classDef alt       fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
-    classDef note      fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#475569
-    linkStyle default stroke:#7c8da6,stroke-width:1.5px
+    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
+    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
+    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
+    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
+    linkStyle default stroke:#94a3b8,stroke-width:1.5px
 ```
 
 Deepgram sits outside the GPU box on purpose: speech is a **network constant**,
@@ -214,11 +214,11 @@ the project.**
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart TD
     Q{"Which track?"}
@@ -249,22 +249,22 @@ flowchart TD
     class A,AB dead
     class AX,ABX,VX note
 
-    classDef primary   fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#d1fae5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef gate      fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef data      fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
-    classDef success   fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef out       fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef input     fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#0f172a
-    classDef highlight fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#0f172a
-    classDef pick      fill:#d1fae5,stroke:#059669,stroke-width:1.8px,color:#064e3b
-    classDef alt       fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
-    classDef note      fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#475569
-    linkStyle default stroke:#7c8da6,stroke-width:1.5px
+    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
+    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
+    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
+    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
+    linkStyle default stroke:#94a3b8,stroke-width:1.5px
 ```
 
 Track A's requests are one-shot: what a request costs at arrival is what it costs
@@ -361,11 +361,11 @@ average request size.** Admission matters in the first regime and not the second
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart TD
     G["<b>1 · GPU</b><br/>1 × A100-40GB · one node<br/>40.0 GiB · ~37 allocatable<br/><b>sm80 — no fp8 at all</b>"]
@@ -402,22 +402,22 @@ flowchart TD
     class FX dead
     class GX,MX,QX,PX note
 
-    classDef primary   fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#d1fae5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef gate      fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef data      fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
-    classDef success   fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef out       fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef input     fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#0f172a
-    classDef highlight fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#0f172a
-    classDef pick      fill:#d1fae5,stroke:#059669,stroke-width:1.8px,color:#064e3b
-    classDef alt       fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
-    classDef note      fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#475569
-    linkStyle default stroke:#7c8da6,stroke-width:1.5px
+    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
+    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
+    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
+    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
+    linkStyle default stroke:#94a3b8,stroke-width:1.5px
 ```
 
 Two boxes deserve reading twice.
@@ -485,11 +485,11 @@ We set engine flags. We do not reimplement its scheduler.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart TD
     S{"<b>Topology on one 40 GiB card</b><br/>≥2 workers · want hop AND placement"}
@@ -516,22 +516,22 @@ flowchart TD
     class A,C,D dead
     class AX,CX,DX note
 
-    classDef primary   fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#d1fae5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef gate      fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef data      fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
-    classDef success   fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef out       fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef input     fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#0f172a
-    classDef highlight fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#0f172a
-    classDef pick      fill:#d1fae5,stroke:#059669,stroke-width:1.8px,color:#064e3b
-    classDef alt       fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
-    classDef note      fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#475569
-    linkStyle default stroke:#7c8da6,stroke-width:1.5px
+    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
+    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
+    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
+    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
+    linkStyle default stroke:#94a3b8,stroke-width:1.5px
 ```
 
 **One prefill worker is enough** because prefill builds KV and frees it
@@ -604,11 +604,11 @@ overspending, not a capacity event.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart TD
     S{"<b>What does the policy read?</b>"}
@@ -635,22 +635,22 @@ flowchart TD
     class QD,TQ,DL alt
     class QDX,DLX,TQX note
 
-    classDef primary   fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#d1fae5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef gate      fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef data      fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
-    classDef success   fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef out       fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef input     fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#0f172a
-    classDef highlight fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#0f172a
-    classDef pick      fill:#d1fae5,stroke:#059669,stroke-width:1.8px,color:#064e3b
-    classDef alt       fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
-    classDef note      fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#475569
-    linkStyle default stroke:#7c8da6,stroke-width:1.5px
+    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
+    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
+    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
+    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
+    linkStyle default stroke:#94a3b8,stroke-width:1.5px
 ```
 
 Admission is a **socket, not a rule** — `ADMISSION_POLICY` selects from
@@ -685,11 +685,11 @@ input**, as the brief requires.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart TD
     S{"<b>Which policy?</b>"}
@@ -715,22 +715,22 @@ flowchart TD
     class P2C dead
     class P2CX note
 
-    classDef primary   fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#d1fae5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef gate      fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef data      fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
-    classDef success   fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef out       fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef input     fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#0f172a
-    classDef highlight fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#0f172a
-    classDef pick      fill:#d1fae5,stroke:#059669,stroke-width:1.8px,color:#064e3b
-    classDef alt       fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
-    classDef note      fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#475569
-    linkStyle default stroke:#7c8da6,stroke-width:1.5px
+    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
+    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
+    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
+    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
+    linkStyle default stroke:#94a3b8,stroke-width:1.5px
 ```
 
 | Pool | Scorers, in order |
@@ -812,11 +812,11 @@ is phase separation, and `gpucores` time-slicing only partly delivers that.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart TD
     S{"<b>Hop backend</b>"}
@@ -838,22 +838,22 @@ flowchart TD
     class NC,NX dead
     class NCX note
 
-    classDef primary   fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#d1fae5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef gate      fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef data      fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
-    classDef success   fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef out       fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef input     fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#0f172a
-    classDef highlight fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#0f172a
-    classDef pick      fill:#d1fae5,stroke:#059669,stroke-width:1.8px,color:#064e3b
-    classDef alt       fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
-    classDef note      fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#475569
-    linkStyle default stroke:#7c8da6,stroke-width:1.5px
+    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
+    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
+    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
+    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
+    linkStyle default stroke:#94a3b8,stroke-width:1.5px
 ```
 
 ### Is it actually warm?

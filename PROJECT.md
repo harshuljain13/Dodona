@@ -171,11 +171,11 @@ then inside the piece we write. The single high-level view is in
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart LR
   USER(["Listener<br/>[Person]<br/>asks aloud"])
@@ -200,22 +200,22 @@ flowchart LR
   class SYS primary
   class DG,WEB,HF,OVF accent
 
-    classDef primary   fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#d1fae5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef gate      fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef data      fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
-    classDef success   fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef out       fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef input     fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#0f172a
-    classDef highlight fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#0f172a
-    classDef pick      fill:#d1fae5,stroke:#059669,stroke-width:1.8px,color:#064e3b
-    classDef alt       fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
-    classDef note      fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#475569
-    linkStyle default stroke:#7c8da6,stroke-width:1.5px
+    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
+    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
+    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
+    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
+    linkStyle default stroke:#94a3b8,stroke-width:1.5px
 ```
 
 The dotted line is the only exit from the cluster and it is for capacity failures
@@ -231,11 +231,11 @@ SM time.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart TB
   subgraph CLIENTS["Clients"]
@@ -273,22 +273,22 @@ flowchart TB
   class MC data
   class OBS neutral
 
-    classDef primary   fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#d1fae5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef gate      fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef data      fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
-    classDef success   fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef out       fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef input     fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#0f172a
-    classDef highlight fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#0f172a
-    classDef pick      fill:#d1fae5,stroke:#059669,stroke-width:1.8px,color:#064e3b
-    classDef alt       fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
-    classDef note      fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#475569
-    linkStyle default stroke:#7c8da6,stroke-width:1.5px
+    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
+    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
+    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
+    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
+    linkStyle default stroke:#94a3b8,stroke-width:1.5px
 ```
 
 **Open WebUI comes before the agent** — stage 1 points it straight at the engine
@@ -301,11 +301,11 @@ the *same* trace so two runs can be compared.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart LR
   subgraph GW["control/"]
@@ -331,22 +331,22 @@ flowchart LR
   class L data
   class REP success
 
-    classDef primary   fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#d1fae5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef gate      fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef data      fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
-    classDef success   fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef out       fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef input     fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#0f172a
-    classDef highlight fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#0f172a
-    classDef pick      fill:#d1fae5,stroke:#059669,stroke-width:1.8px,color:#064e3b
-    classDef alt       fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
-    classDef note      fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#475569
-    linkStyle default stroke:#7c8da6,stroke-width:1.5px
+    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
+    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
+    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
+    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
+    linkStyle default stroke:#94a3b8,stroke-width:1.5px
 ```
 
 Admission reads what the workers are doing, hands that plus the request to a

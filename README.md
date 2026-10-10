@@ -8,12 +8,12 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/GPU-1%C3%97%20A100--40GB-1a7f37?style=flat-square" alt="1x A100-40GB">
-  <img src="https://img.shields.io/badge/model-Qwen2.5--7B--AWQ%20int4-b45309?style=flat-square" alt="Qwen2.5-7B-Instruct-AWQ int4">
-  <img src="https://img.shields.io/badge/engine-vLLM-c2410c?style=flat-square" alt="vLLM">
-  <img src="https://img.shields.io/badge/decode%20pool-11%20seq-4338ca?style=flat-square" alt="decode pool 11 sequences">
-  <img src="https://img.shields.io/badge/voice-Deepgram%20%C2%B7%20off--GPU-0f766e?style=flat-square" alt="Deepgram, off-GPU">
-  <img src="https://img.shields.io/badge/stage-0%20of%2010-64748b?style=flat-square" alt="stage 0 of 10">
+  <img src="https://img.shields.io/badge/GPU-1%C3%97%20A100--40GB-047857?style=flat-square" alt="1x A100-40GB">
+  <img src="https://img.shields.io/badge/model-Qwen2.5--7B--AWQ%20int4-059669?style=flat-square" alt="Qwen2.5-7B-Instruct-AWQ int4">
+  <img src="https://img.shields.io/badge/engine-vLLM-10b981?style=flat-square" alt="vLLM">
+  <img src="https://img.shields.io/badge/decode%20pool-11%20seq-065f46?style=flat-square" alt="decode pool 11 sequences">
+  <img src="https://img.shields.io/badge/voice-Deepgram%20%C2%B7%20off--GPU-16a34a?style=flat-square" alt="Deepgram, off-GPU">
+  <img src="https://img.shields.io/badge/stage-0%20of%2010-94a3b8?style=flat-square" alt="stage 0 of 10">
 </p>
 
 <p align="center">
@@ -60,11 +60,11 @@ the policy could have fired at all.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart LR
     USER(["Listener"])
@@ -117,22 +117,22 @@ flowchart LR
     class MC data
     class REP success
 
-    classDef primary   fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#d1fae5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef gate      fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
-    classDef data      fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
-    classDef success   fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef out       fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
-    classDef input     fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#0f172a
-    classDef highlight fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#0f172a
-    classDef pick      fill:#d1fae5,stroke:#059669,stroke-width:1.8px,color:#064e3b
-    classDef alt       fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
-    classDef note      fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#475569
-    linkStyle default stroke:#7c8da6,stroke-width:1.5px
+    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
+    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
+    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
+    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
+    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
+    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
+    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
+    linkStyle default stroke:#94a3b8,stroke-width:1.5px
 ```
 
 The dotted lines are the point: admission reads engine state, so the verdict

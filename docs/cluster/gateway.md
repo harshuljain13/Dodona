@@ -13,11 +13,11 @@ New in 10, and it runs *before* admission:
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
-  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
-  'lineColor':'#7c8da6','textColor':'#1e293b',
-  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
+  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
+  'lineColor':'#94a3b8','textColor':'#1e293b',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart LR
     REQ["incoming payload"] --> GUARD["<b>guardrails.inspect</b><br/>app/guardrails.py"]
