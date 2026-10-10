@@ -1,6 +1,6 @@
-# Guard: refuse to run cluster tooling anywhere but the GPU box.
-# Sourced by the lambda_* scripts. Exits 1 on macOS or where nvidia-smi is
-# missing, so Helm and HAMi can never be invoked on the laptop path.
+# Refuse to run cluster tooling anywhere but the GPU box, so Helm and HAMi can
+# never be invoked on the laptop path. Sourced by k3s.sh, fleet.sh, engine.sh
+# and observability.sh.
 if [[ "$(uname -s)" == "Darwin" ]]; then
   echo "Lambda operates like a cluster. This script is for the GPU box."
   echo "FakeWorker on the Mac does not run Helm or HAMi."

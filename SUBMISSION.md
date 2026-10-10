@@ -34,9 +34,9 @@ other half: what actually went wrong, recorded as it happened.
 | Gate `5b` failed — no `gpu_cache_usage_perc` | **vLLM V1 renamed the metric to `kv_cache_usage_perc`.** The old name does not exist | Renamed in eight documents. `control/router/pools.py` already accepted both, so the control plane was never broken — but every doc asserted a metric that is gone |
 | Gate `5d` failed — "no `model weights` line" | vLLM 0.31 does not log one | Parse `Available KV cache memory` instead and derive overhead, which is the number that sizes the slices |
 | Overhead 20% higher than predicted | CUDA-graph reservation was not in the estimate | Recorded, not edited. See Part 1 |
-| `make engine` died: `Error 255` after setup succeeded | `pkill -f 'vllm serve'` over ssh **matched its own command line**, killed the remote shell, dropped the connection | `pkill -f '[v]llm serve'` |
+| Bring-up died with `Error 255` after setup succeeded | `pkill -f 'vllm serve'` over ssh **matched its own command line**, killed the remote shell, dropped the connection | `pkill -f '[v]llm serve'` |
 | `up.sh: line 101: syntax error near '('` | Invoked under `sh`, which cannot do the `SSH=(...)` array | Guard that refuses to run outside bash |
-| `make gate` checked the wrong thing after a fix | `--gate` runs the copy **on the box**, and it was stale | `--gate` rsyncs `gate.py` first |
+| The capacity check kept checking the wrong thing after a fix | it runs the copy **on the box**, and that copy was stale | the check rsyncs `gate.py` first |
 | `make observability` ran the whole cluster stage first | `--only` was `>= 2 then >= 3`, i.e. "skip 0 and 1", not "just this one" | A `case` on the stage |
 | Three `Operation not permitted` from `pkill` | Unscoped, so it reached for the vLLM processes **inside the pods**, which run as root | `pkill -u "$(id -u)"` |
 | Grafana unreachable at `127.0.0.1:31495` | The chart assigns a **random** NodePort — it landed on 31457, while the tunnel forwards a fixed list | `nodePort: 31495` pinned in `grafana-values.yaml` |

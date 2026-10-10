@@ -198,28 +198,24 @@ Needs a ≥40 GiB NVIDIA card you can ssh to, and Python 3.11+ locally.
 
 ```bash
 git clone https://github.com/harshuljain13/Dodona.git && cd Dodona
-cp .env.example .env     # set LAMBDA and LAMBDA_SSH_KEY
-make up
+cp .env.example .env     # set BOX and SSH_KEY
+make cluster && make observability && make ssh
 ```
 
-That is the whole thing. `make up` syncs the project to the box, builds the venv,
-installs vLLM, starts the engine detached so it survives the ssh session, waits
-for it to answer, **runs the four gate checks**, brings up Open WebUI, and leaves
-you holding the tunnel. Then open **http://127.0.0.1:3000** and talk to it.
+Then open **http://127.0.0.1:3000** and talk to it.
 
-`make` on its own lists everything. **Three targets bring the stack up**, each
-one further than the last:
+**Four commands, and no more.** All run from your Mac and drive the box over
+ssh — there is no separate login step.
 
-| | | Stage |
-|---|---|---|
-| `make engine` | one worker on the whole card, Open WebUI, tunnel | 0–1 |
-| `make cluster` | k3s + HAMi + **1 prefill + 2 decode** on three 12 GiB slices | 2 |
-| `make observability` | Prometheus + Grafana + DCGM | 3 |
-| `make all` | all three, in order | 0–3 |
+| | |
+|---|---|
+| `make cluster` | syncs the project, builds the venv, installs vLLM, starts the engine on the whole card, **runs the four capacity checks**, then k3s + HAMi + KEDA and **1 prefill + 2 decode** across three slices |
+| `make observability` | Prometheus + Grafana + DCGM |
+| `make ssh` | the tunnel. Leave it open — every URL below is `127.0.0.1` |
+| `make test` | the control plane, locally, **with no GPU** |
 
-All four run **from your Mac** and drive the box over ssh — no separate login.
-Day to day: `make gate` · `make sync` · `make ssh` · `make logs` · `make down` ·
-`make test` · `make lint`.
+Both bring-up targets are safe to re-run. Stopping, logs, load generation and
+the one-off tools are plain commands in [COMMANDS.md](COMMANDS.md).
 
 When one step fails and you want to redo just that step, `make ssh` and then the
 `box-*` targets — `box-setup`, `box-serve`, `box-gate`, `box-cluster`,

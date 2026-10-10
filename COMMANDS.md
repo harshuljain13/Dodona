@@ -15,11 +15,12 @@ common way to waste ten minutes.
 ## The short version
 
 ```bash
-cp .env.example .env     # set LAMBDA and LAMBDA_SSH_KEY
-make up
+cp .env.example .env     # set BOX and SSH_KEY
+make cluster             # then: make observability && make ssh
 ```
 
-`make` lists every target. `make up` runs steps 1 through 7 below over ssh — it is not a second
+There are four targets and no more: `cluster`, `observability`, `ssh`, `test`.
+`make cluster` runs the steps below over ssh — it is not a second
 implementation, it calls the same scripts in `cluster/setup/`. **If a step is
 wrong, fix the script, not `cluster/setup/up.sh`.**
 
@@ -62,7 +63,7 @@ not your secrets.
 ## Step 2 — open the tunnel, and leave it open `[Mac]`
 
 ```bash
-bash cluster/setup/ssh.sh
+bash cluster/setup/tunnel.sh
 ```
 
 Gives you a shell on the box in `~/dodona`, with these ports forwarded back:
@@ -78,7 +79,7 @@ Gives you a shell on the box in `~/dodona`, with these ports forwarded back:
 | 30030, 30080 | k8s NodePorts | stage 2 |
 
 **Lambda's firewall allows only SSH.** Everything is reached at `127.0.0.1:<port>`
-on the Mac — never the public IP. Open a second terminal and run `ssh.sh` again if
+on the Mac — never the public IP. Open a second terminal and run `tunnel.sh` again if
 you want a shell plus a free prompt.
 
 ---
