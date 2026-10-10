@@ -3,10 +3,16 @@
 Generated run reports. Nothing here is source — it is all output, and it is all
 reproducible from a command.
 
-| | |
+**One file per notebook, overwritten on each run.** A timestamped file per run
+leaves a directory of near-identical PDFs and no answer to "which one is
+current". The run time is on the first page of each.
+
+| | produced by |
 |---|---|
-| `cluster-<name>.json` | `python3 infra/cluster/setup/report.py --json benchmarking/reports/cluster-<name>.json` |
-| `cluster-<name>.txt` | the same run, as the text it printed |
+| `01-sanity.pdf` | `notebook/01-sanity.ipynb` |
+| `02-capacity.pdf` | `notebook/02-capacity.ipynb` *(not written yet)* |
+| `99-report.pdf` | the synthesis — every proof, in order *(not written yet)* |
+| `cluster-<stamp>.json` | `python3 infra/cluster/setup/report.py --json` |
 
 `report.py` reads the live cluster and interprets it — every number comes with
 what it tells you, and anything that looks wrong is called out with what to do.
