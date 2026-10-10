@@ -25,7 +25,7 @@ SHELL_SCRIPTS = sorted(SETUP.glob("*.sh"))
 #: What `make` offers. Deliberately small — the Makefile is the workflow, not a
 #: menu. `clean` is the one addition to the original four: a rented GPU has to
 #: be returnable, and teardown cannot be expressed by any of the others.
-MAKE_TARGETS = {"cluster", "observability", "ssh", "test", "clean"}
+MAKE_TARGETS = {"cluster", "observability", "ssh", "test", "load", "clean"}
 
 
 def test_there_are_shell_scripts_to_check() -> None:
@@ -97,7 +97,7 @@ def test_up_sh_help_lists_exactly_the_commands_it_dispatches() -> None:
 
 
 def test_makefile_defines_exactly_the_documented_targets() -> None:
-    """Five commands. A sixth means the workflow grew a step that needs saying."""
+    """The workflow, not a menu. A new one here means a new step to explain."""
     source = (ROOT / "Makefile").read_text()
     phony = set(re.search(r"^\.PHONY:\s*(.+)$", source, re.M).group(1).split())
     assert MAKE_TARGETS <= phony

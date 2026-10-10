@@ -19,8 +19,8 @@ the signal range beside it cannot answer the only question that matters: was
 anything actually scarce while this ran? A policy whose signal never moved is
 indistinguishable from one that worked.
 
-    python3 infra/control/edge/load.py --url http://127.0.0.1:30801 --sessions 8
-    python3 infra/control/edge/load.py --url http://127.0.0.1:8080 --sessions 14 --run high-a
+    python3 benchmarking/load.py --url http://127.0.0.1:30801 --sessions 8
+    python3 benchmarking/load.py --url http://127.0.0.1:8080 --sessions 14 --run high-a
 
 Stdlib only, so it runs on the box without installing anything.
 """
@@ -36,6 +36,10 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field, asdict
+from pathlib import Path
+
+#: benchmarking/load.py -> repo root
+ROOT = Path(__file__).resolve().parents[1]
 
 # ~1k tokens of system prompt and tool schemas. Identical every turn, every
 # session — this is the shared prefix the whole prefix-cache story rests on.
@@ -216,7 +220,10 @@ def main() -> int:
         print("\n  no signal samples — is --metrics-url right?")
 
     if args.run:
-        d = os.path.join("metrics", args.run)
+        # Repo-root relative, not cwd relative: this is run from the box's
+        # home dir as often as from the repo root, and a bundle written to the
+        # wrong place is a run you cannot compare against.
+        d = str(ROOT / "infra" / "metrics" / args.run)
         os.makedirs(d, exist_ok=True)
         json.dump({"args": vars(args), "wall_s": wall,
                    "signal": run.signal,

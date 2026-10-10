@@ -4,7 +4,7 @@ This is the experiment. An agent makes many small LLM calls in bursts; under loa
 call slows down, including the ones already running. Admission control refuses some so
 the rest stay fast. The question is whether the agent ends up better off.
 
-    python -m edge.agent_flood --url http://127.0.0.1:8080 --rps 20 --for 2m
+    python3 -m benchmarking.agent_flood --url http://127.0.0.1:8080 --rps 20 --for 2m
 
 Replaces app/crew_flood.py, which cannot answer that question for two reasons:
 

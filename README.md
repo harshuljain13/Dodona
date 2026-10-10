@@ -191,6 +191,7 @@ in this repo hardcodes them.
 
 ```
 app/                 the voice agent — talks only to our serve path
+benchmarking/        load generators — run on the box, never over the tunnel
 infra/
   control/           guard · admit · place · queue · hop · warm · stay-or-leave
   cluster/           how the fleet comes up: setup/, k8s/, observability/

@@ -230,14 +230,14 @@ not prove the hop did not happen.
 ## Load generation
 
 ```
-locust -f infra/control/edge/locustfile.py --host http://127.0.0.1:8080
+locust -f benchmarking/locustfile.py --host http://127.0.0.1:8080
 ```
 
 Run on: Mac, after `pip install -r requirements-load.txt`. UI on `:8089`.
 `--host` must stay `127.0.0.1:8080` — that is the tunnel.
 
 ```
-locust -f infra/control/edge/locustfile.py --host http://127.0.0.1:8080 \
+locust -f benchmarking/locustfile.py --host http://127.0.0.1:8080 \
   --headless -u 4 -r 2 -t 60s
 ```
 
@@ -245,7 +245,7 @@ Headless, 4 users, spawn rate 2, one minute — the Step 28 settings without the
 browser. Good for repeating a run.
 
 ```
-ORCH_URL=http://127.0.0.1:8080/v1 PYTHONPATH=infra/control python3 -m edge.crew_flood --rounds 48 --workers 8
+ORCH_URL=http://127.0.0.1:8080/v1 python3 -m benchmarking.crew_flood --rounds 48 --workers 8
 ```
 
 Threaded burst rather than steady load. This is what moves the queue-depth and

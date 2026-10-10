@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from edge.agent_flood import Crew
+from benchmarking.agent_flood import Crew
 
 REFUSE_EVERY = 2  #: refuse every Nth call, so both paths run in one pass
 
@@ -113,7 +113,7 @@ def test_arrivals_do_not_wait_for_completions(gateway) -> None:
 def test_an_unreachable_gateway_gives_up_early() -> None:
     """A wrong URL used to burn the whole window recording the same error at exactly the
     requested arrival rate, which reads as a run that happened."""
-    from edge.agent_flood import ABORT_AFTER
+    from benchmarking.agent_flood import ABORT_AFTER
 
     crew = Crew("http://127.0.0.1:1", None, rps=200).run(10)
 
@@ -155,7 +155,7 @@ def test_every_call_is_recorded(gateway, tmp_path: Path) -> None:
 def test_prompts_differ_by_role(gateway) -> None:
     """A shared prefix is nearly free to serve and leaves no KV footprint, so a crew
     repeating one prompt reports a cache that never fills at any rate."""
-    from edge.agent_flood import ROLES
+    from benchmarking.agent_flood import ROLES
 
     prompts = {p for _, p in ROLES}
     assert len(prompts) == len(ROLES)

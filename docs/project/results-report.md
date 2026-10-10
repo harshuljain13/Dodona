@@ -121,7 +121,7 @@ Predictions from [`01-capacity.md`](01-capacity.md), not edited.
 
 ## Part 3 — Benchmarks
 
-Fixed trace, same across runs, via `infra/control/edge/locustfile.py`. This section
+Fixed trace, same across runs, via `benchmarking/locustfile.py`. This section
 exists to characterise the fleet; Part 4 is the one that uses real traffic.
 
 | Pattern | Shape | Purpose |

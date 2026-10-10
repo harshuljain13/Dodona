@@ -8,6 +8,7 @@
 #   up.sh down            stop the engine and Open WebUI
 #   up.sh logs [prefill|decode]   follow the pods, or the whole-card engine
 #   up.sh check           re-run the capacity checks against the whole-card engine
+#   up.sh load [args]     run a load test ON THE BOX, pull the bundle back
 #   up.sh clean           wipe the box back to bare metal
 #
 # Every remote step is one of the scripts next to this one, run over ssh. This
@@ -194,6 +195,19 @@ cmd_logs() {
     fi"
 }
 
+# Load runs ON THE BOX, against 127.0.0.1:8080. Over the ssh tunnel your WAN
+# round-trip lands inside every TTFT and concurrency serialises through one TCP
+# stream, so a bundle taken from the Mac measures your internet, not the fleet.
+cmd_load() {
+  sync_project
+  announce "load  —  on the box, against the gateway on 127.0.0.1:8080"
+  on_box_tty "python3 -m benchmarking.load --url http://127.0.0.1:8080 $*"
+  announce "pulling the bundle back"
+  rsync -az -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new" \
+    "$BOX:~/$REMOTE_DIR/infra/metrics/" infra/metrics/
+  echo "    bundles under infra/metrics/"
+}
+
 # Syncs first: this deletes things, so it must be the current script doing it.
 cmd_clean() {
   sync_project
@@ -211,7 +225,7 @@ cmd_check() {
 main() {
   local command="${1:-}"
   case "$command" in
-    cluster|observability|tunnel|engine|down|logs|check|clean) ;;
+    cluster|observability|tunnel|engine|down|logs|check|clean|load) ;;
     -h|--help|"") sed -n '2,14p' "$0"; exit 0 ;;
     *) fail "unknown command: $command   (try: up.sh --help)" ;;
   esac
@@ -225,6 +239,7 @@ main() {
     logs)          cmd_logs "${2:-}" ;;
     check)         cmd_check ;;
     clean)         cmd_clean ;;
+    load)          shift; cmd_load "$@" ;;
   esac
 }
 

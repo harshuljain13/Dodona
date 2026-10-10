@@ -76,8 +76,9 @@ def test_orch_serve_applies_edge_before_admit() -> None:
     assert status == 200 and body["tenant"] == "lab" and body["model"] == "text"
 
 def test_app_edge_has_no_openai_account_or_litellm() -> None:
-    for name in ("guardrails.py", "harness.py", "crew_flood.py"):
-        text = (ROOT / "infra" / "control" / "edge" / name).read_text().lower()
+    edge = [ROOT / "infra" / "control" / "edge" / n for n in ("guardrails.py", "harness.py")]
+    for path in edge + [ROOT / "benchmarking" / "crew_flood.py"]:
+        text = path.read_text().lower()
         assert "litellm" not in text
         assert "sk-lab" not in text
         assert "force 503" not in text
