@@ -154,6 +154,32 @@ class Cluster:
 
 # ── the report ─────────────────────────────────────────────────────────────
 
+def format_table(headers: list[str], rows: list[list[object]]) -> str:
+    """Right-size the columns and align them. Numbers right, text left."""
+    cells = [[str(c) for c in r] for r in rows]
+    widths = [max(len(str(h)), *(len(r[i]) for r in cells)) if cells else len(str(h))
+              for i, h in enumerate(headers)]
+    numeric = [all(_looks_numeric(r[i]) for r in cells) if cells else False
+               for i in range(len(headers))]
+
+    def line(values: list[str]) -> str:
+        return "  " + "  ".join(
+            v.rjust(widths[i]) if numeric[i] else v.ljust(widths[i])
+            for i, v in enumerate(values))
+
+    out = [line([str(h) for h in headers]), "  " + "  ".join("-" * w for w in widths)]
+    out += [line(r) for r in cells]
+    return "\n".join(out)
+
+
+def _looks_numeric(s: str) -> bool:
+    try:
+        float(s.rstrip("%").replace(",", "").replace(" GiB", ""))
+        return True
+    except ValueError:
+        return False
+
+
 @dataclass
 class _Block:
     kind: str
@@ -174,18 +200,37 @@ class Report:
     subtitle: str = ""
     blocks: list[_Block] = field(default_factory=list)
 
-    def heading(self, text: str) -> "Report":
-        self.blocks.append(_Block("heading", text)); return self
+    # Every add-method also prints, so the notebook output and the PDF cannot
+    # disagree and no cell needs its own formatting. Pass show=False to record
+    # silently.
 
-    def text(self, body: str) -> "Report":
-        self.blocks.append(_Block("text", body)); return self
+    def heading(self, text: str, *, show: bool = True) -> "Report":
+        self.blocks.append(_Block("heading", text))
+        if show:
+            print(f"\n{text}\n{'=' * len(text)}")
+        return self
 
-    def table(self, headers: list[str], rows: list[list[object]], note: str = "") -> "Report":
-        self.blocks.append(_Block("table", (headers, rows), note)); return self
+    def text(self, body: str, *, show: bool = True) -> "Report":
+        self.blocks.append(_Block("text", body))
+        if show and body:
+            print(f"  {body}")
+        return self
 
-    def verdict(self, ok: bool, text: str) -> "Report":
+    def table(self, headers: list[str], rows: list[list[object]], note: str = "",
+              *, show: bool = True) -> "Report":
+        self.blocks.append(_Block("table", (headers, rows), note))
+        if show:
+            print(format_table(headers, rows))
+            if note:
+                print(f"  -- {note}")
+        return self
+
+    def verdict(self, ok: bool, text: str, *, show: bool = True) -> "Report":
         """A pass/fail line. The point of a sanity report is the verdicts."""
-        self.blocks.append(_Block("verdict", (ok, text))); return self
+        self.blocks.append(_Block("verdict", (ok, text)))
+        if show:
+            print(f"  {'PASS' if ok else 'FAIL'}  {text}")
+        return self
 
     def chart(self, draw: Callable, note: str = "") -> "Report":
         """`draw(ax)` gets a matplotlib Axes to plot into."""
@@ -207,12 +252,7 @@ class Report:
                 lines.append(("pass" if ok else "fail", f"{'PASS' if ok else 'FAIL'}  {msg}"))
             elif b.kind == "table":
                 headers, rows = b.payload
-                width = [max(len(str(h)), *(len(str(r[i])) for r in rows)) if rows else len(str(h))
-                         for i, h in enumerate(headers)]
-                fmt = "  ".join(f"{{:<{w}}}" for w in width)
-                lines.append(("mono", fmt.format(*[str(h) for h in headers])))
-                lines.append(("mono", "  ".join("-" * w for w in width)))
-                lines.extend(("mono", fmt.format(*[str(c) for c in r])) for r in rows)
+                lines.extend(("mono", ln) for ln in format_table(headers, rows).splitlines())
                 if b.note:
                     lines.append(("text", b.note))
                 lines.append(("text", ""))
