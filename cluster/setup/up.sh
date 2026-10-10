@@ -59,7 +59,7 @@ step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 case "$ACTION" in
   down)
     step "stopping the engine and Open WebUI"
-    "${SSH[@]}" "$LAMBDA" '{ pkill -f "[v]llm serve" || true; }; docker rm -f open-webui 2>/dev/null || true; echo stopped'
+    "${SSH[@]}" "$LAMBDA" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; docker rm -f open-webui 2>/dev/null || true; echo stopped'
     echo "The GPU box is still running and still billing. Stop the instance in Lambda's console."
     exit 0 ;;
   logs)
@@ -76,12 +76,21 @@ esac
 step "sync  —  Mac → $LAMBDA:~/dodona"
 bash cluster/setup/sync_to_lambda.sh
 
+# --only runs EXACTLY that stage. `make observability` must not re-run the
+# cluster: it is idempotent but slow, and it would try to stop the fleet it
+# just brought up.
 if [[ "$ONLY" == "1" ]]; then
-  [[ "$STAGE" -ge 2 ]] && { step "cluster  —  k3s + HAMi, one prefill + two decode"
-    "${SSH[@]}" "$LAMBDA" '{ pkill -f "[v]llm serve" || true; }; sleep 3'
-    "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/lambda_cluster.sh'; }
-  [[ "$STAGE" -ge 3 ]] && { step "observability  —  Prometheus + Grafana + DCGM"
-    "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/day2_observability.sh'; }
+  case "$STAGE" in
+    2) step "cluster  —  k3s + HAMi, one prefill + two decode"
+       # Scoped to our own user. The vLLM processes inside the pods run as
+       # root and are not ours to kill — unscoped, this prints three
+       # "Operation not permitted" lines and looks like a failure.
+       "${SSH[@]}" "$LAMBDA" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; sleep 2'
+       "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/lambda_cluster.sh' ;;
+    3) step "observability  —  Prometheus + Grafana + DCGM"
+       "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/day2_observability.sh' ;;
+    *) echo "--only needs --stage 2 or 3" >&2; exit 2 ;;
+  esac
   step "done"; echo "    make ssh   to open the tunnel"; exit 0
 fi
 
@@ -103,7 +112,7 @@ step "serve  —  $MODEL on :8000"
 # pkill -f '[v]llm serve' — the bracket stops the pattern matching the command
 # line it is sitting in. Without it pkill kills its own remote shell, the
 # connection drops, and ssh returns 255 with nothing useful in the log.
-"${SSH[@]}" "$LAMBDA" "cd ~/dodona && { pkill -f '[v]llm serve' || true; }; sleep 2; \
+"${SSH[@]}" "$LAMBDA" "cd ~/dodona && { pkill -u \"\$(id -u)\" -f '[v]llm serve' || true; }; sleep 2; \
   source .venv/bin/activate && \
   LOCAL_MODEL='$MODEL' setsid nohup bash cluster/setup/lambda_vllm.sh </dev/null >engine.log 2>&1 & \
   sleep 1; echo '    started, logging to ~/dodona/engine.log'"
@@ -143,7 +152,7 @@ if [[ "$STAGE" -ge 2 ]]; then
   step "cluster  —  k3s + HAMi, one prefill + two decode, applied one at a time"
   echo "    The single-worker engine from step 4 is stopped first: it holds the"
   echo "    whole card, and the three slices need all 36 GiB of it."
-  "${SSH[@]}" "$LAMBDA" '{ pkill -f "[v]llm serve" || true; }; sleep 3'
+  "${SSH[@]}" "$LAMBDA" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; sleep 3'
   "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/lambda_cluster.sh'
 fi
 
