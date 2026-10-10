@@ -1,7 +1,9 @@
 # Learnings
 
-What we got wrong on the way, and what each thing taught. Written as it
-happened, not reconstructed afterwards.
+What we got wrong on the way, and what each thing taught. **Only things we
+actually hit on this cluster** — every entry below has an artifact behind it: a
+log line, a metric, a failed command. Nothing is here because it seemed like a
+good lesson.
 
 [`SUBMISSION.md`](SUBMISSION.md#deployment-issues) has the terse version —
 symptom, cause, fix — because a submission needs it short. This is the long
@@ -9,7 +11,7 @@ version: what we *believed*, what actually happened, and what it changes.
 
 The entries worth reading first are
 [#1](#1-naming-a-thing-is-not-building-it) and
-[#11](#11-agent-traffic-does-not-saturate-like-a-benchmark). The first is the
+[#8](#8-agent-traffic-does-not-saturate-like-a-benchmark). The first is the
 largest gap between what the documents claim and what runs; the second decides
 whether the experiment the project is built around can produce a result at all.
 
@@ -71,43 +73,11 @@ under-predicted the pool by 18% — and the original paper estimate, which I had
 from a different one is a third number, not a better one. `gate.py` now refuses
 to extrapolate from the whole card to a slice and points at the pods instead.
 
-### 3. Read `head_dim`, never derive it
-
-`kv_bytes_per_token = 2 × layers × kv_heads × head_dim × dtype_bytes` is the
-foundation of every concurrency figure in the project. The trap is `head_dim`:
-Qwen3 **declares** it as 128 while `hidden/heads` = 2560/32 = **80**. Deriving
-it the usual way is wrong by 60%, silently, and every downstream number inherits
-the error.
-
-P6 held for us — 28 layers × 4 KV heads × head_dim 128 = 56 KiB/token, confirmed
-three ways: from `config.json`, from vLLM's own `539,808 tokens = 28.83 GiB`,
-and again per-slice at `80,032 tokens = 4.27 GiB`.
-
-**What it teaches.** A number with three independent confirmations is worth the
-five minutes. The check runs first, before anything else is believed.
-
-### 4. Parameter count does not predict cache cost
-
-`Qwen3-4B` is 47% smaller than `Qwen2.5-7B` and costs **2.6× more** per token —
-144 KiB against 56 — because it has twice the KV heads and eight more layers.
-Quantization changes *weights*; only architecture changes *bytes per token*.
-
-This is why the model choice was not "pick the biggest that fits".
-
-### 5. "Loads successfully" and "can serve" are different states
-
-7B at bf16 in an 18 GiB slice loads: 14.19 GiB of weights against a 16.20 GiB
-budget. The pod reports `READY 1/1`. It then has 0.81 GiB of KV, one 16k
-sequence needs 0.875, and **every request is refused**.
-
-A config check that compares weights against available memory lets this straight
-through. It has to require room for at least one sequence at `max_model_len`.
-
 ---
 
 ## Kubernetes and the GPU
 
-### 6. A full GPU cannot do a RollingUpdate
+### 3. A full GPU cannot do a RollingUpdate
 
 Adding two flags to the fleet hung the rollout. Both new pods sat `Pending`
 forever.
@@ -120,7 +90,7 @@ waits — and the rollout waits with it, indefinitely.
 downtime**, and the default pretends otherwise by deadlocking rather than
 failing.
 
-### 7. ClusterIP is invisible from the host
+### 4. ClusterIP is invisible from the host
 
 Hours of "I can't reach anything". The Services were `ClusterIP`, which exists
 only inside the cluster network — so there was nothing on the host for the ssh
@@ -131,7 +101,7 @@ a **random** NodePort (Grafana landed on 31457) against a tunnel with a fixed
 port list means the service is healthy and simply unreachable, with nothing in
 any log to say why. Pin it.
 
-### 8. Empty dashboards can be correct
+### 5. Empty dashboards can be correct
 
 Most Grafana panels showed "No data", which looked like a broken observability
 stack. It was not:
@@ -151,7 +121,7 @@ were accurately reporting a half-built system.**
 whether that thing exists. `cluster/setup/report.py --dashboards` now answers
 this directly rather than leaving it to be rediscovered.
 
-### 9. vLLM V1 renamed the metric admission reads
+### 6. vLLM V1 renamed the metric admission reads
 
 `gpu_cache_usage_perc` → **`kv_cache_usage_perc`**. The old name does not exist.
 
@@ -163,7 +133,7 @@ inherited from the lab, not foresight.
 accept both names, or check at startup — but do not assume a gauge is still
 called what it was called.
 
-### 10. Tool-calling flags are not optional, even with no tools
+### 7. Tool-calling flags are not optional, even with no tools
 
 `--enable-auto-tool-choice` and `--tool-call-parser` were deferred to stage 9 on
 the reasoning that stage 0 has no tools and Open WebUI does not use them.
@@ -180,7 +150,7 @@ that would have quietly turned a research agent into a single-turn chatbot.
 
 ## Load, and the measurement itself
 
-### 11. Agent traffic does not saturate like a benchmark
+### 8. Agent traffic does not saturate like a benchmark
 
 This is the one that may decide whether the project's central experiment
 produces a result.
@@ -208,7 +178,7 @@ size.
 calculation predicts. Finding this at stage 3 rather than stage 10 is worth more
 than the load test cost.
 
-### 12. Traffic shape moves with the knobs you were not thinking about
+### 9. Traffic shape moves with the knobs you were not thinking about
 
 Prompt-to-completion ratio across the same workload: **34.7:1** at
 `max_tokens=150`, **14.0:1** at 400. Same prompts, same sessions — only the
@@ -221,7 +191,7 @@ settings that produced it is not a measurement of the workload.
 
 ## Working method
 
-### 13. `bash -n` cannot catch a remote runtime bug
+### 10. `bash -n` cannot catch a remote runtime bug
 
 Two scripts shipped that had never been run against a real box:
 
@@ -236,7 +206,7 @@ Two scripts shipped that had never been run against a real box:
 Both are valid bash. Neither can be caught without executing. **A script that
 drives a remote machine has not been tested until it has driven one.**
 
-### 14. A duplicate is not a failure
+### 11. A duplicate is not a failure
 
 `make ssh` printed nine `Address already in use` lines and handed back a shell
 with no forwards. That reads as a broken tunnel. It was a **second** tunnel; the
@@ -246,13 +216,13 @@ first was working the whole time.
 `ExitOnForwardFailure=yes` — silently handing over a shell whose forwards did
 not bind is the failure mode that cost the most time here.
 
-### 15. `--only` should mean only
+### 12. `--only` should mean only
 
 `make observability` ran the entire cluster stage first, because `--only` was
 implemented as `>= 2 then >= 3` — "skip 0 and 1" rather than "just this one". A
 flag whose name and behaviour disagree will be trusted for its name.
 
-### 16. Scripts that run remotely must be synced before they run
+### 13. Scripts that run remotely must be synced before they run
 
 `make gate` was fixed locally and kept checking the wrong thing, because
 `--gate` runs the copy **on the box** and that copy was stale. It now rsyncs the
