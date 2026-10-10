@@ -93,6 +93,9 @@ def test_hami_and_keda_fields() -> None:
     assert "--tensor-parallel-size" not in prefill, "TP=1; nothing to shard"
     assert "--max-model-len=16384" in prefill
     assert 'nvidia.com/gpumem: "12288"' in prefill
-    # max_num_seqs must stay ABOVE the KV limit of ~4.9, or the scheduler binds
-    # first and a KV-pressure policy can never fire.
-    assert "--max-num-seqs=64" in prefill
+    # SOMETHING has to bind, or every policy arm is a no-op. On the A100 the KV
+    # limit was ~4.9 sequences per worker, so 64 let KV bind first. On this H100
+    # it is ~73.5, so 64 binds nothing — 8 makes decode slots the limiter on
+    # purpose. Both pools must agree or the arms are not comparable.
+    assert "--max-num-seqs=8" in prefill
+    assert "--max-num-seqs=8" in decode

@@ -114,20 +114,6 @@ check_capacity() {
     the cluster. Read docs/project/01-capacity.md before going further."
 }
 
-# $1 is the port on the box to talk to: 8000 is vLLM direct, 8080 is the
-# gateway. Pointing it at vLLM bypasses guardrails, admission and placement.
-start_webui() {
-  local upstream_port="$1"
-  announce "Open WebUI  —  :3000, upstream :$upstream_port"
-  "${SSH[@]}" "$BOX" "docker rm -f open-webui >/dev/null 2>&1 || true; \
-    docker run -d --name open-webui -p 3000:8080 \
-      -e OPENAI_API_BASE_URL=http://host.docker.internal:$upstream_port/v1 \
-      -e OPENAI_API_KEY=dummy -e WEBUI_AUTH=False \
-      --add-host=host.docker.internal:host-gateway \
-      -v open-webui:/app/backend/data \
-      ghcr.io/open-webui/open-webui:main >/dev/null && echo '    started'"
-}
-
 start_fleet() {
   announce "fleet  —  k3s + HAMi + KEDA, then one prefill and two decode"
   # Harmless if nothing is running: the slices need every byte of the card, so
@@ -161,7 +147,6 @@ cmd_cluster() {
   sync_project
   show_card
   start_fleet
-  start_webui 8080
   announce "cluster up"
   echo "    make observability   Prometheus + Grafana"
   echo "    make ssh             open the tunnel"
@@ -176,7 +161,6 @@ cmd_engine() {
   start_engine
   wait_for_engine
   check_capacity
-  start_webui 8000
   announce "engine up"
   echo "    This holds the whole card. Run 'make cluster' to replace it with the fleet."
 }
@@ -188,11 +172,13 @@ cmd_observability() {
   echo "    make ssh   then open http://127.0.0.1:31495"
 }
 
+# Only the whole-card engine. The pods are k3s's and `make cluster` owns them;
+# `docker` on this box needs sudo anyway.
 cmd_down() {
-  announce "stopping the engine and Open WebUI"
-  "${SSH[@]}" "$BOX" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; \
-    docker rm -f open-webui 2>/dev/null || true; echo stopped'
-  echo "The box is still running and still billing. Stop the instance in your provider's console."
+  announce "stopping the whole-card engine"
+  "${SSH[@]}" "$BOX" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; echo stopped'
+  echo "    Pods keep running:  sudo k3s kubectl delete -f cluster/k8s/fleet/"
+  echo "    The box is still billing. Stop the instance in your provider's console."
 }
 
 cmd_logs() { exec "${SSH[@]}" "$BOX" "tail -f ~/$REMOTE_DIR/$ENGINE_LOG"; }

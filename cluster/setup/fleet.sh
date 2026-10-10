@@ -25,6 +25,10 @@ apply_and_wait "$ROOT/k8s/fleet/vllm-decode.yaml"  vllm-decode
 # placement and the hop are bypassed on every request.
 apply_and_wait "$ROOT/k8s/gateway/orch-serve.yaml" orch-serve
 
+# Open WebUI as a pod, not a docker container: k3s owns this node, and `docker`
+# here needs sudo. It points at orch-serve, so hand testing takes the same path.
+apply_and_wait "$ROOT/k8s/ui/open-webui.yaml" open-webui
+
 echo
 echo "== the integrity check =="
 kubectl get pods -o wide

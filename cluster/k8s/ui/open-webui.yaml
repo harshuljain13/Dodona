@@ -1,8 +1,7 @@
-# Open WebUI — hand testing, stage 1.
-# Points at the GATEWAY, not at a pool. The brief: "Completions that skip
-# guardrails / admit / place / queue do not count." So hand testing goes
-# through the same serve path the agent will — which means this is unusable
-# until orch-serve is deployed at stage 4, and that is the correct order.
+# Open WebUI — hand testing, through the GATEWAY rather than a pool.
+# The brief: "Completions that skip guardrails / admit / place / queue do not
+# count." So hand testing takes the same path the agent will, which means this
+# is unusable until orch-serve is up — and that is the correct order.
 apiVersion: apps/v1
 kind: Deployment
 metadata: { name: open-webui }
