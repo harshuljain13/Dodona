@@ -7,6 +7,9 @@ reference you port from, piece by piece.
 Target: **1 × A100-40GB**, `Qwen2.5-7B-Instruct-AWQ`, three HAMi slices of
 12 GiB, one prefill + two decode.
 
+**[`COMMANDS.md`](COMMANDS.md) is the copy-pasteable version of this file.** Use that
+to run; use this to understand what you are checking and why.
+
 Stages 0–1 need no Kubernetes. Stage 3 before stage 4 is deliberate: admission is
 a *function of* engine metrics, so the scrape must exist before there is anything
 to decide on.

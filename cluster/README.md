@@ -5,6 +5,7 @@ ten stages, each with a gate you check before starting the next.
 
 | | |
 |---|---|
+| [`COMMANDS.md`](COMMANDS.md) | **Every command, in order.** Marked `[Mac]` or `[GPU]` |
 | [`RUNBOOK.md`](RUNBOOK.md) | The bring-up, stage 0 → 10, with the gate per stage |
 | `k8s/` | Manifests: three HAMi slices, 1 prefill + 2 decode, Mooncake, observability |
 | `setup/` | Lambda bring-up, the SSH tunnel, smoke tests |

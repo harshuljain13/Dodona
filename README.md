@@ -178,7 +178,8 @@ Its gate is four checks. Two of them decide whether anything else is worth doing
 token), and **`nvidia-smi` must agree with the 5.20 GiB weights estimate.** If
 either is off, redo the arithmetic before renting more time.
 
-→ All ten stages, each with its gate: [`cluster/RUNBOOK.md`](cluster/RUNBOOK.md)
+→ Every command in order: [**`cluster/COMMANDS.md`**](cluster/COMMANDS.md)
+→ All ten stages and their gates: [`cluster/RUNBOOK.md`](cluster/RUNBOOK.md)
 
 ## Where to read what
 
@@ -188,7 +189,8 @@ either is off, redo the arithmetic before renting more time.
 | [**`SUBMISSION.md`**](SUBMISSION.md) | The design answered part by part, with a decision tree per part |
 | [`docs/project/`](docs/README.md) | Capacity arithmetic, per-part depth, the run protocol, the results report |
 | [`docs/cluster/`](docs/cluster/README.md) | The stack file by file — gateway, router, KV bus, observability |
-| [`cluster/RUNBOOK.md`](cluster/RUNBOOK.md) | The bring-up, stage 0 → 10 |
+| [`cluster/COMMANDS.md`](cluster/COMMANDS.md) | **Every command, in order**, marked `[Mac]` or `[GPU]` |
+| [`cluster/RUNBOOK.md`](cluster/RUNBOOK.md) | The ten stages, their gates, and what each failure actually means |
 
 ```
 app/        the voice agent — talks only to our serve path
