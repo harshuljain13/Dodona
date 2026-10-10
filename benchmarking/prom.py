@@ -86,14 +86,20 @@ class Prom:
             out.append((r["metric"], points))
         return out
 
+    #: Wide enough to cover a load that ran a few minutes ago. 5m is the usual
+    #: default and silently returns nothing when the traffic has moved on,
+    #: which reads as "latency is zero" rather than "no samples in the window".
+    DEFAULT_WINDOW = "15m"
+
     def quantiles(self, which: str = "e2e", *, qs=(0.5, 0.9, 0.99),
-                  window: str = "5m") -> dict[float, float]:
+                  window: str | None = None) -> dict[float, float]:
         """p50/p90/p99 over a vLLM latency histogram, in seconds.
 
         This is the number a report should quote. Taking ten samples and
         sorting them gives a p99 that is just the maximum of ten.
         """
         metric = LATENCY_HISTOGRAMS.get(which, which)
+        window = window or self.DEFAULT_WINDOW
         out: dict[float, float] = {}
         for q in qs:
             expr = (f"histogram_quantile({q}, sum by (le) "
