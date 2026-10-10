@@ -149,3 +149,27 @@ def test_deployments_holding_a_singleton_use_recreate() -> None:
         assert "type: Recreate" in text, (
             f"{path.name} holds {', '.join(singletons)} but does not set "
             "strategy: Recreate — its rollout will deadlock")
+
+
+def test_a_failed_kv_transfer_must_not_kill_the_pod() -> None:
+    """kv_load_failure_policy=recompute, or a transfer failure is an outage.
+
+    The default is `fail`: the request 500s, and then a late transfer
+    completion arrives for a request the scheduler has already dropped,
+    `assert req_id in self.requests` fires in _update_from_kv_xfer_finished,
+    and the EngineCore dies. We watched a 10k-token pull return -1 and take the
+    decode pod down twice.
+
+    A KV hop is an optimisation. Losing one should cost latency, not the
+    request and the pod.
+    """
+    import json
+    import re
+
+    for name in ("vllm-prefill", "vllm-decode"):
+        text = (K8S / "fleet" / f"{name}.yaml").read_text()
+        match = re.search(r"--kv-transfer-config '(\{.*?\})'", text, re.S)
+        assert match, f"{name} has no --kv-transfer-config"
+        config = json.loads(match.group(1))
+        assert config.get("kv_load_failure_policy") == "recompute", (
+            f"{name}: a failed transfer would fail the request and kill the engine")
