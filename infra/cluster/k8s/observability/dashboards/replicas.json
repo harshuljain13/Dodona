@@ -46,7 +46,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "kube_deployment_spec_replicas{deployment=~\"vllm-.*|orch-serve|mooncake-store\"}",
+          "expr": "kube_deployment_spec_replicas{deployment=~\"vllm-.*|orch-serve\"}",
           "refId": "A",
           "legendFormat": "{{deployment}} spec"
         }
@@ -89,7 +89,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "kube_deployment_status_replicas{deployment=~\"vllm-.*|orch-serve|mooncake-store\"}",
+          "expr": "kube_deployment_status_replicas{deployment=~\"vllm-.*|orch-serve\"}",
           "refId": "A",
           "legendFormat": "{{deployment}} ready"
         }
@@ -175,7 +175,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "kube_pod_status_phase{pod=~\"vllm-.*|orch-serve.*|mooncake-store.*\"}",
+          "expr": "kube_pod_status_phase{pod=~\"vllm-.*|orch-serve.*\"}",
           "refId": "A",
           "legendFormat": "{{pod}} {{phase}}"
         }
@@ -304,7 +304,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "kube_pod_container_status_restarts_total{pod=~\"vllm-.*|orch-serve.*|mooncake-store.*\"}",
+          "expr": "kube_pod_container_status_restarts_total{pod=~\"vllm-.*|orch-serve.*\"}",
           "refId": "A",
           "legendFormat": "{{pod}}"
         }

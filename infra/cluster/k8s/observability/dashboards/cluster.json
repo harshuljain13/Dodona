@@ -236,7 +236,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "kube_pod_container_status_restarts_total{pod=~\"vllm-.*|orch-serve.*|mooncake-store.*|open-webui.*\"}",
+          "expr": "kube_pod_container_status_restarts_total{pod=~\"vllm-.*|orch-serve.*|open-webui.*\"}",
           "refId": "A",
           "legendFormat": "{{pod}}"
         }
@@ -279,7 +279,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{container!=\"\",pod=~\"vllm-.*|orch-serve.*|mooncake-store.*|open-webui.*\"}[5m]))",
+          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{container!=\"\",pod=~\"vllm-.*|orch-serve.*|open-webui.*\"}[5m]))",
           "refId": "A",
           "legendFormat": "{{pod}}"
         }
@@ -322,7 +322,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "container_memory_working_set_bytes{container!=\"\",pod=~\"vllm-.*|orch-serve.*|mooncake-store.*|open-webui.*\"}",
+          "expr": "container_memory_working_set_bytes{container!=\"\",pod=~\"vllm-.*|orch-serve.*|open-webui.*\"}",
           "refId": "A",
           "legendFormat": "{{pod}}"
         }

@@ -83,9 +83,9 @@ METRIC_NAMES = {
         "nvidia.com/gpucores",
     ),
     "mooncake": (
-        "mooncake_hops_total",
-        "mooncake_blocks",
-        "mooncake_hop_tokens_total",
+        "vllm:prompt_tokens_by_source_total",
+        "vllm:external_prefix_cache_queries_total",
+        "vllm:external_prefix_cache_hits_total",
         "orch_kv_transfer_total",
         "orch_kv_transfer_tokens",
         "orch_kv_evict_total",
@@ -278,8 +278,8 @@ def router() -> dict:
     )
 
 def replicas() -> dict:
-    lab = 'deployment=~"vllm-.*|orch-serve|mooncake-store"'
-    pod = 'pod=~"vllm-.*|orch-serve.*|mooncake-store.*"'
+    lab = 'deployment=~"vllm-.*|orch-serve"'
+    pod = 'pod=~"vllm-.*|orch-serve.*"'
     return _dash(
         "dodona-replicas",
         "Dodona / Pods and replicas",
@@ -382,23 +382,63 @@ def hami() -> dict:
         ["dodona", "hami"],
     )
 
+#: What the KV connector actually did, as vLLM counts it. The old panels read
+#: mooncake_hops_total / mooncake_blocks / mooncake_hop_tokens_total, which came
+#: from router/mooncake.py — a Python dict that counts what our own router POSTs
+#: to it. "Blocks in store" was a dict length, not KV blocks, and the series had
+#: no exporter because that pod is never deployed. Replaced with the engine's
+#: own counters, which are the only ones that move when bytes do.
+_TRANSFERRED = 'vllm:prompt_tokens_by_source_total{source="external_kv_transfer"}'
+KV_DELIVERED = f"sum({_TRANSFERRED})"
+#: rate() must wrap the range vector, not the aggregation — sum(rate(x[5m])),
+#: never rate(sum(x)[5m]). Grafana renders the latter as an empty panel.
+KV_DELIVERED_RATE = f"sum(rate({_TRANSFERRED}[5m]))"
+KV_ASKED = "sum(vllm:external_prefix_cache_queries_total)"
+KV_SERVED = "sum(vllm:external_prefix_cache_hits_total)"
+
+
 def mooncake() -> dict:
     return _dash(
         "dodona-mooncake",
-        "Dodona / Mooncake KV",
+        "Dodona / KV transfer (Mooncake connector)",
         [
-            _panel(1, "Hops", "mooncake_hops_total", x=0, y=0, w=8, h=6, kind="stat"),
-            _panel(2, "Blocks in store", "mooncake_blocks", x=8, y=0, w=8, h=6, kind="stat"),
-            _panel(3, "Hop tokens", "mooncake_hop_tokens_total", x=16, y=0, w=8, h=6, kind="stat"),
-            _panel(4, "Router KV transfers", "sum(rate(orch_kv_transfer_total[5m]))", legend="transfers / s", x=0, y=6, w=12, h=8),
-            _panel(5, "Router KV tokens / s", "sum(rate(orch_kv_transfer_tokens[5m]))", legend="tokens / s", x=12, y=6, w=12, h=8),
-            _panel(6, "Evicts", "sum(rate(orch_kv_evict_total[5m]))", legend="evicts / s", x=0, y=14, w=24, h=8),
+            # The headline. Zero here means decode recomputed every prompt, no
+            # matter what the router recorded.
+            _panel(1, "KV tokens DELIVERED by the connector", KV_DELIVERED,
+                   x=0, y=0, w=8, h=6, kind="stat"),
+            _panel(2, "Connector hit rate",
+                   f"{KV_SERVED} / clamp_min({KV_ASKED}, 1)",
+                   x=8, y=0, w=8, h=6, kind="stat", unit="percentunit"),
+            _panel(3, "Times the connector was asked", KV_ASKED,
+                   x=16, y=0, w=8, h=6, kind="stat"),
+
+            # The comparison that matters. Our router counts what it DECIDED to
+            # hop; vLLM counts what arrived. Two lines, one panel, because shown
+            # apart the first reads as throughput for a transfer that never
+            # happened.
+            _panel(4, "Claimed vs delivered — the router's record against the engine's count",
+                   "sum(rate(orch_kv_transfer_tokens[5m]))",
+                   legend="tokens/s the router CLAIMED to hop", x=0, y=6, w=24, h=9,
+                   extra=[(KV_DELIVERED_RATE, "tokens/s the engine RECEIVED")]),
+
+            _panel(5, "Hops recorded by the router (bookkeeping, not bytes)",
+                   "sum(rate(orch_kv_transfer_total[5m]))", legend="records / s",
+                   x=0, y=15, w=12, h=8),
+            # Decode's OWN prefix cache. High here with zero delivered above is
+            # the trap: it looks like the connector working and is not.
+            _panel(6, "Decode's own prefix cache (NOT the connector)",
+                   "sum(rate(vllm:prefix_cache_hits_total[5m])) / "
+                   "clamp_min(sum(rate(vllm:prefix_cache_queries_total[5m])), 0.001)",
+                   legend="local hit rate", x=12, y=15, w=12, h=8, unit="percentunit"),
+
+            _panel(7, "KV evictions", "sum(rate(orch_kv_evict_total[5m]))",
+                   legend="evicts / s", x=0, y=23, w=24, h=6),
         ],
         ["dodona", "mooncake"],
     )
 
 def cluster() -> dict:
-    pod = 'pod=~"vllm-.*|orch-serve.*|mooncake-store.*|open-webui.*"'
+    pod = 'pod=~"vllm-.*|orch-serve.*|open-webui.*"'
     return _dash(
         "dodona-cluster",
         "Dodona / Cluster",
