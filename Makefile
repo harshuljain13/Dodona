@@ -1,6 +1,6 @@
 # Dodona — four commands.
 #
-#   make cluster        engine + k3s + HAMi + KEDA + the fleet + the gateway
+#   make cluster        k3s + HAMi + KEDA + the fleet + the gateway
 #   make observability  Prometheus + Grafana + DCGM
 #   make ssh            tunnel — Grafana, the app and the fleet in your browser
 #   make test           run the control plane here, no GPU needed
@@ -8,7 +8,7 @@
 # Anything more specific is a plain python or bash line in COMMANDS.md. Make is
 # the workflow, not a menu.
 .DEFAULT_GOAL := help
-.PHONY: help cluster observability ssh test
+.PHONY: help cluster observability ssh test clean
 
 SHELL := /usr/bin/env bash
 SETUP := cluster/setup
@@ -22,13 +22,16 @@ help:
 	@echo ""
 	@echo "  Dodona"
 	@echo ""
-	@echo "   make cluster        engine + k3s + HAMi + KEDA + fleet + gateway"
+	@echo "   make cluster        k3s + HAMi + KEDA + fleet + gateway + capacity checks"
 	@echo "   make observability  Prometheus + Grafana + DCGM"
 	@echo "   make ssh            tunnel — Grafana :31495, app :30030, fleet :30800"
 	@echo "   make test           run the control plane here, no GPU needed"
+	@echo "   make clean          wipe the box: workloads, helm, k3s, engines"
 	@echo ""
-	@echo "  First run:  cp .env.example .env   # set LAMBDA and LAMBDA_SSH_KEY"
+	@echo "  First run:  cp .env.example .env   # set BOX and SSH_KEY"
 	@echo "              make cluster && make observability && make ssh"
+	@echo ""
+	@echo "  Redo from scratch:  make clean && make cluster"
 	@echo ""
 	@echo "  Both bring-up targets are safe to re-run."
 	@echo "  Stopping, logs, load, one-off tools: COMMANDS.md"
@@ -45,6 +48,10 @@ observability:
 
 ssh:
 	@bash $(SETUP)/up.sh tunnel
+
+# Keeps the HuggingFace cache; those weights are on disk, not the GPU.
+clean:
+	@bash $(SETUP)/up.sh clean
 
 # No GPU required. Compiles, checks every doc link, runs the suite, then
 # exercises the gateway and guardrail behaviours end to end.

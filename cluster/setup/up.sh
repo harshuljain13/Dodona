@@ -8,6 +8,7 @@
 #   up.sh down            stop the engine and Open WebUI
 #   up.sh logs            tail the engine log
 #   up.sh check           re-run the capacity checks against the whole-card engine
+#   up.sh clean           wipe the box back to bare metal
 #
 # Every remote step is one of the scripts next to this one, run over ssh. This
 # file only sequences them — if a step is wrong, fix that script, not this one.
@@ -108,14 +109,14 @@ wait_for_engine() {
 }
 
 check_capacity() {
-  announce "capacity  —  four checks against the running engine"
+  announce "capacity  —  checks against the running engine"
   on_box "python3 cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG" || fail \
 "    The capacity check failed, which means the arithmetic is wrong rather than
     the cluster. Read docs/project/01-capacity.md before going further."
 }
 
 start_fleet() {
-  announce "fleet  —  k3s + HAMi + KEDA, then one prefill and two decode"
+  announce "fleet  —  k3s + HAMi + KEDA, then one prefill and one decode"
   # Harmless if nothing is running: the slices need every byte of the card, so
   # any whole-card engine from `up.sh engine` has to go first.
   stop_engine
@@ -183,6 +184,13 @@ cmd_down() {
 
 cmd_logs() { exec "${SSH[@]}" "$BOX" "tail -f ~/$REMOTE_DIR/$ENGINE_LOG"; }
 
+# Syncs first: this deletes things, so it must be the current script doing it.
+cmd_clean() {
+  sync_project
+  announce "clean  —  deleting workloads, helm releases, k3s, stray engines"
+  on_box_tty 'bash cluster/setup/clean.sh'
+}
+
 # Sync first: this runs the copy on the box, and a stale one checks nothing.
 cmd_check() {
   rsync -az -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new" \
@@ -193,8 +201,8 @@ cmd_check() {
 main() {
   local command="${1:-}"
   case "$command" in
-    cluster|observability|tunnel|engine|down|logs|check) ;;
-    -h|--help|"") sed -n '2,13p' "$0"; exit 0 ;;
+    cluster|observability|tunnel|engine|down|logs|check|clean) ;;
+    -h|--help|"") sed -n '2,14p' "$0"; exit 0 ;;
     *) fail "unknown command: $command   (try: up.sh --help)" ;;
   esac
   load_env
@@ -206,6 +214,7 @@ main() {
     down)          cmd_down ;;
     logs)          cmd_logs ;;
     check)         cmd_check ;;
+    clean)         cmd_clean ;;
   esac
 }
 
