@@ -28,7 +28,7 @@ Every answer in Part 5 needs a scrape, not an assertion.
 7. **KV full after admit** — `vllm:num_preemptions` over a run. Non-zero means
    the gate admitted more than the fleet could hold.
 8. **Aborted client** — kill a request mid-generation, watch
-   `gpu_cache_usage_perc` return. **Common in a voice app**: a listener who talks
+   `kv_cache_usage_perc` return. **Common in a voice app**: a listener who talks
    over the answer aborts mid-generation.
 9. **Ramp vs slam** — TTFT on a just-returned worker, cold then warm, showing why
    only the warm number is quotable.

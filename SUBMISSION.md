@@ -476,7 +476,7 @@ of KV across the fleet where a single whole-card worker would have had 26.6 GiB.
 addressable workers, and it is the central trade of the design.
 
 Checked at [Part 8](#part-8--proof-measure-the-app-not-a-generic-trace): if
-`gpu_cache_usage_perc` saturates before `num_requests_waiting` grows, the
+`kv_cache_usage_perc` saturates before `num_requests_waiting` grows, the
 hypothesis held.
 
 → [`docs/project/01-capacity.md`](docs/project/01-capacity.md)
@@ -1042,7 +1042,7 @@ Three seeds each. All results *TBM*.
 | P3 | Signal does not reach 0.90 at 2 sessions | *TBM* | *TBM* |
 | P4 | Prefix-cache hit rate > 70% | *TBM* | *TBM* |
 | P5 | Prompt:completion ratio > 10:1 | *TBM* | *TBM* |
-| P6 | `kv_bytes_per_token` = 56 KiB ±5% | *TBM* | *TBM* |
+| P6 | `kv_bytes_per_token` = 56 KiB ±5% | **56.0 KiB** | ✅ **held** |
 | P7 | Inter-token p95 on decode spikes during a large prefill (`gpucores` is time-sliced) | *TBM* | *TBM* |
 | P8 | Mooncake hop ≫ our 150 ms estimate, closer to the 0.5–0.8 s published prior | *TBM* | *TBM* |
 

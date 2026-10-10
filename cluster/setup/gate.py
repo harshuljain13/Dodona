@@ -26,7 +26,11 @@ import urllib.request
 #: x 128 head_dim x 2 B = 57,344 B. Written here so a drift shows up as a
 #: failure rather than as a silently different number.
 PREDICTED_KV_KIB = 56.0
-PREDICTED_WEIGHTS_GIB = 5.20
+#: weights + activations + CUDA graphs. Predicted 5.20 + 0.80.
+PREDICTED_OVERHEAD_GIB = 6.00
+#: The HAMi slice size stage 2 uses, so the gate can report what it implies.
+SLICE_GIB = 12.0
+CARD_GIB, UTIL = 40.0, 0.90
 
 _PASS, _FAIL = "\033[32mPASS\033[0m", "\033[31mFAIL\033[0m"
 _results: list[bool] = []
@@ -59,7 +63,13 @@ def metrics(port: int) -> None:
         return
     # Admission is a function of this metric. Without it there is nothing to
     # decide on, and stages 4 onward have no input.
-    check("gpu_cache_usage_perc" in m, "5b  gpu_cache_usage_perc present")
+    #
+    # vLLM V1 renamed gpu_cache_usage_perc -> kv_cache_usage_perc. Accept
+    # either, and say which one this engine exposes, because the control plane
+    # has to scrape the name that actually exists.
+    names = [n for n in ("vllm:kv_cache_usage_perc", "vllm:gpu_cache_usage_perc") if n in m]
+    check(bool(names), "5b  KV-usage metric present", names[0] if names else "neither name found")
+    check("vllm:num_requests_waiting" in m, "5b  num_requests_waiting present")
 
 
 def kv_bytes_per_token() -> None:
@@ -86,24 +96,41 @@ def kv_bytes_per_token() -> None:
         print(f"           one 16k sequence = {kib * 16384 / 1024 / 1024:.3f} GiB")
 
 
-def weights(log: str) -> None:
-    """What vLLM actually reserved, against the 5.20 GiB estimate."""
+def budget(log: str, card_gib: float, util: float) -> None:
+    """What the engine actually reserved, against the predicted overhead.
+
+    vLLM does not log a 'model weights' line in 0.31, but it does log the KV
+    cache it ended up with — and budget minus KV is weights + activations +
+    CUDA graphs, which is the number that sizes the slices in stage 2.
+    """
     if not os.path.exists(log):
-        check(False, "5d  weights on the card", f"no {log} — is the engine running under up.sh?")
+        check(False, "5d  memory budget", f"no {log} — started outside up.sh?")
         return
     text = open(log, errors="replace").read()
-    lines = [ln.strip() for ln in text.splitlines()
-             if re.search(r"KV cache|model weights|GPU blocks|[Mm]arlin|quantiz", ln)]
-    m = re.search(r"model weights(?: take| takes)?\s*([\d.]+)\s*GiB", text)
-    if m:
-        got = float(m.group(1))
-        check(abs(got - PREDICTED_WEIGHTS_GIB) < PREDICTED_WEIGHTS_GIB * 0.15,
-              "5d  weights on the card",
-              f"{got:.2f} GiB (predicted {PREDICTED_WEIGHTS_GIB:.2f})")
-    else:
-        check(False, "5d  weights on the card", "no 'model weights' line in the log yet")
-    for ln in lines[-6:]:
-        print(f"           {ln[:120]}")
+
+    kv = re.search(r"Available KV cache memory:\s*([\d.]+)\s*GiB", text)
+    toks = re.search(r"GPU KV cache size:\s*([\d,]+)\s*tokens", text)
+    if not kv:
+        check(False, "5d  memory budget", "no 'Available KV cache memory' line yet")
+        return
+
+    kv_gib = float(kv.group(1))
+    over = card_gib * util - kv_gib
+    ok = abs(over - PREDICTED_OVERHEAD_GIB) < PREDICTED_OVERHEAD_GIB * 0.25
+    check(ok, "5d  memory budget",
+          f"KV {kv_gib:.2f} GiB -> overhead {over:.2f} GiB "
+          f"(predicted {PREDICTED_OVERHEAD_GIB:.2f})")
+
+    if toks:
+        n = int(toks.group(1).replace(",", ""))
+        print(f"           engine reports {n:,} KV tokens "
+              f"= {kv_gib * 1024**2 / n:.1f} KiB/token")
+
+    # The number stage 2 actually needs.
+    per_slice = SLICE_GIB * util - over
+    seq = per_slice / (PREDICTED_KV_KIB * 16384 / 1024**2)
+    print(f"           at a {SLICE_GIB:g} GiB slice -> {per_slice:.2f} GiB KV "
+          f"-> {seq:.1f} seq/replica -> decode pool {2*seq:.1f}")
 
 
 def main() -> int:
@@ -115,7 +142,7 @@ def main() -> int:
     serves(args.port)
     metrics(args.port)
     kv_bytes_per_token()
-    weights(args.log)
+    budget(args.log, CARD_GIB, UTIL)
 
     failed = _results.count(False)
     if failed:

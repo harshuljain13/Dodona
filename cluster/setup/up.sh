@@ -65,6 +65,10 @@ case "$ACTION" in
   logs)
     exec "${SSH[@]}" "$LAMBDA" 'tail -f ~/dodona/engine.log' ;;
   gate)
+    # Sync first: --gate runs the copy ON THE BOX, and a stale one silently
+    # checks the wrong thing. Cheap, and it is the whole point of the target.
+    rsync -az -e "ssh -i $LAMBDA_SSH_KEY -o StrictHostKeyChecking=accept-new" \
+      cluster/setup/gate.py "$LAMBDA:~/dodona/cluster/setup/gate.py"
     exec "${SSH[@]}" "$LAMBDA" 'cd ~/dodona && python3 cluster/setup/gate.py --log ~/dodona/engine.log' ;;
 esac
 

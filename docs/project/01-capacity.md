@@ -288,18 +288,52 @@ rather than leaving it to be worked out:
 ~5.5 seqs at 16384 tokens (4.80 GiB KV), max_num_seqs=64 -> KV binds — admission can bite
 ```
 
+## Measured — stage 0, 2026-10-10
+
+One worker on the whole card, `--gpu-memory-utilization 0.90`. Card:
+**NVIDIA A100-SXM4-40GB**, sm80, 40 GiB. vLLM **0.31.0**, torch 2.13.0+cu130.
+
+| | Predicted | **Measured** | |
+|---|---|---|---|
+| `kv_bytes_per_token` | 56 KiB | **56.0 KiB** | **P6 held.** 28 layers × 4 KV heads × head_dim 128, and the engine's own `539,808 tokens = 28.83 GiB` agrees independently |
+| weights + activations + CUDA graphs | 6.00 GiB | **7.17 GiB** | **+1.17 GiB, +20%** — the one that was wrong |
+| KV on the whole card | — | 28.83 GiB | 36.00 budget − 7.17 overhead |
+
+**The overhead miss is the finding.** 5.20 GiB of weights plus 0.80 GiB of
+runtime was optimistic: vLLM 0.31 also reserves CUDA-graph memory, and that was
+not in the estimate. It propagates straight into the slice arithmetic:
+
+```
+                        predicted           measured
+12 GiB slice x 0.90      10.80 GiB budget    10.80 GiB
+  - overhead             -6.00               -7.17
+  = KV per worker         4.80 GiB            3.63 GiB
+  / 0.875 GiB per 16k seq
+  = seq per replica       5.5                 4.1
+  decode pool (x2)       11.0                 8.3
+```
+
+**The configuration does not change.** A decode pool of 8.3 against 14
+concurrent sessions still means KV binds and admission can fire — the premise
+survives, with less headroom than claimed. Three 13 GiB slices would recover the
+pool to 10.4, but 3 × 13 = 39 GiB exceeds the ~37 GiB allocatable, so 12 GiB
+stands.
+
+Stage 2 re-measures this per slice. CUDA-graph reservation may not scale down
+linearly with the slice, so 7.17 GiB is an upper bound until then.
+
 ## Predictions, written before the run
 
 Checked in [Part 8](08-proof.md) and **not edited afterwards**.
 
 | # | Prediction | How it gets checked |
 |---|---|---|
-| P1 | **KV binds, not the scheduler** | `gpu_cache_usage_perc` saturates *before* `num_requests_waiting` grows |
+| P1 | **KV binds, not the scheduler** | `kv_cache_usage_perc` saturates *before* `num_requests_waiting` grows |
 | P2 | **Signal reaches 0.90 at 14 sessions** (past the 11.0 pool) | `admitperf report` shows `max >= 0.90`, liveness `PASSED` |
 | P3 | **Signal does not reach 0.90 at 2 sessions** (~18% of pool) | same report at the low-load run shows `max < 0.90` |
 | P4 | Prefix-cache hit rate **> 70%** — 1k of system prompt and tool schemas is shared across every turn | `prefix_cache_hit_rate` |
 | P5 | Traffic is **prefill-heavy, > 10:1** prompt to completion | mean prompt ÷ mean completion from the decision log |
-| P6 | `kv_bytes_per_token` = **56 KiB ±5%** | `config.json` on a live worker — **stage 0, before anything else** |
+| P6 | `kv_bytes_per_token` = **56 KiB ±5%** | ✅ **HELD** — 56.0 KiB, measured 2026-10-10 |
 | P7 | Inter-token p95 on decode **spikes during a large prefill**, because `gpucores` is time-sliced rather than partitioned | per-pod inter-token latency against prefill activity |
 | P8 | Mooncake hop is **far above our 150 ms first-principles estimate**, nearer the 0.5–0.8 s published prior | stage 8b, measured |
 

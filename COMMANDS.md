@@ -221,10 +221,10 @@ curl -s localhost:8000/v1/chat/completions -H 'Content-Type: application/json' -
 ### 5b — metrics exist
 
 ```bash
-curl -s localhost:8000/metrics | grep -E 'gpu_cache_usage_perc|num_requests_(running|waiting)|prefix_cache'
+curl -s localhost:8000/metrics | grep -E 'kv_cache_usage_perc|num_requests_(running|waiting)|prefix_cache'
 ```
 
-`vllm:gpu_cache_usage_perc` must be present. **Everything from stage 3 onward
+`vllm:kv_cache_usage_perc` must be present. **Everything from stage 3 onward
 reads this**, and admission is a function of it.
 
 ### 5c — `kv_bytes_per_token` ⚠ **the one that matters most**

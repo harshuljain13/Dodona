@@ -33,7 +33,7 @@ which one happens tells you whether admission is doing anything:
    premature.
 
 Prediction [P1](01-capacity.md#predictions-written-before-the-run) says
-`gpu_cache_usage_perc` saturates before `num_requests_waiting` grows, which means
+`kv_cache_usage_perc` saturates before `num_requests_waiting` grows, which means
 (1) is expected.
 
 ## To fill in from the run

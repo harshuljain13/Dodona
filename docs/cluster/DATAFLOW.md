@@ -380,7 +380,7 @@ sequenceDiagram
 | ScaledObject | Min | Max | Query |
 |---|---|---|---|
 | `prefill-scaler` | 1 | 2 | `orch_tokens_in_flight{phase="prefill"}` |
-| `decode-scaler` | 1 | 2 | `vllm:gpu_cache_usage_perc or orch_tokens_in_flight{phase="decode"}` |
+| `decode-scaler` | 1 | 2 | `vllm:kv_cache_usage_perc or orch_tokens_in_flight{phase="decode"}` |
 
 Two things worth knowing. These are **two independent loops on different
 intervals**, so a burst appears in Grafana well before replicas move. And
@@ -431,7 +431,7 @@ sequenceDiagram
     API-->>W: JSON
     Note over W: separately, every placement
     W->>API: GET /metrics
-    API-->>W: num_requests_waiting / running / gpu_cache_usage_perc
+    API-->>W: num_requests_waiting / running / kv_cache_usage_perc
 ```
 
 **There are two prefix caches and they do not talk to each other.** vLLM's is

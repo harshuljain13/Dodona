@@ -38,7 +38,7 @@ docker run --gpus all -p 8000:8000 \
 | | Check | Expect |
 |---|---|---|
 | 0a | `curl localhost:8000/v1/chat/completions -d '{...}'` | 200, text back |
-| 0b | `curl localhost:8000/metrics \| grep kv_cache` | `vllm:gpu_cache_usage_perc` present |
+| 0b | `curl localhost:8000/metrics \| grep kv_cache` | `vllm:kv_cache_usage_perc` present |
 | 0c | **`config.json`: layers, `num_key_value_heads`, `head_dim`** | 28 / 4 / 128 → **56 KiB/token**. This is prediction **P6** |
 | 0d | `nvidia-smi` memory used vs `5.2 GiB` weights estimate | within ~10% |
 
