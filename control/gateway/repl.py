@@ -53,8 +53,7 @@ class Lab:
     left: list[FakeWorker] = field(default_factory=list)
     right: list[FakeWorker] = field(default_factory=list)
     gw: Gateway | None = None
-    # Whether a shed goes to the in-process FakeOverflow. Off means a real HTTP
-    # burst is attempted instead, which is the only way to spend money here.
+    # Off sends a shed to a real endpoint instead of the in-process fake.
     backup_enabled: bool = True
     force_fake: bool = False
 
@@ -90,12 +89,7 @@ class Lab:
         METRICS.reset()
 
     def _run_request(self, req: Request) -> Response:
-        """One request through the cluster, then a backup only if it shed.
-
-        `backup_enabled` off means a real HTTP burst is attempted instead of
-        the in-process fake — that is what `overflow` on the command line asks
-        for, and the only way to exercise a paid endpoint deliberately.
-        """
+        """One request through the cluster. Off means burst for real, not fake."""
         return serve_request(
             req, self.gw, backup=self.backup if self.backup_enabled else None
         )

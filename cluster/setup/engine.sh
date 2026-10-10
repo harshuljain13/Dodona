@@ -5,16 +5,15 @@
 # Every default here appears in the capacity arithmetic — see
 # docs/project/01-capacity.md. Override any of them from the environment:
 #
-#   LOCAL_MODEL     the model. int4 is forced on sm80 (no fp8 tensor cores)
-#   MAX_MODEL_LEN   16384. At 8192 the decode pool is 22, not 11
-#   MAX_NUM_SEQS    64, deliberately ABOVE the KV limit of 5.5, so the cache
-#                   runs out before the scheduler does. Lower it and a
-#                   KV-pressure policy can never fire
-#   UTIL            0.90. At the whole card this is 0.90 of 40 GiB; on a slice it
-#                   is 0.90 of the HAMi slice, which is a 3x difference
-#   SCHEDULING_POLICY  fcfs. The lab used `priority`, which is worth having once
-#                   the gateway sets a priority per request. At
-#                   0 nothing sets one, so fcfs is the honest default
+#   LOCAL_MODEL     the model. int4 is forced on sm80, which has no fp8 cores
+#   MAX_MODEL_LEN   16384. Halving it roughly doubles the decode pool
+#   MAX_NUM_SEQS    64, deliberately above the KV limit so the cache runs out
+#                   before the scheduler does — lower it and a KV-pressure
+#                   policy can never fire
+#   UTIL            0.90 of whatever the process can see: the whole card here,
+#                   the HAMi slice once the fleet is up
+#   SCHEDULING_POLICY  fcfs. `priority` is worth having once the gateway sets
+#                   one per request; nothing does yet, so fcfs is honest
 set -euo pipefail
 
 MODEL="${LOCAL_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}"

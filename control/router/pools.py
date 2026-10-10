@@ -190,24 +190,12 @@ class VLLMWorker:
     def enqueue(self, req: Request, phase: str = "both") -> dict | None:
         """Send one leg of the request to a real vLLM worker.
 
-        `phase` was previously accepted and ignored, so both legs of a split
-        sent the full request: the prefill worker generated a complete answer
-        that `queue.py` then discarded, and the whole request was done twice.
+          prefill  max_tokens=1 — one forward pass to build the prompt's KV here
+          decode   the real generation
+          both     src == dst, no split, one call
 
-        What each leg is for:
-
-          prefill   one forward pass. max_tokens=1 builds the prompt's KV on
-                    this worker and populates its prefix cache, which is what
-                    makes the NEXT request sharing that prefix cheap here.
-          decode    the real generation.
-          both      src == dst, no split, one call.
-
-        **The decode worker still recomputes the prompt.** vLLM owns the block
-        table and nothing in this process can hand blocks to another engine —
-        moving them needs --kv-transfer-config on both pods, which we do not
-        set. The brief anticipates exactly this: "The KV that A just built has
-        to be where B will decode, *or B recomputes the prompt*." We record the
-        hop; we do not perform it. See docs/project/topology.md.
+        The decode worker still recomputes the prompt: moving blocks needs
+        --kv-transfer-config, which we do not set. See docs/project/topology.md.
         """
         import json
 
@@ -216,11 +204,8 @@ class VLLMWorker:
             "messages": request_messages(req),
             "max_tokens": 1 if phase == "prefill" else max(1, int(req.max_new_tokens)),
         }
-        # Sampling and tool keys the caller sent. An allowlist, not a
-        # pass-through: our control keys (kv_hop, prefix_hash, tenant) mean
-        # nothing to the engine and an unknown key is a 400. `tools` is the one
-        # that matters — without it a tool-calling agent gets no schemas,
-        # answers in prose, and its loop ends after one turn.
+        # An allowlist, not a pass-through: our own keys are a 400 here. `tools`
+        # is the one that matters, or a tool-calling agent gets no schemas.
         if req.extra:
             payload.update(req.extra)
         raw = self._post("/v1/chat/completions", payload)
@@ -308,22 +293,12 @@ def _urls(env_name: str) -> list[str]:
 def build_pools(n_fake: int = 2, bus: KVBus | None = None) -> tuple[list[Any], list[Any]]:
     """Build the prefill and decode pools from the environment.
 
-    Three shapes, chosen by PREFILL_URLS / DECODE_URLS / LAB_SPLIT:
+      no PREFILL_URLS       FakeWorker, in process, no GPU. Never a measurement.
+      LAB_SPLIT=phase       prefill and decode pools, both on the same model.
+      LAB_SPLIT=capability  two models, text on one pool and vision on the other.
 
-      no PREFILL_URLS      FakeWorker, in process. Lets the suite and the
-                           harnesses run with no GPU. Never a measurement.
-      LAB_SPLIT=phase      the real fleet: one prefill pool and one decode
-                           pool, BOTH SERVING THE SAME MODEL. This is what
-                           cluster/k8s/fleet deploys.
-      LAB_SPLIT=capability two different models — text on one pool, vision on
-                           the other. Routing is by what the request needs,
-                           not by phase.
-
-    `phase` is the default, and that matters: this function used to treat any
-    two distinct URL sets as a capability split and hand the decode pool
-    VISION_MODEL. Against our fleet — where every pod serves the same text
-    model — that made vLLM 404 on every decode leg. The two splits are
-    different ideas and conflating them silently broke the whole gateway.
+    `phase` is the default. Treating any two URL sets as a capability split
+    handed the decode pool VISION_MODEL, which 404s on a same-model fleet.
     """
     prefill_urls = _urls("PREFILL_URLS")
     if not prefill_urls:
@@ -339,8 +314,7 @@ def build_pools(n_fake: int = 2, bus: KVBus | None = None) -> tuple[list[Any], l
     text_model = os.environ.get("TEXT_MODEL", os.environ.get("LOCAL_MODEL", "Qwen/Qwen2.5-3B-Instruct"))
     vision_model = os.environ.get("VISION_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct")
 
-    # One pool used for both phases: no DECODE_URLS, the same URLs twice, or an
-    # explicitly aggregated topology. queue.py then short-circuits the hop.
+    # One pool for both phases, so queue.py short-circuits the hop.
     if (not decode_urls) or decode_urls == prefill_urls or topology == "aggregated":
         engines = [
             VLLMWorker(f"engine-{i}", url, bus=bus, model=text_model)

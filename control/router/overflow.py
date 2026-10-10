@@ -1,12 +1,8 @@
-"""Bursting to a backup endpoint when our own cluster has no room.
+"""Call someone else's OpenAI-compatible endpoint when we have no room.
 
-This module does ONE thing: call someone else's OpenAI-compatible endpoint. It
-knows nothing about admission, placement, the KV hop or tracing — see
-gateway/pipeline.py for the order those happen in, and who calls this.
-
-It deliberately imports nothing from the admission, queue, routing or pool
-modules. A relief valve that can reach into the control plane stops being a
-relief valve, so tests/test_overflow.py greps this file to keep it that way.
+Nothing else: admission, placement, the hop and tracing live in
+gateway/pipeline.py. tests/test_overflow.py greps this file to keep it that way,
+because a relief valve that can reach into the control plane is not one.
 """
 from __future__ import annotations
 
@@ -42,12 +38,10 @@ class FakeOverflow:
 
 
 class OverflowBudget:
-    """A LIFETIME cap on how many requests may leave, not a rate.
+    """OVERFLOW_MAX_REQS: a lifetime cap, not a rate. Unlimited by default.
 
-    OVERFLOW_MAX_REQS defaults to unlimited. Once spent, the path switches
-    itself off — which in a report looks exactly like "overflow did not help"
-    when what happened is that overflow stopped being available. `spent` is
-    public so the run summary can say which it was.
+    Once spent the path switches off, which reads as "overflow did not help"
+    when it means "overflow was gone". `spent` is public so a report can tell.
     """
 
     def __init__(self, limit: int | None = None) -> None:

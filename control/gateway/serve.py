@@ -92,9 +92,8 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/metrics":
             self.gateway.refresh_metrics()
-            # The gate's own lines, so a scrape distinguishes "the policy admitted
-            # everything" from "the policy never loaded". A report that cannot tell those
-            # apart is worthless.
+            # The gate's own lines, so a scrape tells "admitted everything"
+            # apart from "never loaded".
             body = (self.metrics.render() + self.gateway.gate.status() + "\n").encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; version=0.0.4")
@@ -139,9 +138,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         req = request_from_openai(payload)
         req.capability = infer_capability(payload) if not req.capability else req.capability
-        # The order, in one place: our cluster first — admission, placement,
-        # prefill, the KV hop, decode — and a backup endpoint only if the
-        # cluster shed for lack of capacity.
+        # Our cluster first; a backup endpoint only if it shed for capacity.
         resp = serve_request(
             req, self.gateway, backup=self.backup, budget=self.overflow_budget
         )
@@ -173,8 +170,7 @@ def main(host: str | None = None, port: int | None = None) -> None:
     gw, metrics = build_gateway()
     Handler.gateway = gw
     Handler.metrics = metrics
-    # One budget for the process: OVERFLOW_MAX_REQS is a lifetime cap, so it
-    # has to outlive the request.
+    # A lifetime cap has to outlive the request, so one budget per process.
     Handler.overflow_budget = OverflowBudget()
     server = ThreadingHTTPServer((host, port), Handler)
     print(f"gateway on http://{host}:{port}", flush=True)

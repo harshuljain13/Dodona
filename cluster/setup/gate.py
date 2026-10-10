@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""The stage-0 gate: four checks, run on the GPU box.
+"""Four capacity checks against a running engine. Run on the GPU box.
 
 Two of them decide whether anything else is worth doing. 5c reads the model's
 own config.json and recomputes kv_bytes_per_token; 5d reads back what vLLM
-actually reserved. Every concurrency figure in docs/project/01-capacity.md is
-derived from those two, so a failure here means the arithmetic is wrong, not
-the cluster.
+actually reserved and checks the two agree. Every concurrency figure in
+docs/project/01-capacity.md is derived from those, so a failure here means the
+arithmetic is wrong, not the cluster.
 
-Exits non-zero if any check fails, so `make gate` and up.sh can stop on it.
+Exits non-zero if any check fails, so up.sh can stop on it.
 
     python3 cluster/setup/gate.py [--port 8000] [--log engine.log]
+
+Optional, to assert a specific prediction rather than just report:
+
+    EXPECT_KV_KIB=56 EXPECT_OVERHEAD_GIB=6.0 python3 cluster/setup/gate.py
 """
 from __future__ import annotations
 
@@ -18,19 +22,33 @@ import glob
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.request
 
-#: Predicted in docs/project/01-capacity.md. 2 (K,V) x 28 layers x 4 kv_heads
-#: x 128 head_dim x 2 B = 57,344 B. Written here so a drift shows up as a
-#: failure rather than as a silently different number.
-PREDICTED_KV_KIB = 56.0
-#: weights + activations + CUDA graphs. Predicted 5.20 + 0.80.
-PREDICTED_OVERHEAD_GIB = 6.00
-#: The HAMi slice size the fleet uses, so the check can report what it implies.
-SLICE_GIB = 12.0
-CARD_GIB, UTIL = 40.0, 0.90
+# Nothing about the card or model is hardcoded. Set either to assert a specific
+# prediction instead of only reporting what was measured.
+EXPECT_KV_KIB = os.environ.get("EXPECT_KV_KIB", "").strip()
+EXPECT_OVERHEAD_GIB = os.environ.get("EXPECT_OVERHEAD_GIB", "").strip()
+
+#: What the engine was told to take. Must match engine.sh's --gpu-memory-utilization.
+UTIL = float(os.environ.get("UTIL", "0.90"))
+
+#: Agreement tolerance between predicted and engine-reported KiB/token.
+KV_TOLERANCE = 0.05
+
+
+def card_total_gib() -> float | None:
+    """Usable memory on GPU 0, read off the card rather than assumed."""
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=15,
+        ).stdout.split()
+        return int(out[0]) / 1024.0
+    except Exception:
+        return None
 
 _PASS, _FAIL = "\033[32mPASS\033[0m", "\033[31mFAIL\033[0m"
 _results: list[bool] = []
@@ -61,24 +79,20 @@ def metrics(port: int) -> None:
     except Exception as exc:
         check(False, "5b  gpu_cache_usage_perc present", str(exc))
         return
-    # Admission is a function of this metric. Without it there is nothing to
-    # decide on, and stages 4 onward have no input.
-    #
-    # vLLM V1 renamed gpu_cache_usage_perc -> kv_cache_usage_perc. Accept
-    # either, and say which one this engine exposes, because the control plane
-    # has to scrape the name that actually exists.
+    # Admission is a function of this metric. vLLM V1 renamed
+    # gpu_cache_usage_perc -> kv_cache_usage_perc, so accept and report either.
     names = [n for n in ("vllm:kv_cache_usage_perc", "vllm:gpu_cache_usage_perc") if n in m]
     check(bool(names), "5b  KV-usage metric present", names[0] if names else "neither name found")
     check("vllm:num_requests_waiting" in m, "5b  num_requests_waiting present")
 
 
-def kv_bytes_per_token() -> None:
-    """Prediction P6. The one that invalidates the rest if it is wrong."""
+def kv_bytes_per_token() -> float | None:
+    """KiB of KV per token from config.json. Every concurrency figure uses it."""
     hits = glob.glob(os.path.expanduser(
         "~/.cache/huggingface/hub/models--*/snapshots/*/config.json"))
     if not hits:
-        check(False, "5c  kv_bytes_per_token (P6)", "no config.json in the HF cache")
-        return
+        check(False, "5c  KV bytes/token", "no config.json in the HF cache")
+        return None
     cfg = json.load(open(sorted(hits, key=os.path.getmtime)[-1]))
     layers = cfg["num_hidden_layers"]
     kv_heads = cfg["num_key_value_heads"]
@@ -86,22 +100,24 @@ def kv_bytes_per_token() -> None:
     # it the usual way is wrong by 60% on that family.
     head_dim = cfg.get("head_dim") or cfg["hidden_size"] // cfg["num_attention_heads"]
     kib = 2 * layers * kv_heads * head_dim * 2 / 1024
-    check(
-        abs(kib - PREDICTED_KV_KIB) < PREDICTED_KV_KIB * 0.05,
-        "5c  kv_bytes_per_token (P6)",
-        f"layers={layers} kv_heads={kv_heads} head_dim={head_dim} "
-        f"-> {kib:.0f} KiB/token (predicted {PREDICTED_KV_KIB:.0f})",
-    )
-    if kib:
-        print(f"           one 16k sequence = {kib * 16384 / 1024 / 1024:.3f} GiB")
+
+    detail = f"layers={layers} kv_heads={kv_heads} head_dim={head_dim} -> {kib:.0f} KiB/token"
+    if EXPECT_KV_KIB:
+        expected = float(EXPECT_KV_KIB)
+        check(abs(kib - expected) < expected * KV_TOLERANCE,
+              "5c  KV bytes/token", f"{detail} (expected {expected:.0f})")
+    else:
+        check(kib > 0, "5c  KV bytes/token", detail)
+    print(f"           one 16k sequence = {kib * 16384 / 1024 / 1024:.3f} GiB")
+    return kib
 
 
-def budget(log: str, card_gib: float, util: float) -> None:
-    """What the engine actually reserved, against the predicted overhead.
+def budget(log: str, card_gib: float | None, util: float, predicted_kib: float | None) -> None:
+    """What the engine reserved, and whether its KiB/token agrees with 5c.
 
-    vLLM does not log a 'model weights' line in 0.31, but it does log the KV
-    cache it ended up with — and budget minus KV is weights + activations +
-    CUDA graphs, which is the number that sizes the fleet's slices.
+    Budget minus KV is weights + activations + CUDA graphs. Only sanity-checked,
+    not predicted: overhead needs the quantised weight size, which config.json
+    does not give. The agreement check is the one that carries evidence.
     """
     if not os.path.exists(log):
         check(False, "5d  memory budget", f"no {log} — started outside up.sh?")
@@ -113,28 +129,37 @@ def budget(log: str, card_gib: float, util: float) -> None:
     if not kv:
         check(False, "5d  memory budget", "no 'Available KV cache memory' line yet")
         return
-
     kv_gib = float(kv.group(1))
-    over = card_gib * util - kv_gib
-    ok = abs(over - PREDICTED_OVERHEAD_GIB) < PREDICTED_OVERHEAD_GIB * 0.25
-    check(ok, "5d  memory budget",
-          f"KV {kv_gib:.2f} GiB -> overhead {over:.2f} GiB "
-          f"(predicted {PREDICTED_OVERHEAD_GIB:.2f})")
 
+    if card_gib is None:
+        check(False, "5d  memory budget", "could not read memory.total from nvidia-smi")
+        return
+
+    overhead_gib = card_gib * util - kv_gib
+    sane = 0 < overhead_gib < card_gib * util
+    detail = (f"card {card_gib:.1f} GiB x {util:.2f} = {card_gib * util:.2f}, "
+              f"KV {kv_gib:.2f} -> overhead {overhead_gib:.2f} GiB")
+    if EXPECT_OVERHEAD_GIB:
+        expected = float(EXPECT_OVERHEAD_GIB)
+        check(sane and abs(overhead_gib - expected) < expected * 0.25,
+              "5d  memory budget", f"{detail} (expected {expected:.2f})")
+    else:
+        check(sane, "5d  memory budget", detail)
+
+    # Arrived at independently, so agreement is real evidence.
     if toks:
-        n = int(toks.group(1).replace(",", ""))
-        print(f"           engine reports {n:,} KV tokens "
-              f"= {kv_gib * 1024**2 / n:.1f} KiB/token")
+        reported_kib = kv_gib * 1024**2 / int(toks.group(1).replace(",", ""))
+        if predicted_kib:
+            check(abs(reported_kib - predicted_kib) < predicted_kib * KV_TOLERANCE,
+                  "5d  engine agrees with 5c",
+                  f"engine {reported_kib:.1f} vs config {predicted_kib:.1f} KiB/token")
+        else:
+            print(f"           engine reports {reported_kib:.1f} KiB/token")
 
-    # Deliberately NOT extrapolating to a slice from here. Measured on the pods,
-    # overhead was 6.53 GiB on a 12 GiB slice against 7.17 on the whole card —
-    # CUDA-graph capture scales part-way with available memory, so treating this
-    # figure as constant under-predicted the pool by 18%. Read the per-slice
-    # number off the pods instead:
-    #   kubectl logs <pod> | grep "Maximum concurrency"
-    if abs(card_gib - SLICE_GIB) > 1:
-        print("           whole-card figure — do NOT extrapolate to a slice;")
-        print("           read it off the running pods (see 01-capacity.md)")
+    # Never extrapolate to a slice: CUDA-graph capture scales with available
+    # memory, so read it off the pods with `grep "Maximum concurrency"` instead.
+    print("           whole-card figure — do NOT extrapolate to a slice;")
+    print("           read it off the running pods (see 01-capacity.md)")
 
 
 def main() -> int:
@@ -145,8 +170,8 @@ def main() -> int:
 
     serves(args.port)
     metrics(args.port)
-    kv_bytes_per_token()
-    budget(args.log, CARD_GIB, UTIL)
+    predicted_kib = kv_bytes_per_token()
+    budget(args.log, card_total_gib(), UTIL, predicted_kib)
 
     failed = _results.count(False)
     if failed:

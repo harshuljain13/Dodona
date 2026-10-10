@@ -11,8 +11,7 @@
 # Every remote step is one of the scripts next to this one, run over ssh. This
 # file only sequences them — if a step is wrong, fix that script, not this one.
 
-# Bash, not sh: this uses arrays and [[ ]]. Under dash the array assignment in
-# load_env is a syntax error whose message points nowhere useful.
+# Bash, not sh: arrays and [[ ]]. Under dash load_env is a syntax error.
 if [ -z "${BASH_VERSION:-}" ]; then
   echo "up.sh needs bash:  bash cluster/setup/up.sh cluster   (or: make cluster)" >&2
   exit 1
@@ -30,8 +29,7 @@ announce() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 fail()     { printf '\033[1;31m%s\033[0m\n' "$*" >&2; exit 1; }
 
 # ── the box ────────────────────────────────────────────────────────────────
-# BOX and SSH_KEY come from .env. LAMBDA and LAMBDA_SSH_KEY are the older names
-# and still work, so an existing .env needs no edit.
+# LAMBDA / LAMBDA_SSH_KEY are the older names and still work.
 load_env() {
   [[ -f .env ]] || fail "No .env. Run:  cp .env.example .env   then set BOX and SSH_KEY"
   set -a; source .env; set +a
@@ -50,15 +48,11 @@ load_env() {
 # Run a command on the box, in the project directory.
 on_box() { "${SSH[@]}" "$BOX" "cd ~/$REMOTE_DIR && $1"; }
 
-# Same, with a terminal attached. Anything that reports progress as it goes
-# (helm, kubectl rollout status) needs this or the output arrives in one lump
-# at the very end.
+# With a tty, or helm and kubectl output arrives in one lump at the end.
 on_box_tty() { "${SSH[@]}" -t "$BOX" "cd ~/$REMOTE_DIR && $1"; }
 
-# Only our own vLLM processes. The ones inside pods run as root and are not ours
-# to kill — unscoped, pkill prints "Operation not permitted" once per pod and
-# looks like a failure. The [v] stops the pattern matching pkill's own command
-# line, which would otherwise kill the remote shell and return 255.
+# Our own processes only: the pods' run as root. [v] stops the pattern matching
+# pkill's own command line, which would kill the remote shell and return 255.
 stop_engine() {
   "${SSH[@]}" "$BOX" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; sleep 2'
 }
@@ -88,8 +82,7 @@ install_packages() {
   on_box_tty 'bash cluster/setup/box_packages.sh'
 }
 
-# The engine holds the WHOLE card. It is here to measure the model's real memory
-# footprint before the card is cut into slices; start_fleet stops it again.
+# Holds the whole card, to measure the model's real footprint before slicing.
 start_engine() {
   announce "engine  —  $MODEL on :8000, whole card"
   stop_engine
@@ -186,8 +179,7 @@ cmd_down() {
 
 cmd_logs() { exec "${SSH[@]}" "$BOX" "tail -f ~/$REMOTE_DIR/$ENGINE_LOG"; }
 
-# Sync gate.py first: this runs the copy ON THE BOX, and a stale copy silently
-# checks the wrong thing.
+# Sync first: this runs the copy on the box, and a stale one checks nothing.
 cmd_check() {
   rsync -az -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new" \
     cluster/setup/gate.py "$BOX:~/$REMOTE_DIR/cluster/setup/gate.py"

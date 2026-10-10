@@ -1,23 +1,11 @@
-"""What happens to one request, in order.
+"""The order one request goes through: gateway, then overflow only if it shed.
 
-    1. gateway.handle     tenant window -> admission -> placement
-                          -> prefill -> KV hop -> decode
-    2. overflow           ONLY if the cluster shed for lack of capacity
-    3. record_outcome     one trace line and the latency metrics, either way
+    gateway.handle   admission -> placement -> prefill -> KV hop -> decode
+    overflow         only on a capacity shed
+    record_outcome   one trace line and the latencies, either way
 
-serve.py owns this sequence; it lives here so the REPL, the harness and the
-smoke scripts exercise exactly the same path rather than three near-copies.
-
-Why it is shaped this way. `router/overflow.py` used to sit at the TOP of this:
-it held the gateway, called it, and emitted the trace for every request
-including the ones that never overflowed. Reading serve.py you saw
-"guardrails, then overflow" and could not tell that admission, placement and
-the hop happened at all — our own control plane looked like an implementation
-detail of a relief valve used at most a few times per process. It is the other
-way round, and now it reads that way.
-
-overflow.py still imports nothing from the control plane. The dependency only
-points one way: this module knows about both, neither knows about this one.
+Written here once so serve.py, the REPL, the harness and the smoke scripts all
+run the same path. Depends on both sides; neither side depends on this.
 """
 from __future__ import annotations
 
@@ -40,27 +28,22 @@ def serve_request(
 ) -> Response:
     """Run one request through the cluster, then record what happened.
 
-    `gateway` is anything with `.handle(req) -> Response` — duck-typed so this
-    works against the real Gateway, the REPL's, and a stub.
-    `backup` short-circuits the HTTP call, so tests never make a paid request.
-    `budget` carries the lifetime overflow cap; a fresh one means uncapped.
+    `gateway` is anything with `.handle(req) -> Response`. `backup` replaces the
+    HTTP burst so tests never pay. `budget` is the lifetime overflow cap.
     """
     started = time.perf_counter()
     response = gateway.handle(req)
     local_ms = _elapsed_ms(started)
 
-    # A 500 is a transient engine error rather than a capacity signal, so it
-    # gets one more try on the same cluster before anything leaves.
+    # A 500 is a transient engine error, not a capacity signal: retry locally.
     if response.status == 500:
         retry_started = time.perf_counter()
         response = gateway.handle(req)
         local_ms += _elapsed_ms(retry_started)
         return record_outcome(req, response, via="local", local_ms=local_ms)
 
-    # Only a genuine capacity shed leaves. A 429 is the tenant being over its
-    # own quota — paying a backup for a request we are refusing on quota
-    # grounds is overspending, not a capacity event. slice_oom means the
-    # request does not fit anywhere, so a backup would not help either.
+    # Only a capacity shed leaves. A 429 is the tenant over quota and slice_oom
+    # does not fit anywhere, so paying a backup for either is just overspending.
     if response.status in (503, 529) and response.error != "slice_oom":
         return _escalate(req, response, local_ms=local_ms, backup=backup, budget=budget)
 
@@ -156,7 +139,7 @@ def _elapsed_ms(start: float) -> float:
 
 
 def _what_happened(via: str, resp: Response, local_status: int | None) -> str:
-    """One word for the report. Distinguishes refusals that mean different things."""
+    """One word for the report, keeping different kinds of refusal apart."""
     if via == "overflow":
         return "overflow_ok" if resp.status == 200 else "overflow_error"
     if resp.status == 200:
