@@ -6,7 +6,7 @@
 #   up.sh tunnel          forward the box's ports to this Mac
 #   up.sh engine          ONE worker on the whole card, for comparison only
 #   up.sh down            stop the engine and Open WebUI
-#   up.sh logs            tail the engine log
+#   up.sh logs [prefill|decode]   follow the pods, or the whole-card engine
 #   up.sh check           re-run the capacity checks against the whole-card engine
 #   up.sh clean           wipe the box back to bare metal
 #
@@ -182,7 +182,17 @@ cmd_down() {
   echo "    The box is still billing. Stop the instance in your provider's console."
 }
 
-cmd_logs() { exec "${SSH[@]}" "$BOX" "tail -f ~/$REMOTE_DIR/$ENGINE_LOG"; }
+# Follows whatever is actually serving: the pods if the fleet is up, otherwise
+# the whole-card engine's log. $1 picks a pool, default prefill.
+cmd_logs() {
+  local pool="${1:-prefill}"
+  exec "${SSH[@]}" -t "$BOX" "
+    if sudo test -f /etc/rancher/k3s/k3s.yaml &&        sudo k3s kubectl get deploy vllm-$pool >/dev/null 2>&1; then
+      sudo k3s kubectl logs -f -l app=vllm-$pool --tail=60
+    else
+      tail -f ~/$REMOTE_DIR/$ENGINE_LOG
+    fi"
+}
 
 # Syncs first: this deletes things, so it must be the current script doing it.
 cmd_clean() {
@@ -212,7 +222,7 @@ main() {
     engine)        cmd_engine ;;
     tunnel)        open_tunnel ;;
     down)          cmd_down ;;
-    logs)          cmd_logs ;;
+    logs)          cmd_logs "${2:-}" ;;
     check)         cmd_check ;;
     clean)         cmd_clean ;;
   esac

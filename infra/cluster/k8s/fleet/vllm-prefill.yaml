@@ -36,6 +36,10 @@ spec:
           hostPath: { path: /home/ubuntu/.cache/huggingface, type: DirectoryOrCreate }
         - name: shm
           emptyDir: { medium: Memory, sizeLimit: 8Gi }
+        # RDMA, into the pod. Without this Mooncake logs "No RDMA devices found"
+        # and silently falls back to TCP — it works, but not at RDMA speed.
+        - name: infiniband
+          hostPath: { path: /dev/infiniband }
       containers:
         - name: vllm
           image: vllm/vllm-openai:latest
@@ -73,6 +77,13 @@ spec:
           volumeMounts:
             - { name: hf-cache, mountPath: /root/.cache/huggingface }
             - { name: shm, mountPath: /dev/shm }
+            # Mooncake probes /dev/infiniband to discover HCAs.
+            - { name: infiniband, mountPath: /dev/infiniband }
+          # RDMA pins memory, which needs IPC_LOCK, and reaches the verbs
+          # device directly.
+          securityContext:
+            capabilities:
+              add: ["IPC_LOCK"]
           # READY must not mean "can serve". startupProbe gives the engine up to
           # 20 minutes to load weights and capture CUDA graphs; readinessProbe
           # only then starts gating traffic.
