@@ -60,7 +60,7 @@ Lambda allows only SSH, so everything goes through one tunnel. Open only
 | URL | What | Available after |
 |---|---|---|
 | `http://127.0.0.1:8000` | a vLLM worker directly | 0 |
-| `http://127.0.0.1:3000` | Open WebUI | 1 |
+| `http://127.0.0.1:30030` | Open WebUI (pod) |
 | `http://127.0.0.1:8080` | the gateway | 4 |
 | `http://127.0.0.1:3001` | Grafana | 3 |
 

@@ -322,7 +322,7 @@ docker exec open-webui curl -s http://host.docker.internal:8000/v1/models | head
 
 ## Step 7 — talk to it `[Mac]`
 
-Open **http://127.0.0.1:3000** — through the tunnel from step 2, not the public IP.
+Open **http://127.0.0.1:30030** — through the tunnel from step 2, not the public IP.
 
 **Gate: you have a conversation with it in a browser.** That is this step done, and
 it means the engine is good *by hand* before any control plane exists. Every later

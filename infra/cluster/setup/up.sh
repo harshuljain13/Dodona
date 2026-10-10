@@ -131,10 +131,10 @@ start_observability() {
 open_tunnel() {
   announce "tunnel  —  ports forwarded to this Mac. Leave this window open."
   cat <<'PORTS'
-    http://127.0.0.1:3000    Open WebUI   <- talk to it here
-    http://127.0.0.1:8080    gateway
-    http://127.0.0.1:30800   vLLM prefill
-    http://127.0.0.1:31495   Grafana
+    http://127.0.0.1:30030   Open WebUI   <- talk to it here
+    http://127.0.0.1:31495   Grafana      admin / password from `make observability`
+    http://127.0.0.1:8080    gateway      /metrics, /v1/chat/completions
+    http://127.0.0.1:30800   vLLM prefill (30801 decode) — bypasses the gateway
 PORTS
   exec bash infra/cluster/setup/tunnel.sh
 }

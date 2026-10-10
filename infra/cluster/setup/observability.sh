@@ -48,9 +48,13 @@ echo
 echo "Observability is up. With the tunnel open (make ssh), on the Mac:"
 echo "  Open WebUI:  http://127.0.0.1:30030   (no login)"
 echo "  Grafana:     http://127.0.0.1:31495   user admin, password printed below"
-echo "  Locust UI:   http://127.0.0.1:8089    after: locust -f app/locustfile.py --host http://127.0.0.1:8080"
-echo "  Locust host: http://127.0.0.1:8080"
-echo "  Crew flood:  ORCH_URL=http://127.0.0.1:8080/v1 python -m app.crew_flood --rounds 48 --workers 8"
+# These run ON THE MAC against the tunnelled gateway, so 8089 needs no forward.
+# PYTHONPATH is what `make` sets; a bare shell needs it spelled out.
+echo "  Load, from the Mac (tunnel open), against the gateway on :8080 —"
+echo "    locust -f infra/control/edge/locustfile.py --host http://127.0.0.1:8080"
+echo "      then open http://127.0.0.1:8089"
+echo "    PYTHONPATH=infra/control python3 -m edge.load --sessions 8 --run baseline"
+echo "    PYTHONPATH=infra/control python3 -m edge.crew_flood --rounds 48 --workers 8"
 echo "Generate load, then walk Grafana in this order:"
 echo "  1. Cluster — node-exporter CPU/mem, kube-state pods, cAdvisor, DCGM GPU."
 echo "  2. Success and failures — requests vs completed vs shed (429/503) vs overflow."

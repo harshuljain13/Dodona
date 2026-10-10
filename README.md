@@ -219,7 +219,7 @@ cp .env.example .env     # set BOX and SSH_KEY
 make cluster && make observability && make ssh
 ```
 
-Then open **http://127.0.0.1:3000** and talk to it.
+Then open **http://127.0.0.1:30030** and talk to it.
 
 **Four commands, and no more.** All run from your Mac and drive the box over
 ssh — there is no separate login step.
