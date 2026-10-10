@@ -61,6 +61,7 @@ flowchart TD
       GD --> AD --> PL --> HP
       AP["<b>AdmitPerf</b><br/>policy · decision log"]
       RF(["<b>503</b> · kv_free"])
+      OV{"<b>overflow gate</b><br/>503/529 may leave<br/>429 never does"}
       RP["<b>run report</b><br/>liveness verdict"]
     end
 
@@ -76,6 +77,8 @@ flowchart TD
       D0 ~~~ D1
     end
 
+    SL["<b>Superlinked</b><br/>Qwen3.5-4B · 64 tok<br/>max 20 for the run"]
+
     subgraph OPS["Observability + autoscale"]
       PM[("<b>Prometheus</b><br/>+ DCGM exporter")]
       GF["<b>Grafana</b><br/>8 dashboards"]
@@ -90,6 +93,10 @@ flowchart TD
     D0 --> AG
     D1 --> AG
     AD -->|"refused"| RF
+    RF --> OV
+    OV -->|"capacity · 503/529"| SL
+    OV -.->|"tenant quota · 429"| AG
+    SL --> AG
     AD <--> AP
     AP --> RP
     D0 -.->|"kv_cache_usage_perc"| AD
@@ -105,6 +112,8 @@ flowchart TD
     class PF,D0,D1 engine
     class MC store
     class AP lib
+    class OV gate
+    class SL overflow
     class PM,GF,KD obs
     class RP out
 
@@ -116,20 +125,27 @@ flowchart TD
     classDef store  fill:#ffedd5,stroke:#c2410c,stroke-width:2px,color:#7c2d12
     classDef lib    fill:#e0e7ff,stroke:#4338ca,stroke-width:2px,color:#312e81
     classDef obs    fill:#f1f5f9,stroke:#475569,stroke-width:2px,color:#1e293b
+    classDef overflow fill:#fae8ff,stroke:#a21caf,stroke-width:2px,color:#701a75
     classDef out    fill:#ccfbf1,stroke:#0f766e,stroke-width:2.5px,color:#134e4a
     linkStyle default stroke:#475569,stroke-width:1.7px
 ```
 
 🔵 what we write · 🟢 vLLM, configured not touched · 🟠 KV storage ·
-🟡 the decision · 🟣 clients, off-GPU · ⚪ observability · 🔴 a refusal
+🟡 a decision · 🟣 clients and external services · ⚪ observability · 🔴 a refusal
 
-**Two control loops, both dashed.** `admit` reads `kv_cache_usage_perc` straight
-off decode and refuses when it crosses 0.90 — and the value it read is stored
-next to the verdict, which is the whole point. **KEDA** reads the same metric
-through Prometheus and scales the deployment instead. One sheds load, the other
-adds capacity; they watch the same number and answer differently.
+**Three ways out of the control plane, and the difference is the design.**
+Admitted work goes to the GPU. A capacity refusal (`503`/`529`) reaches the
+overflow gate and *may* leave for Superlinked. A tenant over quota gets `429`
+and **never leaves** — paying a provider for a request we are refusing on our
+own policy grounds is overspending, not a capacity event.
 
-The fleet stays at three pods for any measured run — a fleet that resizes
+**Two control loops, both dashed, both reading the same number.** `admit` takes
+`kv_cache_usage_perc` straight off decode and **sheds** when it crosses 0.90 —
+storing the value it read next to the verdict, which is the whole point. KEDA
+takes the same metric through Prometheus and **scales** instead. Same signal,
+opposite response.
+
+The fleet stays at three pods for any measured run: a fleet that resizes
 mid-comparison means the deployment moved, not the policy. KEDA is wired and
 left at `min 1 · max 2` so the mechanism is real and visible.
 
