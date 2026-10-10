@@ -36,3 +36,6 @@ __pycache__/
 # Anchored to the repo root because it contains a slash — it has to
 # follow the directory when metrics/ moves.
 infra/metrics/traces/requests.jsonl
+
+# Notebook checkpoints, not source.
+.ipynb_checkpoints/

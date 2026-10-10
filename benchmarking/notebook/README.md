@@ -1,43 +1,45 @@
-# benchmarking/notebook/ — Part 5
-
-The brief submits this separately: *"Github Link along with the notebook from
-part 5."* So it is a graded artifact in its own right, not an appendix.
+# notebook/
 
 | | |
 |---|---|
-| `part5-queue.ipynb` | **Not written.** Answers [Part 5](../../docs/SUBMISSION.md#part-5--queue) from live scrapes |
+| [`01-sanity.ipynb`](01-sanity.ipynb) | **Run this before any load test.** Six checks, in order, each making the next meaningful. Writes `../reports/sanity-<date>.pdf` |
+| [`utils.py`](utils.py) | shared by every notebook: `Cluster` reads the cluster, `Report` builds the PDF |
 
-## What it has to show
+```bash
+.venv/bin/pip install -r requirements-load.txt     # matplotlib, jupyterlab
+make ssh                                            # leave the tunnel open
+.venv/bin/jupyter lab benchmarking/notebook/
+```
 
-Every answer in Part 5 needs a scrape, not an assertion.
+## Why PDFs come from matplotlib
 
-1. **Our queue vs vLLM's waiting queue** — side by side, same timestamp. The
-   point is that ours is empty because it does not exist: requests block on a
-   thread and the engine does the queueing.
-2. **waiting / running / swapped** across all three pods, sampled during a burst.
-3. **`orch_replica_queue_depth` per pod**, under two mixes — shared-prefix and
-   unique-prefix — to show which pod absorbs which.
-4. **Ordering** — a 16k retrieve and a short agent step arriving together. Show
-   our admit/place decision and then the engine's batch composition, so it is
-   visible which layer ordered what.
-5. **Paging vs prefix reuse** — `prefix_cache_hit_rate` against block-table
-   occupancy on the shared-prefix mix. Paging prevents fragmentation; the prefix
-   cache is what dedupes the ~1k shared prompt.
-6. **Engine flags** — the values used, and the KV-vs-scheduler arithmetic showing
-   why `max_num_seqs 64` sits above the KV limit of 5.5 on purpose.
-7. **KV full after admit** — `vllm:num_preemptions` over a run. Non-zero means
-   the gate admitted more than the fleet could hold.
-8. **Aborted client** — kill a request mid-generation, watch
-   `kv_cache_usage_perc` return. **Common in a voice app**: a listener who talks
-   over the answer aborts mid-generation.
-9. **Ramp vs slam** — TTFT on a just-returned worker, cold then warm, showing why
-   only the warm number is quotable.
+`Report` renders pages as matplotlib figures via `PdfPages`. The obvious
+alternative, `nbconvert --to pdf`, needs a LaTeX install — so it works on one
+machine and fails on the next. This is uglier and always works.
 
-## Conventions
+## Why these are separate from `infra/`
 
-Scrapes are saved under [`infra/metrics/`](../../infra/metrics/) as raw text, so a number in
-the notebook can be traced to the scrape it came from. Plots go to
-[`../assets/screenshots/`](../../assets/screenshots/).
+Nothing here imports the control plane. A measurement tool that shares code
+with the thing it measures can agree with it about something they are both
+wrong about — `tests/test_load.py` enforces the boundary.
 
-A cell that asserts without a scrape behind it is the thing this notebook exists
-to prevent.
+## Two values you have to fill in by hand
+
+`01-sanity.ipynb` cannot read a pod's startup log through the ssh tunnel, so
+two constants are typed in from `make logs`:
+
+| notebook constant | log line |
+|---|---|
+| `KV_GIB_PER_POD` | `Available KV cache memory: X GiB` |
+| `SEQ_PER_POD` | `Maximum concurrency for 16,384 tokens per request: Xx` |
+| `MOONCAKE_TRANSPORT` | `Found N HCAs` and `Using … transport` |
+
+They are the denominator of every concurrency claim in the submission. Taking
+the whole-card figure instead of the per-slice one is how a pool of 4.9 gets
+reported as 73.5.
+
+## Latency measured here is indicative only
+
+Through the tunnel your WAN round-trip is inside every number. For anything you
+intend to quote, use `make load`, which runs on the box against
+`127.0.0.1:8080`.

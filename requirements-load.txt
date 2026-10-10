@@ -1,2 +1,7 @@
 locust>=2.29
 openai>=1.40
+
+# Notebooks and PDF reports. matplotlib builds the PDF itself (PdfPages) rather
+# than nbconvert, which would need a LaTeX install.
+matplotlib>=3.8
+jupyterlab>=4.0
