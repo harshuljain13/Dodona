@@ -82,7 +82,7 @@ nvidia-smi --query-gpu=name,memory.total,compute_cap --format=csv
 Expect `A100`, `40960 MiB`, compute capability `8.0`.
 
 **`8.0` is sm80, which has no fp8 tensor cores.** That is why the model is int4
-and not fp8 — see [`../docs/project/01-capacity.md`](../docs/project/01-capacity.md).
+and not fp8 — see [`docs/project/01-capacity.md`](docs/project/01-capacity.md).
 If this says `8.9` or `9.0`, stop: the whole capacity chain should be redone,
 because fp8 becomes available and int4 stops being forced.
 
@@ -103,18 +103,55 @@ docker run -d --name vllm-stage0 --gpus all --ipc=host \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
   --model Qwen/Qwen2.5-7B-Instruct-AWQ \
-  --quantization awq_marlin \
   --max-model-len 16384 \
   --max-num-seqs 64 \
-  --gpu-memory-utilization 0.90 \
-  --enable-prefix-caching \
-  --enable-auto-tool-choice \
-  --tool-call-parser hermes
+  --gpu-memory-utilization 0.90
 ```
 
-`--ipc=host` matters: vLLM uses shared memory and the default 64 MB limit causes
-obscure crashes. The HF cache mount means a restart does not re-download the
-~5.6 GB of weights.
+**Four flags, and every one of them is in the capacity arithmetic.** Nothing else
+belongs at this stage.
+
+| | Why it is here |
+|---|---|
+| `--max-model-len 16384` | The context the capacity figures assume. Change it and the decode pool moves — at 8,192 it is 22, not 11 |
+| `--max-num-seqs 64` | Deliberately **above** the KV limit of 5.5, so the cache runs out before the scheduler does. Set it lower and a KV-pressure policy could never fire |
+| `--gpu-memory-utilization 0.90` | The 0.90 in `12 × 0.90 = 10.80 GiB`. At stage 0 it applies to the whole card; from stage 2 it applies to the slice |
+| `--ipc=host` | Not optional. vLLM uses shared memory and Docker's default 64 MB limit produces crashes that look like anything but a shm limit |
+
+The HF cache mount means a restart does not re-download the ~5.6 GB of weights.
+
+### Flags deliberately *not* here yet
+
+| Flag | When it arrives | Why not now |
+|---|---|---|
+| `--quantization awq_marlin` | never, probably | vLLM reads `quantization_config` out of `config.json` and picks a kernel itself. Forcing `awq_marlin` only narrows what it may choose, and if Marlin is unavailable you get a hard error instead of a working fallback. **Better to let it choose and read back which kernel it took** — see 5d |
+| `--enable-prefix-caching` | stage 10, if not already default | On by default in current vLLM. It matters for prediction P4 (>70% hit rate on the ~1k shared prefix), but at stage 0 there is no shared prefix to hit |
+| `--enable-auto-tool-choice`<br/>`--tool-call-parser hermes` | **stage 9**, with the agent | See below |
+
+### Why `hermes`, and why it can wait
+
+By default vLLM hands back whatever the model generated as **text** in
+`choices[0].message.content`. When Qwen2.5 decides to call a tool it emits
+something like `<tool_call>{"name": "web_search", ...}</tool_call>` — and without
+a parser that arrives as a *string*, not as the structured `tool_calls` array the
+OpenAI API contract defines.
+
+`--enable-auto-tool-choice` turns parsing on; `--tool-call-parser hermes` names
+the format to parse. `hermes` is the Hermes-style `<tool_call>…</tool_call>`
+convention, which is what the Qwen2.5-Instruct family emits — so for this model it
+is the right parser, not an arbitrary pick.
+
+**It matters because of what reads the response.** LangGraph binds tools through
+the OpenAI `tools` parameter and looks for `tool_calls` coming back. No parser →
+no `tool_calls` → AgentShip concludes the model answered in prose → the agent loop
+ends after one turn. That failure looks like a weak model and is nothing of the
+kind. It is the same bug in its other half as the dropped-`tools` problem in
+`control/router/pools.py`.
+
+But **stage 0 has no tools and no agent.** Open WebUI does not use them either.
+So the flags buy nothing here and only widen the surface that can fail while we
+are trying to establish something much simpler: does the model serve, and is the
+arithmetic right.
 
 Watch it come up — **this takes minutes, not seconds:**
 
@@ -185,7 +222,7 @@ Predicted **5.20 GiB** of weights. The process will show more than that, because
 roughly `0.90 × 40 GiB ≈ 36 GiB` reserved. To see the weights/KV split:
 
 ```bash
-docker logs vllm-stage0 2>&1 | grep -iE 'KV cache|model weights|graph capturing'
+docker logs vllm-stage0 2>&1 | grep -iE 'KV cache|model weights|graph capturing|awq|marlin|quantiz'
 ```
 
 vLLM prints `# GPU blocks:` and the memory it attributed to weights. **Record
@@ -287,5 +324,5 @@ commands are known to work — rather than guessed in advance and quietly wrong.
 | | |
 |---|---|
 | [`RUNBOOK.md`](RUNBOOK.md) | The ten stages, their gates, and a failure-mode table per stage |
-| [`../docs/cluster/COMMANDS.md`](../docs/cluster/COMMANDS.md) | Debugging reference inherited from the class-10 lab — port chains, pod inspection, Grafana queries. Written for that layout, so paths differ |
-| [`../docs/project/01-capacity.md`](../docs/project/01-capacity.md) | Where every predicted number here comes from |
+| [`docs/cluster/COMMANDS.md`](docs/cluster/COMMANDS.md) | Debugging reference inherited from the class-10 lab — port chains, pod inspection, Grafana queries. Written for that layout, so paths differ |
+| [`docs/project/01-capacity.md`](docs/project/01-capacity.md) | Where every predicted number here comes from |

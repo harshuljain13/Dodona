@@ -905,7 +905,7 @@ concurrency figure in Part 1 moves with it.
 ## What is built and what is not
 
 Dodona is built **stage by stage** — nothing is inherited wholesale. Runbook:
-[`cluster/RUNBOOK.md`](cluster/RUNBOOK.md).
+[`RUNBOOK.md`](RUNBOOK.md).
 
 | | |
 |---|---|

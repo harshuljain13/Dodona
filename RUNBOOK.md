@@ -279,7 +279,7 @@ moved, not the policy.
 
 Then: `admitperf report` per run, `admitperf compare` baseline against policy,
 Grafana exhibits, and check predictions P1–P8 in
-[`../SUBMISSION.md`](../SUBMISSION.md#predictions-written-before-the-run)
+[`SUBMISSION.md`](SUBMISSION.md#predictions-written-before-the-run)
 **without editing them**.
 
 ---

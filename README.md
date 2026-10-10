@@ -167,19 +167,21 @@ pytest tests/
 Then **stage 0** — no Kubernetes, one container, the whole card:
 
 ```bash
-docker run --gpus all -p 8000:8000 vllm/vllm-openai:latest \
-  --model Qwen/Qwen2.5-7B-Instruct-AWQ --quantization awq_marlin \
-  --max-model-len 16384 --max-num-seqs 64 --gpu-memory-utilization 0.90 \
-  --enable-prefix-caching --enable-auto-tool-choice --tool-call-parser hermes
+docker run -d --gpus all --ipc=host -p 8000:8000 vllm/vllm-openai:latest \
+  --model Qwen/Qwen2.5-7B-Instruct-AWQ \
+  --max-model-len 16384 --max-num-seqs 64 --gpu-memory-utilization 0.90
 ```
+
+Four flags, all of them in the capacity arithmetic. Tool-calling flags arrive at
+stage 9 with the agent — they buy nothing before there is a tool to call.
 
 Its gate is four checks. Two of them decide whether anything else is worth doing:
 **`config.json` must read 28 layers / 4 KV heads / `head_dim` 128** (= 56 KiB per
 token), and **`nvidia-smi` must agree with the 5.20 GiB weights estimate.** If
 either is off, redo the arithmetic before renting more time.
 
-→ Every command in order: [**`cluster/COMMANDS.md`**](cluster/COMMANDS.md)
-→ All ten stages and their gates: [`cluster/RUNBOOK.md`](cluster/RUNBOOK.md)
+→ Every command in order: [**`COMMANDS.md`**](COMMANDS.md)
+→ All ten stages and their gates: [`RUNBOOK.md`](RUNBOOK.md)
 
 ## Where to read what
 
@@ -189,8 +191,8 @@ either is off, redo the arithmetic before renting more time.
 | [**`SUBMISSION.md`**](SUBMISSION.md) | The design answered part by part, with a decision tree per part |
 | [`docs/project/`](docs/README.md) | Capacity arithmetic, per-part depth, the run protocol, the results report |
 | [`docs/cluster/`](docs/cluster/README.md) | The stack file by file — gateway, router, KV bus, observability |
-| [`cluster/COMMANDS.md`](cluster/COMMANDS.md) | **Every command, in order**, marked `[Mac]` or `[GPU]` |
-| [`cluster/RUNBOOK.md`](cluster/RUNBOOK.md) | The ten stages, their gates, and what each failure actually means |
+| [`COMMANDS.md`](COMMANDS.md) | **Every command, in order**, marked `[Mac]` or `[GPU]` |
+| [`RUNBOOK.md`](RUNBOOK.md) | The ten stages, their gates, and what each failure actually means |
 
 ```
 app/        the voice agent — talks only to our serve path

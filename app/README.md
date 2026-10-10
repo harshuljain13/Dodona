@@ -11,7 +11,7 @@ queue do not count, so there is no direct route from here to a worker.
 | `voice.py` | the Deepgram loop — STT in, TTS out |
 
 **Status: not written.** Stages 1 and 9 of
-[`../cluster/RUNBOOK.md`](../cluster/RUNBOOK.md).
+[`../RUNBOOK.md`](../RUNBOOK.md).
 
 ## Shape
 

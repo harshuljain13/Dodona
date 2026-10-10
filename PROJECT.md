@@ -383,7 +383,7 @@ multi-agent system; Envoy and llm-d.
 ## Plan
 
 Ten stages, each ending in something testable. Runbook:
-[`cluster/RUNBOOK.md`](cluster/RUNBOOK.md). Status table:
+[`RUNBOOK.md`](RUNBOOK.md). Status table:
 [`README.md`](README.md#status).
 
 The ordering has one deliberate feature worth naming: **observability (stage 3)

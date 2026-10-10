@@ -13,7 +13,7 @@ reaches a GPU.
 | **stay vs leave** | overflow gate | [3](../SUBMISSION.md#part-3--guardrails-admit-stay-vs-leave) |
 
 **Status: not written.** Stages 4–8 of
-[`../cluster/RUNBOOK.md`](../cluster/RUNBOOK.md), built one at a time.
+[`../RUNBOOK.md`](../RUNBOOK.md), built one at a time.
 
 ## What is *not* here
 
