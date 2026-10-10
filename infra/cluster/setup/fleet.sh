@@ -25,6 +25,14 @@ apply_and_wait "$ROOT/k8s/fleet/vllm-decode.yaml"  vllm-decode
 # placement and the hop are bypassed on every request.
 apply_and_wait "$ROOT/k8s/gateway/orch-serve.yaml" orch-serve
 
+# orch-serve mounts the repo from the host rather than baking an image, so a
+# sync changes the files on disk while the running process keeps the old code in
+# memory. `kubectl apply` on an unchanged manifest is a no-op, so without this
+# every control-plane edit silently does not take.
+echo "== restarting orch-serve to pick up synced code =="
+kubectl rollout restart deploy/orch-serve
+kubectl rollout status deploy/orch-serve --timeout=5m
+
 # Open WebUI as a pod, not a docker container: k3s owns this node, and `docker`
 # here needs sudo. It points at orch-serve, so hand testing takes the same path.
 apply_and_wait "$ROOT/k8s/ui/open-webui.yaml" open-webui

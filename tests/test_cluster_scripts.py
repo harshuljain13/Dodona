@@ -122,3 +122,16 @@ def test_the_harness_never_touches_the_cluster() -> None:
     """`make test` must stay runnable with no GPU and no kubeconfig."""
     harness = (ROOT / "infra" / "control" / "gateway" / "harness.py").read_text()
     assert "helm" not in harness and "kubectl" not in harness
+
+
+def test_fleet_restarts_the_gateway_so_mounted_code_takes_effect() -> None:
+    """orch-serve runs code from a hostPath mount, not from its image.
+
+    `kubectl apply` on an unchanged manifest is a no-op, so syncing new
+    control-plane code changes the files on disk while the pod keeps running
+    what it loaded at startup. Every edit would silently not take.
+    """
+    fleet = (SETUP / "fleet.sh").read_text()
+    assert "rollout restart deploy/orch-serve" in fleet
+    manifest = (ROOT / "infra" / "cluster" / "k8s" / "gateway" / "orch-serve.yaml").read_text()
+    assert "hostPath" in manifest, "if the gateway stops mounting code, drop the restart"
