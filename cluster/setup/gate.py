@@ -126,11 +126,15 @@ def budget(log: str, card_gib: float, util: float) -> None:
         print(f"           engine reports {n:,} KV tokens "
               f"= {kv_gib * 1024**2 / n:.1f} KiB/token")
 
-    # The number stage 2 actually needs.
-    per_slice = SLICE_GIB * util - over
-    seq = per_slice / (PREDICTED_KV_KIB * 16384 / 1024**2)
-    print(f"           at a {SLICE_GIB:g} GiB slice -> {per_slice:.2f} GiB KV "
-          f"-> {seq:.1f} seq/replica -> decode pool {2*seq:.1f}")
+    # Deliberately NOT extrapolating to a slice from here. Measured at stage 2,
+    # overhead was 6.53 GiB on a 12 GiB slice against 7.17 on the whole card —
+    # CUDA-graph capture scales part-way with available memory, so treating this
+    # figure as constant under-predicted the pool by 18%. Read the per-slice
+    # number off the pods instead:
+    #   kubectl logs <pod> | grep "Maximum concurrency"
+    if abs(card_gib - SLICE_GIB) > 1:
+        print("           whole-card figure — do NOT extrapolate to a slice;")
+        print("           read it off the pods at stage 2 (see 01-capacity.md)")
 
 
 def main() -> int:

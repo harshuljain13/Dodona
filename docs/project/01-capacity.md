@@ -319,8 +319,31 @@ survives, with less headroom than claimed. Three 13 GiB slices would recover the
 pool to 10.4, but 3 × 13 = 39 GiB exceeds the ~37 GiB allocatable, so 12 GiB
 stands.
 
-Stage 2 re-measures this per slice. CUDA-graph reservation may not scale down
-linearly with the slice, so 7.17 GiB is an upper bound until then.
+## Measured — stage 2, 2026-10-10
+
+Three pods on three 12 GiB HAMi slices. `nvidia-smi` shows three processes on
+index 0 at **10,624 MiB each**, under the 12,288 MiB cap, so HAMi is enforcing.
+All three report **identical** KV, which is the one-at-a-time start working.
+
+|  | overhead | KV/slice | seq @16k | decode pool |
+|---|---|---|---|---|
+| predicted | 6.00 GiB | 4.80 GiB | 5.5 | 11.0 |
+| extrapolated from stage 0 | 7.17 GiB | 3.63 GiB | 4.15 | 8.3 |
+| **measured, stage 2** | **6.53 GiB** | **4.27 GiB** | **4.88** | **9.8** |
+
+vLLM states the per-replica figure itself — *"GPU KV cache size: 80,032 tokens,
+Maximum concurrency for 16,384 tokens per request: 4.88x"* — and 80,032 × 56 KiB
+= 4.27 GiB, so P6 is confirmed a third time.
+
+**The stage-0 extrapolation was pessimistic, and the reason is worth keeping.**
+Overhead is 7.17 GiB on the whole card but 6.53 GiB on a 12 GiB slice, so it is
+**not a constant**: CUDA-graph capture scales part-way with the memory available
+to it. Treating stage 0's overhead as fixed under-predicted the pool by 18%.
+
+So the truth sits between the paper estimate and the extrapolation. The original
+prediction was closer than the "corrected" one — which is an argument for
+measuring on the configuration you will actually run, not for extrapolating from
+a different one.
 
 ## Predictions, written before the run
 
