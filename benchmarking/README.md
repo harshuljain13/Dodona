@@ -20,10 +20,18 @@ work out which run produced what.
 
 ```
 benchmarking/
-  utils.py  slos.py        shared by every notebook
+  utils.py                 Cluster, Report — shared by every notebook
+  prom.py                  Prometheus + Grafana, the metric catalogue
+  slos.py                  what we promise
   load.py  locustfile.py   load generators, run ON THE BOX
-  01-sanity/               notebook.ipynb  reports/  screenshots/
+  01-health/               is it there and wired?
+  02-metrics/              what do the numbers mean?
 ```
+
+**Every notebook is independent.** Each drives its own seeded load and needs
+nothing from the one before it — so you can run 02 without 01, and a failure in
+one does not invalidate another. Shared code lives in `utils.py` and `prom.py`,
+never in a notebook another notebook has to have run.
 
 | | |
 |---|---|
