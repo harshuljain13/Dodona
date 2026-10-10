@@ -19,8 +19,8 @@ Find out which stage is actually live. Do not trust the status table in `README.
 updated by hand and lags.
 
 ```
-kubectl get pods -o wide                                     # stage 2 up?
-curl -s localhost:8080/metrics | grep admitperf_gate          # stage 6 up?
+kubectl get pods -o wide                                     # fleet up?
+curl -s localhost:8080/metrics | grep admitperf_gate          # admission on?
 ls metrics/                                                   # any runs yet?
 ```
 
@@ -29,7 +29,7 @@ ls metrics/                                                   # any runs yet?
 | Gate | Stage | Why it cannot be deferred |
 |---|---|---|
 | **`nvidia-smi` shows 3 processes on index 0, none above its slice** | 2 | If HAMi is not enforcing `gpumem`, one pod silently takes another's memory. The fleet is then not the fleet you documented, and **every number from every later stage is invalid with nothing to indicate it** |
-| **A live `/metrics` scrape in Grafana** | 3 | One of the brief's two pass/fail items. Also: admission is a *function of* engine metrics, so stage 4 onward has nothing to decide on without it |
+| **A live `/metrics` scrape in Grafana** | 3 | One of the brief's two pass/fail items. Also: admission is a *function of* engine metrics, so the gateway has nothing to decide on without it |
 | **A recorded hop, or a cold-vs-warm TTFT re-quote** | 8 | The other pass/fail item. `hop-or-warmup`, not both — but one of them must exist |
 
 ## Failure modes, by stage
@@ -65,6 +65,6 @@ From `RUNBOOK.md`, and do not reorder it in the moment: Experiment 2 whole, then
 low-level seeds 2 and 3, then the Grafana exhibits, then the voice loop (text through the
 gateway still proves the serve path).
 
-**Never cut:** stage 2's integrity check, stage 3's scrape, stage 8's proof, or the
+**Never cut:** the fleet's integrity check, the Grafana scrape, the hop proof, or the
 baselines. The first three are pass/fail; a run without a baseline has a one-sided
 comparison.

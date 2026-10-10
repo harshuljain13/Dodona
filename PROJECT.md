@@ -305,7 +305,7 @@ flowchart TB
     linkStyle default stroke:#7C8CA6,stroke-width:1.7px
 ```
 
-**Open WebUI comes before the agent** — stage 1 points it straight at the engine
+**Open WebUI comes before the agent** — it points straight at the engine
 for hand testing, so a broken agent and a broken gateway are never confused for
 each other. The load generator exists for the one thing it is good at: replaying
 the *same* trace so two runs can be compared.
@@ -444,14 +444,14 @@ multi-agent system; Envoy and llm-d.
 
 | Risk | Signal it happened | Response |
 |---|---|---|
-| **AWQ int4 does not load or is slow on sm80** | vLLM errors at load, or prefill throughput is far under estimate | Marlin int4 does support sm80, but verify at stage 0 before anything depends on it. Fallback is `Qwen2.5-3B` bf16 (pool ~15) with the arithmetic redone and said so |
-| **5.2 GiB weights estimate is wrong** | `nvidia-smi` disagrees with the as-deployed table | AWQ leaves embeddings and `lm_head` in fp16 and Qwen2.5-7B does not tie them — that is 2.03 GiB of the 5.2. Measure at stage 0 |
+| **AWQ int4 does not load or is slow on sm80** | vLLM errors at load, or prefill throughput is far under estimate | Marlin int4 does support sm80, but verify on the bare engine before anything depends on it. Fallback is `Qwen2.5-3B` bf16 (pool ~15) with the arithmetic redone and said so |
+| **5.2 GiB weights estimate is wrong** | `nvidia-smi` disagrees with the as-deployed table | AWQ leaves embeddings and `lm_head` in fp16 and Qwen2.5-7B does not tie them — that is 2.03 GiB of the 5.2. Measure on the bare engine |
 | **A 12 GiB slice has less than 0.80 GiB of runtime headroom** | pod loads then refuses, or OOMs mid-run | This is the Part 1 step-3 trap at one remove. Widen the slices and drop to 2 pods if forced |
 | **HAMi does not enforce the cap with 3 pods** | `nvidia-smi` shows a pod above its slice | The run is void until fixed. This is the integrity check |
 | Pods start unequal | KV token counts differ between peers | Rolling, one-at-a-time start |
 | Workers serve before warm | TTFT implausible on first requests | Warm, then re-quote. Audible as dead air in a voice turn |
 | Mooncake hop slower than estimated | hop latency near the 4 s TCP figure rather than 0.5–0.8 s | Prediction P8. If it holds, the hop is slower than recomputing and Part 6's conclusion flips — which is a finding, not a failure |
-| Tool schemas dropped at the worker boundary | the agent answers in prose, no `tool_calls` | A pass-through allowlist. Verified at stage 7, check 4 |
+| Tool schemas dropped at the worker boundary | the agent answers in prose, no `tool_calls` | A pass-through allowlist, verified at the placement step |
 | **Signal inert** | report says `FAILED` | A result. Lead with it rather than apologising for it |
 
 ---
@@ -462,6 +462,6 @@ Ten stages, each ending in something testable. Runbook:
 [`RUNBOOK.md`](RUNBOOK.md). Status table:
 [`README.md`](README.md#status).
 
-The ordering has one deliberate feature worth naming: **observability (stage 3)
-comes before the gateway (stage 4)**, because admission is a *function of* engine
+The ordering has one deliberate feature worth naming: **observability comes
+before the gateway**, because admission is a *function of* engine
 metrics. There is nothing to decide on until the scrape exists.

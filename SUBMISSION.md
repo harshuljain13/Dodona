@@ -41,9 +41,9 @@ other half: what actually went wrong, recorded as it happened.
 | Three `Operation not permitted` from `pkill` | Unscoped, so it reached for the vLLM processes **inside the pods**, which run as root | `pkill -u "$(id -u)"` |
 | Grafana unreachable at `127.0.0.1:31495` | The chart assigns a **random** NodePort — it landed on 31457, while the tunnel forwards a fixed list | `nodePort: 31495` pinned in `grafana-values.yaml` |
 | Nothing on the fleet reachable from the Mac | Services were **ClusterIP**, which exists only inside the cluster network — the tunnel had nothing on the host to forward. The pods were serving correctly all along | `NodePort` 30800 prefill, 30801 decode, 30030 Open WebUI |
-| Open WebUI vanished after stage 2 | It was a docker container from stage 1 and the k3s install took it | Now a pod, pointed at the `vllm-decode` Service so hand testing goes through the decode pool |
+| Open WebUI vanished once the fleet came up | It was a docker container from the whole-card step and the k3s install took it | Now a pod, pointed at the `vllm-decode` Service so hand testing goes through the decode pool |
 | `make ssh` printed nine "Address already in use" and gave a shell with no forwards | A **second** tunnel cannot bind ports the first already holds. The first was working the whole time | `ssh.sh` closes any tunnel it already holds, and `ExitOnForwardFailure=yes` so it refuses rather than pretending |
-| Open WebUI: *"auto tool choice requires --enable-auto-tool-choice"* | Deferred those flags to stage 9 on the grounds that stage 0 has no tools — but **every OpenAI-compatible client sends `tool_choice: "auto"`**, so the engine rejects the request outright | Both flags on the fleet from the start. Verified: `get_weather {"city": "Delhi"}`, `finish_reason: tool_calls` |
+| Open WebUI: *"auto tool choice requires --enable-auto-tool-choice"* | Deferred those flags to the agent step on the grounds that the bare engine has no tools — but **every OpenAI-compatible client sends `tool_choice: "auto"`**, so the engine rejects the request outright | Both flags on the fleet from the start. Verified: `get_weather {"city": "Delhi"}`, `finish_reason: tool_calls` |
 | Rollout hung — new pods `Pending` forever | A full GPU **cannot do a RollingUpdate**. The default surges a replacement before retiring the old pod, and with 36 GiB allocated it can never be scheduled | `strategy: { type: Recreate }`. A single card cannot be rolled without downtime |
 
 ---
@@ -228,7 +228,7 @@ a smaller model on Superlinked, hard-capped.**
 ```
 one A100-40GB  ·  40.0 GiB reported  ·  ~37 GiB allocatable across 3 pods
 
-AS DEPLOYED, stage 2, 2026-10-10 — all three figures from the engine itself
+AS DEPLOYED on the sliced fleet, 2026-10-10 — all figures from the engine itself
 
 slice  pod          gpumem   gpucores   used      KV        tokens    seq @16k
   0    prefill-0    12 GiB     40%     10,624Mi  4.27 GiB   80,032      4.88
@@ -242,8 +242,8 @@ slice  pod          gpumem   gpucores   used      KV        tokens    seq @16k
   per request: 4.88x".
 
   predicted             6.00 GiB overhead -> 4.80 GiB KV -> 5.5  seq -> pool 11.0
-  stage-0 extrapolated  7.17 GiB          -> 3.63 GiB    -> 4.15 seq -> pool  8.3
-  stage-2 measured      6.53 GiB          -> 4.27 GiB    -> 4.88 seq -> pool  9.8
+  whole-card extrapol.  7.17 GiB          -> 3.63 GiB    -> 4.15 seq -> pool  8.3
+  per-slice measured    6.53 GiB          -> 4.27 GiB    -> 4.88 seq -> pool  9.8
 ```
 
 One A100-40 is also what a cohort mate or a workshop attendee can actually rent,
@@ -393,9 +393,9 @@ gives the pod a hard `gpumem` cap that it sees as its entire device. Reading the
 
 ```
 any worker:  12 GiB x 0.90  =  10.80 GiB budget
-             - overhead      =   6.53 GiB   <- MEASURED per slice, stage 2
+             - overhead      =   6.53 GiB   <- MEASURED per slice, on the fleet
                                 ----------      (predicted 6.00; 7.17 on the
-             KV              =   4.27 GiB        whole card at stage 0)
+             KV              =   4.27 GiB        whole card, unsliced)
 
 one 16k sequence = 56 KiB x 16,384 = 0.875 GiB    <- P6, measured, held
 concurrency      = 4.27 / 0.875   = 4.88 seq/replica
@@ -1018,7 +1018,7 @@ params:
   api_base: "http://127.0.0.1:8080/v1"
 ```
 
-**Open WebUI first.** Stage 1 points Open WebUI straight at the engine for hand
+**Open WebUI first.** It points straight at the engine for hand
 testing, before any control plane exists. That way a broken agent and a broken
 gateway are never confused for each other.
 
@@ -1090,7 +1090,7 @@ Three seeds each. All results *TBM*.
 | Where do I hop, and what is **not** copied? | prefill-0 → decode-{0,1} over Mooncake. **Not copied:** the final token's KV (recomputed), anything past the 256-token chunk boundary, and any block already in the destination's prefix cache |
 | Where do I evict, and what becomes a ghost if I skip it? | `control/kv_eviction.py`. Skip it and a hopped prefix stays pinned in Mooncake after its session ended — a ghost holding store capacity nothing will read |
 | Where does the engine scheduler sit vs our admit/place/queue? | [Part 2](#gateway-and-engine-are-two-different-boxes) |
-| What limited concurrency on this GPU for this app? | **KV.** 4.27 GiB per decode worker ÷ 0.875 GiB = **4.88 sequences**, pool 9.8 — measured at stage 2 from the pods themselves; 6.53 GiB of the 10.80 GiB slice budget goes to weights, activations and CUDA graphs |
+| What limited concurrency on this GPU for this app? | **KV.** 4.27 GiB per decode worker ÷ 0.875 GiB = **4.88 sequences**, pool 9.8 — measured from the pods themselves; 6.53 GiB of the 10.80 GiB slice budget goes to weights, activations and CUDA graphs |
 | Four production alerts? | (1) `admitperf_gate_recording == 0` — deciding but not logging; (2) `vllm:num_preemptions > 0` — the gate admitted more than the fleet holds; (3) hop count flat while prefill tokens rise — the transport silently stopped; (4) p99 time-to-first-audio > 1.5 s — the only SLO the listener can hear |
 | If I scale, which pool? | [Part 2](#if-we-scale-which-pool) — prefill tokens → prefill, decode slots → decode |
 | At 10× traffic, and three wrong knobs? | **Right:** a bigger card so int4 is no longer forced, then a second prefill pod, then shard sessions by tenant. **Wrong:** raising `max_num_seqs` (the scheduler is not the limit), adding an identical replica (costs 5.2 GiB of weights out of fleet KV), raising the admission threshold (defers the wall, does not move it) |
