@@ -5,12 +5,13 @@
 #   make ssh            tunnel — Grafana, the app and the fleet in your browser
 #   make test           run the control plane here, no GPU needed
 #   make load           run a load test ON THE BOX, pull the bundle back
+#   make logs           pod logs; prints and exits, so it pipes into grep
 #   make clean          wipe the box back to bare metal
 #
 # Anything more specific is a plain python or bash line in docs/COMMANDS.md.
 # Make is the workflow, not a menu.
 .DEFAULT_GOAL := help
-.PHONY: help cluster observability ssh test load clean
+.PHONY: help cluster observability ssh test load logs clean
 
 SHELL := /usr/bin/env bash
 SETUP := infra/cluster/setup
@@ -29,6 +30,7 @@ help:
 	@echo "   make ssh            tunnel — Grafana :31495, app :30030, fleet :30800"
 	@echo "   make test           run the control plane here, no GPU needed"
 	@echo "   make load           load test ON THE BOX  (ARGS=\"--sessions 32\")"
+	@echo "   make logs           pod logs  (ARGS=\"decode --follow\")"
 	@echo "   make clean          wipe the box: workloads, helm, k3s, engines"
 	@echo ""
 	@echo "  First run:  cp .env.example .env   # set BOX and SSH_KEY"
@@ -59,6 +61,10 @@ load:
 	@bash $(SETUP)/up.sh load $(if $(ARGS),$(ARGS),$(LOAD_ARGS))
 
 # Keeps the HuggingFace cache; those weights are on disk, not the GPU.
+# Prints and exits so it can be piped:  make logs | grep -i hcas
+logs:
+	@bash $(SETUP)/up.sh logs $(ARGS)
+
 clean:
 	@bash $(SETUP)/up.sh clean
 

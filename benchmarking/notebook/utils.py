@@ -196,18 +196,26 @@ class Cluster:
         return body
 
     def sample(self, prompt: str, n: int = 10, *, max_tokens: int = 16,
-               warmup: int = 1) -> list[float]:
+               warmup: int = 1, unique: bool = False) -> list[float]:
         """Latency of n sequential completions, in seconds.
 
         `warmup` calls are discarded: the first request through a cold prefix
         cache pays for the whole prompt and would dominate a p95 taken over ten.
         Sequential, not concurrent — this measures latency, not throughput.
+
+        `unique` prefixes every call with a different nonce, so vLLM's prefix
+        cache cannot serve the repeat. Required for anything that claims to
+        measure prompt-processing cost: with a shared prompt, calls 2..n are
+        cache hits and the result is flat whether or not KV ever moved.
         """
-        for _ in range(warmup):
-            self.chat(prompt, max_tokens=max_tokens)
+        def body(i: int) -> str:
+            return f"[{i}] {prompt}" if unique else prompt
+
+        for i in range(warmup):
+            self.chat(body(-1 - i), max_tokens=max_tokens)
         out = []
-        for _ in range(n):
-            r = self.chat(prompt, max_tokens=max_tokens)
+        for i in range(n):
+            r = self.chat(body(i), max_tokens=max_tokens)
             if "_error" in r:
                 # Surfaced, not dropped. A sweep that silently skips the lengths
                 # that failed draws a flat line and calls it a result.
@@ -215,6 +223,32 @@ class Cluster:
                 continue
             out.append(r["_latency_s"])
         return out
+
+    def kv_transfer(self, pool: str = "decode") -> dict[str, float]:
+        """Whether the KV connector has ever delivered a block.
+
+        vLLM counts these itself, which makes the hop question a measurement
+        rather than a reading of startup logs:
+
+            external_prefix_cache_queries_total   the connector was asked
+            external_prefix_cache_hits_total      it returned blocks
+            prompt_tokens_by_source{external_kv_transfer}
+                                                  tokens that arrived as KV
+
+        queries > 0 with hits == 0 is the unambiguous case: the connector is
+        wired up, is being consulted, and is moving nothing.
+        """
+        m = self.pool_metrics(pool)
+        return {
+            "queries": sum_by_name(m, "vllm:external_prefix_cache_queries_total"),
+            "hits": sum_by_name(m, "vllm:external_prefix_cache_hits_total"),
+            "tokens_from_transfer": sum(
+                v for k, v in m.items()
+                if k.startswith("vllm:prompt_tokens_by_source_total")
+                and 'source="external_kv_transfer"' in k),
+            "local_hits": sum_by_name(m, "vllm:prefix_cache_hits_total"),
+            "local_queries": sum_by_name(m, "vllm:prefix_cache_queries_total"),
+        }
 
     def kv_usage(self) -> dict[str, float]:
         """kv_cache_usage_perc per pool. The signal admission reads."""

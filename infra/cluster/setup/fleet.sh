@@ -38,6 +38,21 @@ nvidia-smi --query-compute-apps=pid,used_memory --format=csv
 # Overhead does not extrapolate between the two — CUDA-graph capture scales
 # with available memory — so the per-slice figure is the only usable one.
 echo
+echo "== KV connector =="
+# The single fact that decides whether the hop moves bytes. Buried in a startup
+# log otherwise, and "No RDMA devices found" is a silent downgrade to TCP.
+for pool in prefill decode; do
+  found=$(kubectl logs -l "app=vllm-$pool" --tail=400 2>/dev/null \
+          | grep -iE "HCAs|Using .* transport|No RDMA devices" | tail -2)
+  printf '  %-8s %s\n' "$pool" "${found:-no Mooncake lines — connector did not initialise}"
+done
+cat <<'NOTE'
+    >=1 HCAs + RDMA transport   the fast path
+    0 HCAs + TCP transport      works, but /dev/infiniband is not in the pod
+    no lines at all             no connector: decode re-prefills
+NOTE
+
+echo
 echo "== capacity, measured on a slice =="
 slice_mib=$(sed -n 's/.*nvidia\.com\/gpumem: *"\([0-9]*\)".*/\1/p' \
   "$ROOT/k8s/fleet/vllm-decode.yaml" | head -1)

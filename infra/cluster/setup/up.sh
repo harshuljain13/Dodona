@@ -6,7 +6,7 @@
 #   up.sh tunnel          forward the box's ports to this Mac
 #   up.sh engine          ONE worker on the whole card, for comparison only
 #   up.sh down            stop the engine and Open WebUI
-#   up.sh logs [prefill|decode]   follow the pods, or the whole-card engine
+#   up.sh logs [pool] [--follow]  pod logs; prints and exits so it can be piped
 #   up.sh check           re-run the capacity checks against the whole-card engine
 #   up.sh load [args]     run a load test ON THE BOX, pull the bundle back
 #   up.sh clean           wipe the box back to bare metal
@@ -183,15 +183,30 @@ cmd_down() {
   echo "    The box is still billing. Stop the instance in your provider's console."
 }
 
-# Follows whatever is actually serving: the pods if the fleet is up, otherwise
-# the whole-card engine's log. $1 picks a pool, default prefill.
+# Whatever is actually serving: the pods if the fleet is up, otherwise the
+# whole-card engine's log. PRINTS AND EXITS by default so it can be piped into
+# grep — a log you cannot pipe is a log you have to read by eye.
+#
+#   up.sh logs                        last 200 lines of prefill, then exit
+#   up.sh logs decode                 the other pool
+#   up.sh logs prefill --follow       tail it
 cmd_logs() {
-  local pool="${1:-prefill}"
-  exec "${SSH[@]}" -t "$BOX" "
-    if sudo test -f /etc/rancher/k3s/k3s.yaml &&        sudo k3s kubectl get deploy vllm-$pool >/dev/null 2>&1; then
-      sudo k3s kubectl logs -f -l app=vllm-$pool --tail=60
-    else
+  local pool="prefill" follow=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+      -f|--follow)    follow=1 ;;
+      prefill|decode) pool="$arg" ;;
+    esac
+  done
+  local flags="--tail=200"
+  (( follow )) && flags="-f --tail=60"
+  exec "${SSH[@]}" "$BOX" "
+    if sudo test -f /etc/rancher/k3s/k3s.yaml && sudo k3s kubectl get deploy vllm-$pool >/dev/null 2>&1; then
+      sudo k3s kubectl logs $flags -l app=vllm-$pool
+    elif [ $follow -eq 1 ]; then
       tail -f ~/$REMOTE_DIR/$ENGINE_LOG
+    else
+      tail -200 ~/$REMOTE_DIR/$ENGINE_LOG
     fi"
 }
 
@@ -236,7 +251,7 @@ main() {
     engine)        cmd_engine ;;
     tunnel)        open_tunnel ;;
     down)          cmd_down ;;
-    logs)          cmd_logs "${2:-}" ;;
+    logs)          shift; cmd_logs "$@" ;;
     check)         cmd_check ;;
     clean)         cmd_clean ;;
     load)          shift; cmd_load "$@" ;;
