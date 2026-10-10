@@ -219,7 +219,7 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Restarts",
+      "title": "Restarts (last hour)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -236,7 +236,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "kube_pod_container_status_restarts_total{pod=~\"vllm-.*|orch-serve.*|open-webui.*\"}",
+          "expr": "increase(kube_pod_container_status_restarts_total{pod=~\"vllm-.*|orch-serve.*|open-webui.*\"}[1h])",
           "refId": "A",
           "legendFormat": "{{pod}}"
         }

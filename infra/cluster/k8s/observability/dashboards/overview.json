@@ -323,9 +323,18 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_pick_total",
+          "expr": "sum(rate(orch_pick_total[5m]))",
           "refId": "A",
-          "legendFormat": "picks"
+          "legendFormat": "picks / s"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(orch_shed_total[5m]))",
+          "refId": "B",
+          "legendFormat": "sheds / s"
         }
       ],
       "options": {
@@ -392,7 +401,7 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "KV transfer + evict",
+      "title": "KV transfer vs evict",
       "gridPos": {
         "h": 9,
         "w": 8,
@@ -409,9 +418,18 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_kv_transfer_total",
+          "expr": "sum(rate(orch_kv_transfer_total[5m]))",
           "refId": "A",
-          "legendFormat": "transfer"
+          "legendFormat": "hops recorded / s"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(orch_kv_evict_total[5m]))",
+          "refId": "B",
+          "legendFormat": "evicts / s"
         }
       ],
       "options": {
@@ -435,7 +453,7 @@
     {
       "id": 10,
       "type": "timeseries",
-      "title": "KV evicts",
+      "title": "Blind placements",
       "gridPos": {
         "h": 9,
         "w": 4,
@@ -452,9 +470,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_kv_evict_total",
+          "expr": "sum(rate(orch_pick_unknown_snapshot_total[5m]))",
           "refId": "A",
-          "legendFormat": "evict"
+          "legendFormat": "no snapshot / s"
         }
       ],
       "options": {

@@ -141,7 +141,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (reason, code) (orch_shed_total)",
+          "expr": "sum by (reason, code) (rate(orch_shed_total[5m]))",
           "refId": "A",
           "legendFormat": "{{reason}} {{code}}"
         }
@@ -184,7 +184,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (capability) (orch_place_total)",
+          "expr": "sum by (capability) (rate(orch_place_total[5m]))",
           "refId": "A",
           "legendFormat": "{{capability}}"
         }

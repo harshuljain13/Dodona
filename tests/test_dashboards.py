@@ -68,3 +68,53 @@ def test_rate_wraps_the_range_vector_not_the_aggregation() -> None:
                 expr = target.get("expr", "")
                 assert not re.search(r"\b(rate|irate|increase)\s*\(\s*sum", expr), (
                     f"{path.name} / {panel.get('title')!r}: {expr}")
+
+
+def test_a_panel_title_promising_two_series_plots_two() -> None:
+    """"X vs Y" and "X + Y" must have at least two targets.
+
+    The overview had "Picks vs sheds" plotting only picks, and
+    "KV transfer + evict" plotting only transfer — while a separate panel
+    plotted evicts. So "evict" appeared in two titles and was drawn once.
+    """
+    import json
+    import re
+
+    for path in sorted(DEST.glob("*.json")):
+        for panel in json.loads(path.read_text()).get("panels", []):
+            title = str(panel.get("title", ""))
+            if not re.search(r"\b(vs|versus)\b|\+", title):
+                continue
+            targets = [t for t in panel.get("targets", []) if t.get("expr")]
+            # One target can still draw several series: `by (stage)` with a
+            # {{stage}} legend fans out. Two targets, or a templated legend.
+            fans_out = any("{{" in t.get("legendFormat", "") for t in targets)
+            assert len(targets) >= 2 or fans_out, (
+                f"{path.name} / {title!r} promises two series but plots one "
+                "with a fixed legend")
+
+
+def test_counters_are_plotted_as_rates_not_raw() -> None:
+    """A _total counter drawn raw is a line that only ever climbs.
+
+    It looks flat on any window short enough to be useful, and it looks
+    identical whether traffic is flowing or the cluster is idle. Gauges are
+    exempt — orch_kv_free_ratio and orch_tokens_in_flight are instantaneous.
+    """
+    import json
+
+    gauges = ("orch_kv_free_ratio", "orch_tokens_in_flight",
+              "orch_planner_desired_replicas", "orch_replica")
+    offenders = []
+    for path in sorted(DEST.glob("*.json")):
+        for panel in json.loads(path.read_text()).get("panels", []):
+            if panel.get("type") == "stat":
+                continue           # a stat showing a running total is fine
+            for target in panel.get("targets", []):
+                expr = target.get("expr", "")
+                if "_total" not in expr or any(g in expr for g in gauges):
+                    continue
+                if not any(f in expr for f in ("rate(", "irate(", "increase(",
+                                               "histogram_quantile")):
+                    offenders.append(f"{path.name} / {panel.get('title')}: {expr}")
+    assert not offenders, "counters drawn raw:\n  " + "\n  ".join(offenders)

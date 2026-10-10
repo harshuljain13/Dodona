@@ -190,7 +190,12 @@ def overview() -> dict:
             _panel(4, "Overflow / s", "sum(rate(orch_overflow_total[5m]))", x=18, y=0, w=6, h=5, kind="stat"),
             _panel(5, "KV free (min replica)", "orch_kv_free_ratio", x=0, y=5, w=8, h=8),
             _panel(6, "Tokens in flight", "orch_tokens_in_flight", legend="{{phase}}", x=8, y=5, w=8, h=8),
-            _panel(7, "Picks vs sheds", "orch_pick_total", legend="picks", x=16, y=5, w=8, h=8),
+            # Both series, because the title promises both. It plotted only picks,
+            # and as a raw counter — which climbs forever and says nothing about
+            # what is happening now. Everything here is a rate for that reason.
+            _panel(7, "Picks vs sheds", "sum(rate(orch_pick_total[5m]))", legend="picks / s",
+                   x=16, y=5, w=8, h=8,
+                   extra=[("sum(rate(orch_shed_total[5m]))", "sheds / s")]),
             _panel(
                 8,
                 "p95 latency by stage",
@@ -201,8 +206,15 @@ def overview() -> dict:
                 w=12,
                 h=9,
             ),
-            _panel(9, "KV transfer + evict", "orch_kv_transfer_total", legend="transfer", x=12, y=13, w=8, h=9),
-            _panel(10, "KV evicts", "orch_kv_evict_total", legend="evict", x=20, y=13, w=4, h=9),
+            _panel(9, "KV transfer vs evict", "sum(rate(orch_kv_transfer_total[5m]))",
+                   legend="hops recorded / s", x=12, y=13, w=8, h=9,
+                   extra=[("sum(rate(orch_kv_evict_total[5m]))", "evicts / s")]),
+            # Evicts had their own panel while panel 9's title also claimed them,
+            # so "evict" appeared twice and was plotted once. The freed slot goes
+            # to the placement signal nothing else on this dashboard shows:
+            # picks made with no usable snapshot are effectively random.
+            _panel(10, "Blind placements", "sum(rate(orch_pick_unknown_snapshot_total[5m]))",
+                   legend="no snapshot / s", x=20, y=13, w=4, h=9),
         ],
         ["dodona", "metrics.py", "overview"],
     )
@@ -214,8 +226,10 @@ def gateway() -> dict:
         [
             _panel(1, "Admit rate", "sum(rate(orch_requests_total[5m]))", x=0, y=0, w=8, h=6, kind="stat"),
             _panel(2, "Completed", "orch_completed_total", x=8, y=0, w=8, h=6, kind="stat"),
-            _panel(3, "Sheds by reason", "sum by (reason, code) (orch_shed_total)", legend="{{reason}} {{code}}", x=16, y=0, w=8, h=6),
-            _panel(4, "Place by capability", "sum by (capability) (orch_place_total)", legend="{{capability}}", x=0, y=6, w=12, h=8),
+            _panel(3, "Sheds by reason", "sum by (reason, code) (rate(orch_shed_total[5m]))",
+                   legend="{{reason}} {{code}}", x=16, y=0, w=8, h=6),
+            _panel(4, "Place by capability", "sum by (capability) (rate(orch_place_total[5m]))",
+                   legend="{{capability}}", x=0, y=6, w=12, h=8),
             _panel(
                 5,
                 "Gateway p50 / p95 / p99",
@@ -290,11 +304,15 @@ def replicas() -> dict:
             _panel(4, "Pod phase", f"kube_pod_status_phase{{{pod}}}", legend="{{pod}} {{phase}}", x=12, y=8, w=12, h=8),
             _panel(5, "Replica healthy", "orch_replica_healthy", legend="{{pool}} {{pod}}", x=0, y=16, w=8, h=8),
             _panel(6, "Replica saturating", "orch_replica_saturating", legend="{{pool}} {{pod}}", x=8, y=16, w=8, h=8),
-            _panel(7, "Restarts", f"kube_pod_container_status_restarts_total{{{pod}}}", legend="{{pod}}", x=16, y=16, w=8, h=8),
+            _panel(7, "Restarts (last hour)",
+                   f"increase(kube_pod_container_status_restarts_total{{{pod}}}[1h])",
+                   legend="{{pod}}", x=16, y=16, w=8, h=8),
             _panel(8, "KV free by pod", "orch_replica_kv_free_ratio", legend="{{pool}} {{pod}}", x=0, y=24, w=12, h=8),
             _panel(9, "Tokens / waiting / running", "orch_replica_tokens_in_flight", legend="tokens {{pod}}", x=12, y=24, w=12, h=8),
             _panel(10, "Queue depth by pod", "orch_replica_queue_depth", legend="{{pod}}", x=0, y=32, w=12, h=8),
-            _panel(11, "Waiting vs running", "orch_replica_waiting or orch_replica_running", legend="{{pod}}", x=12, y=32, w=12, h=8),
+            _panel(11, "Waiting vs running", "orch_replica_waiting", legend="waiting {{pod}}",
+                   x=12, y=32, w=12, h=8,
+                   extra=[("orch_replica_running", "running {{pod}}")]),
         ],
         ["dodona", "replicas", "pods"],
     )
@@ -447,7 +465,9 @@ def cluster() -> dict:
             _panel(2, "CPU (node-exporter)", '1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))', x=8, y=0, w=8, h=6, kind="stat", unit="percentunit"),
             _panel(3, "Mem available", "node_memory_MemAvailable_bytes", x=16, y=0, w=8, h=6, kind="stat", unit="decbytes"),
             _panel(4, "Pods by phase", "sum by (phase) (kube_pod_status_phase)", legend="{{phase}}", x=0, y=6, w=12, h=8),
-            _panel(5, "Restarts", f"kube_pod_container_status_restarts_total{{{pod}}}", legend="{{pod}}", x=12, y=6, w=12, h=8),
+            _panel(5, "Restarts (last hour)",
+                   f"increase(kube_pod_container_status_restarts_total{{{pod}}}[1h])",
+                   legend="{{pod}}", x=12, y=6, w=12, h=8),
             _panel(
                 6,
                 "Container CPU",
