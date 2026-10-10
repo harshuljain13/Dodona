@@ -16,6 +16,12 @@
 # Everything it does remotely is one of the scripts in cluster/setup/, run over
 # ssh. Nothing here is a second implementation of those — if a step is wrong,
 # fix the script, not this file.
+# Bash, not sh. This uses arrays and [[ ]]; under dash the array assignment
+# below is a syntax error at line ~40 and the message points nowhere useful.
+if [ -z "${BASH_VERSION:-}" ]; then
+  echo "up.sh needs bash:  bash cluster/setup/up.sh   (or just: make engine)" >&2
+  exit 1
+fi
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"   # project root
