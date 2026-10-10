@@ -32,11 +32,11 @@ runs before scoring, and two shortcuts can exit early.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#ecfdf5','actorBorder':'#059669','actorTextColor':'#0f172a','actorLineColor':'#d1fae5',
-  'signalColor':'#64748b','signalTextColor':'#1e293b',
-  'noteBkgColor':'#f0fdf4','noteBorderColor':'#16a34a','noteTextColor':'#0f172a',
-  'activationBkgColor':'#d1fae5','activationBorderColor':'#047857',
-  'labelBoxBkgColor':'#ffffff','labelBoxBorderColor':'#a7f3d0','labelTextColor':'#0f172a',
+  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
+  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
+  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
   'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
 }}}%%
 sequenceDiagram
@@ -114,11 +114,11 @@ Where each rejection is decided, and how far the request got:
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#ecfdf5','actorBorder':'#059669','actorTextColor':'#0f172a','actorLineColor':'#d1fae5',
-  'signalColor':'#64748b','signalTextColor':'#1e293b',
-  'noteBkgColor':'#f0fdf4','noteBorderColor':'#16a34a','noteTextColor':'#0f172a',
-  'activationBkgColor':'#d1fae5','activationBorderColor':'#047857',
-  'labelBoxBkgColor':'#ffffff','labelBoxBorderColor':'#a7f3d0','labelTextColor':'#0f172a',
+  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
+  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
+  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
   'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
 }}}%%
 sequenceDiagram

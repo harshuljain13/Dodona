@@ -72,11 +72,11 @@ Detailed C4 levels are in [`PROJECT.md`](PROJECT.md#architecture).
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
-  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
-  'lineColor':'#94a3b8','textColor':'#1e293b',
-  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
+  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
+  'lineColor':'#64748b','textColor':'#1e293b',
+  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
 }}}%%
 flowchart LR
     USER(["Listener<br/>speaks a question"])
@@ -135,22 +135,28 @@ flowchart LR
     class OBS neutral
     class REP success
 
-    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
-    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
-    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
-    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
-    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
-    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
-    linkStyle default stroke:#94a3b8,stroke-width:1.5px
+    classDef actor  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef input  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef ext    fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef accent fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef ours   fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef primary fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef alt    fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef gate   fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef decision fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef engine fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef store  fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef data   fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef obs    fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef neutral fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef out    fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef success fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef highlight fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#312e81
+    classDef pick   fill:#dcfce7,stroke:#15803d,stroke-width:3px,color:#14532d
+    classDef dead   fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    classDef note   fill:#ffffff,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    linkStyle default stroke:#64748b,stroke-width:1.6px
 ```
 
 Deepgram sits outside the GPU box on purpose: speech is a **network constant**,
@@ -214,11 +220,11 @@ the project.**
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
-  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
-  'lineColor':'#94a3b8','textColor':'#1e293b',
-  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
+  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
+  'lineColor':'#64748b','textColor':'#1e293b',
+  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
 }}}%%
 flowchart TD
     Q{"Which track?"}
@@ -249,22 +255,28 @@ flowchart TD
     class A,AB dead
     class AX,ABX,VX note
 
-    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
-    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
-    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
-    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
-    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
-    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
-    linkStyle default stroke:#94a3b8,stroke-width:1.5px
+    classDef actor  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef input  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef ext    fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef accent fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef ours   fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef primary fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef alt    fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef gate   fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef decision fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef engine fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef store  fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef data   fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef obs    fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef neutral fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef out    fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef success fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef highlight fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#312e81
+    classDef pick   fill:#dcfce7,stroke:#15803d,stroke-width:3px,color:#14532d
+    classDef dead   fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    classDef note   fill:#ffffff,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    linkStyle default stroke:#64748b,stroke-width:1.6px
 ```
 
 Track A's requests are one-shot: what a request costs at arrival is what it costs
@@ -361,11 +373,11 @@ average request size.** Admission matters in the first regime and not the second
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
-  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
-  'lineColor':'#94a3b8','textColor':'#1e293b',
-  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
+  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
+  'lineColor':'#64748b','textColor':'#1e293b',
+  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
 }}}%%
 flowchart TD
     G["1 · GPU<br/>1 × A100-40GB · one node"]
@@ -402,22 +414,28 @@ flowchart TD
     class FX dead
     class GX,MX,QX,PX note
 
-    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
-    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
-    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
-    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
-    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
-    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
-    linkStyle default stroke:#94a3b8,stroke-width:1.5px
+    classDef actor  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef input  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef ext    fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef accent fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef ours   fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef primary fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef alt    fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef gate   fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef decision fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef engine fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef store  fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef data   fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef obs    fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef neutral fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef out    fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef success fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef highlight fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#312e81
+    classDef pick   fill:#dcfce7,stroke:#15803d,stroke-width:3px,color:#14532d
+    classDef dead   fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    classDef note   fill:#ffffff,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    linkStyle default stroke:#64748b,stroke-width:1.6px
 ```
 
 Two boxes deserve reading twice.
@@ -485,11 +503,11 @@ We set engine flags. We do not reimplement its scheduler.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
-  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
-  'lineColor':'#94a3b8','textColor':'#1e293b',
-  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
+  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
+  'lineColor':'#64748b','textColor':'#1e293b',
+  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
 }}}%%
 flowchart TD
     S{"Topology on one 40 GiB card<br/>≥2 workers · want hop AND placement"}
@@ -516,22 +534,28 @@ flowchart TD
     class A,C,D dead
     class AX,CX,DX note
 
-    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
-    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
-    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
-    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
-    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
-    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
-    linkStyle default stroke:#94a3b8,stroke-width:1.5px
+    classDef actor  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef input  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef ext    fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef accent fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef ours   fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef primary fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef alt    fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef gate   fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef decision fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef engine fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef store  fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef data   fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef obs    fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef neutral fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef out    fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef success fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef highlight fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#312e81
+    classDef pick   fill:#dcfce7,stroke:#15803d,stroke-width:3px,color:#14532d
+    classDef dead   fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    classDef note   fill:#ffffff,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    linkStyle default stroke:#64748b,stroke-width:1.6px
 ```
 
 **One prefill worker is enough** because prefill builds KV and frees it
@@ -604,11 +628,11 @@ overspending, not a capacity event.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
-  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
-  'lineColor':'#94a3b8','textColor':'#1e293b',
-  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
+  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
+  'lineColor':'#64748b','textColor':'#1e293b',
+  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
 }}}%%
 flowchart TD
     S{"What does the policy read?"}
@@ -635,22 +659,28 @@ flowchart TD
     class QD,TQ,DL alt
     class QDX,DLX,TQX note
 
-    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
-    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
-    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
-    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
-    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
-    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
-    linkStyle default stroke:#94a3b8,stroke-width:1.5px
+    classDef actor  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef input  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef ext    fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef accent fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef ours   fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef primary fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef alt    fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef gate   fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef decision fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef engine fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef store  fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef data   fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef obs    fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef neutral fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef out    fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef success fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef highlight fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#312e81
+    classDef pick   fill:#dcfce7,stroke:#15803d,stroke-width:3px,color:#14532d
+    classDef dead   fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    classDef note   fill:#ffffff,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    linkStyle default stroke:#64748b,stroke-width:1.6px
 ```
 
 Admission is a **socket, not a rule** — `ADMISSION_POLICY` selects from
@@ -685,11 +715,11 @@ input**, as the brief requires.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
-  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
-  'lineColor':'#94a3b8','textColor':'#1e293b',
-  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
+  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
+  'lineColor':'#64748b','textColor':'#1e293b',
+  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
 }}}%%
 flowchart TD
     S{"Which policy?"}
@@ -715,22 +745,28 @@ flowchart TD
     class P2C dead
     class P2CX note
 
-    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
-    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
-    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
-    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
-    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
-    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
-    linkStyle default stroke:#94a3b8,stroke-width:1.5px
+    classDef actor  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef input  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef ext    fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef accent fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef ours   fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef primary fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef alt    fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef gate   fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef decision fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef engine fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef store  fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef data   fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef obs    fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef neutral fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef out    fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef success fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef highlight fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#312e81
+    classDef pick   fill:#dcfce7,stroke:#15803d,stroke-width:3px,color:#14532d
+    classDef dead   fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    classDef note   fill:#ffffff,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    linkStyle default stroke:#64748b,stroke-width:1.6px
 ```
 
 | Pool | Scorers, in order |
@@ -812,11 +848,11 @@ is phase separation, and `gpucores` time-slicing only partly delivers that.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
-  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
-  'lineColor':'#94a3b8','textColor':'#1e293b',
-  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
+  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
+  'lineColor':'#64748b','textColor':'#1e293b',
+  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
 }}}%%
 flowchart TD
     S{"Hop backend"}
@@ -838,22 +874,28 @@ flowchart TD
     class NC,NX dead
     class NCX note
 
-    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
-    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
-    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
-    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
-    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
-    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
-    linkStyle default stroke:#94a3b8,stroke-width:1.5px
+    classDef actor  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef input  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef ext    fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef accent fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef ours   fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef primary fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef alt    fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef gate   fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef decision fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef engine fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef store  fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef data   fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef obs    fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef neutral fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#334155
+    classDef out    fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef success fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    classDef highlight fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#312e81
+    classDef pick   fill:#dcfce7,stroke:#15803d,stroke-width:3px,color:#14532d
+    classDef dead   fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    classDef note   fill:#ffffff,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
+    linkStyle default stroke:#64748b,stroke-width:1.6px
 ```
 
 ### Is it actually warm?

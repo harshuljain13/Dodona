@@ -28,11 +28,11 @@ prompt; the work is in the wiring ([Part 7](07-wiring.md)).
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
-  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
-  'lineColor':'#94a3b8','textColor':'#1e293b',
-  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
+  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
+  'lineColor':'#64748b','textColor':'#1e293b',
+  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
 }}}%%
 flowchart LR
     Q["question"] --> T1["turn 1<br/>plan, call web_search"]

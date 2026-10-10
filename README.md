@@ -79,52 +79,134 @@ the policy could have fired at all.
 
 ## How it works
 
+One turn, three times over — cheap, expensive, and refused. The numbers on each
+line are the ones from [the arithmetic](docs/project/01-capacity.md); they are
+*predicted* until stage 10 measures them.
+
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'15px','lineColor':'#94a3b8',
-  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0','edgeLabelBackground':'#ffffff'}}}%%
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#ffffff','noteBorderColor':'#94a3b8','noteTextColor':'#1e293b',
+  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a'}}}%%
+sequenceDiagram
+    autonumber
+    actor L as 🎙 Listener
+    participant DG as Deepgram<br/>off-GPU
+    participant AG as Research<br/>agent
+    participant CP as Control<br/>plane
+    participant E as vLLM fleet<br/>1 prefill · 2 decode
+
+    rect rgb(240, 253, 244)
+    Note over L,E: TURN 1 — cheap. The 1k system prompt is a shared prefix, identical every turn.
+    L->>DG: "which herbs interact with warfarin?"
+    DG->>AG: text · ~40 tokens
+    AG->>CP: completion · ~1,040 tokens
+    CP->>CP: kv_pressure 0.18 < 0.90 → ADMIT
+    CP->>E: place → prefill-0, hop → decode-1
+    E-->>AG: tool_call · web_search
+    AG-->>DG: "let me look that up"
+    DG-->>L: ✅ first audio in < 1 s
+    end
+
+    rect rgb(255, 251, 235)
+    Note over L,E: TURN 3 — one fetched source arrives as a single 12k prefill.
+    AG->>CP: completion · ~14,000 tokens
+    CP->>CP: kv_pressure 0.81 < 0.90 → ADMIT
+    CP->>E: 0.66 GiB of KV — 14% of a decode worker
+    E-->>AG: answer, with citations
+    DG-->>L: ✅ full answer in 10–30 s
+    end
+
+    rect rgb(254, 242, 242)
+    Note over L,E: UNDER LOAD — 14 sessions against a pool of 11. The cache is the limit.
+    AG->>CP: completion · ~15,400 tokens
+    CP->>CP: kv_pressure 0.93 ≥ 0.90 → REFUSE
+    CP-->>AG: 503 · reason=kv_free · retry_after=2s
+    DG-->>L: 🔇 "I'm at capacity" — spoken, not dead air
+    end
+
+    Note over CP: Every one of those three decisions<br/>writes down the value it read.
+```
+
+**Read the third block first.** It is the one the project exists for. A cluster
+without a control plane does not refuse — it accepts all fourteen, the queue
+fills, every listener waits, and nobody is told why. Refusing one caller out loud
+is the better failure, and you only get to choose it if something is watching the
+cache.
+
+And `0.18 → 0.81 → 0.93` is the other half: **the signal has to actually move.**
+If it sat at 0.02 all run, the policy was installed and inert, and no dashboard
+would have told you.
+
+<details>
+<summary><b>The same thing as a component diagram</b></summary>
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'14px',
+  'lineColor':'#64748b','clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
+  'edgeLabelBackground':'#ffffff'}}}%%
 flowchart LR
     L(["Listener"])
-    STT["Deepgram STT"]
-    AG[["Research agent"]]
-    TTS["Deepgram TTS"]
-    AP[["AdmitPerf"]]
+    DG["Deepgram<br/>STT · TTS"]
+    AG[["Research agent<br/>search · fetch · cite"]]
 
-    subgraph CP["control plane &nbsp;·&nbsp; ours"]
+    subgraph CP["Control plane — what we write"]
         direction LR
-        GD[/"guard"/] --> AD{"admit"} --> PL["place"] --> HP["hop"]
+        GD[/"guard<br/>malformed → 400"/]
+        AD{"admit<br/>kv_pressure ≥ 0.90?"}
+        PL["place<br/>which decode replica"]
+        HP["hop<br/>KV over Mooncake"]
+        GD -->|"well-formed"| AD -->|"admitted"| PL --> HP
     end
 
-    subgraph GPU["1 × A100-40GB &nbsp;·&nbsp; three slices"]
+    AP[["AdmitPerf<br/>policy + decision log"]]
+    RF(["503 · kv_free"])
+    RP(["run report<br/>SIGNAL LIVENESS"])
+
+    subgraph GPU["1 × A100-40GB — three HAMi slices of 12 GiB"]
         direction LR
-        PF["prefill ×1"] --> MC[("Mooncake")] --> DC["decode ×2"]
+        PF["vLLM prefill ×1<br/>builds KV, frees it"]
+        MC[("Mooncake<br/>KV store")]
+        DC["vLLM decode ×2<br/>4.80 GiB KV · 5.5 seq each"]
+        PF -->|"0.66 GiB"| MC --> DC
     end
 
-    L --> STT --> AG --> GD
+    L --> DG --> AG --> GD
     HP --> PF
-    DC --> AG --> TTS --> L
-    AD <--> AP
-    DC -. "kv&nbsp;pressure" .-> AD
+    DC -->|"tokens"| AG --> DG --> L
+    AD -->|"refused"| RF
+    AD <-->|"decide(req, state)"| AP --> RP
+    DC -. "kv_cache_usage_perc" .-> AD
 
-    class L,STT,TTS edge
-    class AG,AP ours
+    class L actor
+    class DG,AG ext
     class GD,PL,HP ours
     class AD gate
     class PF,DC engine
     class MC store
+    class AP highlight
+    class RF dead
+    class RP out
 
-    classDef ours   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#064e3b
-    classDef gate   fill:#ffffff,stroke:#047857,stroke-width:2.5px,color:#064e3b
-    classDef engine fill:#f8fafc,stroke:#94a3b8,stroke-width:1.5px,color:#334155
-    classDef store  fill:#f8fafc,stroke:#94a3b8,stroke-width:1.5px,color:#334155
-    classDef edge   fill:#ffffff,stroke:#cbd5e1,stroke-width:1.5px,color:#64748b
-    linkStyle default stroke:#94a3b8,stroke-width:1.5px
+    classDef actor  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    classDef ext    fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef ours   fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    classDef gate   fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
+    classDef engine fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef store  fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef highlight fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#312e81
+    classDef dead   fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    classDef out    fill:#f0fdfa,stroke:#0d9488,stroke-width:2px,color:#134e4a
+    linkStyle default stroke:#64748b,stroke-width:1.6px
 ```
 
-**Green is ours, grey we only configure.** The one dashed edge is the whole
-point: `admit` reads live KV pressure off the decode pool, so its verdict depends
-on what the workers are actually doing — and the value it read is stored next to
-the verdict.
+🔵 what we write · 🟢 the engine, configured not touched · 🟠 KV storage ·
+🟡 the decision · 🟣 off-GPU · 🔴 a refusal
+
+</details>
 
 ## The numbers
 
