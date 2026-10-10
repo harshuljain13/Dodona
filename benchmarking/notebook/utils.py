@@ -28,7 +28,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
+import sys
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
+# slos.py lives in benchmarking/, this file in benchmarking/notebook/.
+sys.path.insert(0, str(REPO_ROOT / "benchmarking"))
 REPORTS = REPO_ROOT / "benchmarking" / "reports"
 
 #: Through the tunnel from a laptop; on the box these are all localhost anyway.
@@ -298,6 +302,26 @@ class Report:
                 print(f"  -- {note}")
         return self
 
+    def slo(self, key: str, measured: float, *, note: str = "",
+            show: bool = True) -> "Report":
+        """Check a measurement against the promise in slos.py.
+
+        Records as a verdict, so 99-report can aggregate every SLO check across
+        every notebook without each one inventing its own threshold.
+        """
+        from slos import SLOS
+
+        s = SLOS[key]
+        ok = s.met(measured)
+        self.blocks.append(_Block("slo", (ok, s.label, s.describe(measured), s.why)))
+        if show:
+            print(f"  {'MET ' if ok else 'MISS'}  {s.label:<28} {s.describe(measured)}")
+            if not ok:
+                print(f"        why it matters: {s.why}")
+        if note:
+            self.text(note, show=show)
+        return self
+
     def verdict(self, ok: bool, text: str, *, show: bool = True) -> "Report":
         """A pass/fail line. The point of a sanity report is the verdicts."""
         self.blocks.append(_Block("verdict", (ok, text)))
@@ -360,6 +384,12 @@ class Report:
             elif b.kind == "verdict":
                 ok, msg = b.payload
                 lines.append(("pass" if ok else "fail", f"{'PASS' if ok else 'FAIL'}  {msg}"))
+            elif b.kind == "slo":
+                ok, label, detail, why = b.payload
+                lines.append(("pass" if ok else "fail",
+                              f"{'MET ' if ok else 'MISS'}  {label:<28} {detail}"))
+                if not ok:
+                    lines.append(("text", f"      {why}"))
             elif b.kind == "links":
                 for name, url in b.payload:
                     lines.append(("text", f"  {name}"))
@@ -429,8 +459,31 @@ class Report:
         return out
 
     def failures(self) -> list[str]:
-        return [msg for b in self.blocks if b.kind == "verdict"
-                for ok, msg in [b.payload] if not ok]
+        """Everything that did not pass — plain verdicts and missed SLOs."""
+        out = []
+        for b in self.blocks:
+            if b.kind == "verdict" and not b.payload[0]:
+                out.append(b.payload[1])
+            elif b.kind == "slo" and not b.payload[0]:
+                out.append(f"SLO MISSED — {b.payload[1]}: {b.payload[2]}")
+        return out
+
+    def objective(self, question: str, *, slos: list[str] = (),
+                  falsified_by: str = "", show: bool = True) -> "Report":
+        """Open every notebook with this: the question, the promise it touches,
+        and what result would prove the claim wrong. A notebook without a
+        falsifier is a demo."""
+        from slos import SLOS
+
+        self.heading("Objective", show=show)
+        self.text(question, show=show)
+        if slos:
+            self.table(["SLO under test", "target"],
+                       [[SLOS[k].label, f"{SLOS[k].target:g}{SLOS[k].unit}"] for k in slos],
+                       show=show)
+        if falsified_by:
+            self.text(f"Falsified by: {falsified_by}", show=show)
+        return self
 
 
 # ── chart rendering, from one spec ─────────────────────────────────────────
@@ -444,7 +497,10 @@ def _draw_spec_mpl(ax, spec: dict) -> None:
             offset = (i - (len(series) - 1) / 2) * width
             ax.bar([j + offset for j in range(len(labels))], values, width, label=name)
         ax.set_xticks(range(len(labels))); ax.set_xticklabels(labels)
-        if spec["log"]:
+        # Log needs a positive value somewhere. A freshly restarted fleet reads
+        # all zeros, and matplotlib warns rather than falling back.
+        has_positive = any(v > 0 for vs in series.values() for v in vs)
+        if spec["log"] and has_positive:
             ax.set_yscale("log")
         else:
             ax.set_ylim(bottom=0)
@@ -498,7 +554,7 @@ def _show_interactive(spec: dict, note: str = "") -> None:
                       xaxis_title=spec.get("xlabel", ""),
                       height=380, margin=dict(l=60, r=20, t=50, b=40),
                       template="plotly_white")
-    if spec.get("log"):
+    if spec.get("log") and any(v > 0 for vs in spec["series"].values() for v in vs):
         fig.update_yaxes(type="log")
     fig.show()
     if note:

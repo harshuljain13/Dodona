@@ -39,3 +39,6 @@ infra/metrics/traces/requests.jsonl
 
 # Notebook checkpoints, not source.
 .ipynb_checkpoints/
+
+# Derived in 02-capacity, not source.
+benchmarking/slos-derived.json
