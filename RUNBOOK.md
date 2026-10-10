@@ -125,7 +125,7 @@ Grafana) scrape and a hop-or-warmup proof fails."*
 Minimum panels before moving on: KV usage per pod, `num_requests_waiting` per
 pod, `num_requests_running`, `num_preemptions`, `prefix_cache_hit_rate`.
 
-Save the first scrape to `metrics/baseline/` — it is the baseline everything
+Save the first scrape to `infra/metrics/baseline/` — it is the baseline everything
 later is compared against.
 
 ---

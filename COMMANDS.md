@@ -21,12 +21,12 @@ make cluster             # then: make observability && make ssh
 
 There are four targets and no more: `cluster`, `observability`, `ssh`, `test`.
 `make cluster` runs the steps below over ssh — it is not a second
-implementation, it calls the same scripts in `cluster/setup/`. **If a step is
-wrong, fix the script, not `cluster/setup/up.sh`.**
+implementation, it calls the same scripts in `infra/cluster/setup/`. **If a step is
+wrong, fix the script, not `infra/cluster/setup/up.sh`.**
 
 It needs **no venv and no vLLM on the box**: the pods bring their own vLLM in
 the container image, and `gate.py` is stdlib-only. The whole-card engine below
-is a separate, optional measurement — `bash cluster/setup/up.sh engine` — kept
+is a separate, optional measurement — `bash infra/cluster/setup/up.sh engine` — kept
 because comparing it against a slice is what shows that CUDA-graph overhead
 does not extrapolate. `make cluster` does not need it.
 
@@ -59,7 +59,7 @@ grep -c . .env                       # sanity: non-empty
 ## Step 1 — ship the code to the box `[Mac]`
 
 ```bash
-bash cluster/setup/sync.sh
+bash infra/cluster/setup/sync.sh
 ```
 
 Lands the whole project at `~/dodona` on the box. Excludes `.venv`,
@@ -69,7 +69,7 @@ not your secrets.
 ## Step 2 — open the tunnel, and leave it open `[Mac]`
 
 ```bash
-bash cluster/setup/tunnel.sh
+bash infra/cluster/setup/tunnel.sh
 ```
 
 Gives you a shell on the box in `~/dodona`, with these ports forwarded back:
@@ -124,8 +124,8 @@ flags that are in the capacity arithmetic so you cannot forget one.
 
 ```bash
 cd ~/dodona
-bash cluster/setup/box_packages.sh      # venv, requirements, vllm, verify
-bash cluster/setup/engine.sh       # serve, on :8000
+bash infra/cluster/setup/box_packages.sh      # venv, requirements, vllm, verify
+bash infra/cluster/setup/engine.sh       # serve, on :8000
 ```
 
 `box_packages.sh` builds `.venv`, installs `requirements.txt` and
@@ -204,7 +204,7 @@ arbitrary pick.
 the OpenAI `tools` parameter and looks for `tool_calls` coming back. No parser →
 no `tool_calls` → AgentShip concludes the model answered in prose → the loop ends
 after one turn. That looks like a weak model and is nothing of the kind. Same bug
-in its other half as the dropped-`tools` problem in `control/router/pools.py`.
+in its other half as the dropped-`tools` problem in `infra/control/router/pools.py`.
 
 But **this step has no tools and no agent**, and Open WebUI does not use them. The
 flags buy nothing here and widen the surface that can fail while we establish

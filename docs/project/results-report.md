@@ -218,4 +218,4 @@ Grafana, 30-minute windows, one pair per load level.
 | Generate a report | `admitperf report results/<exp>/<run>/decisions.jsonl` |
 | Compare two runs | `admitperf compare <baseline> <policy>` |
 
-Bundles under [`../results/`](../../metrics/README.md).
+Bundles under [`../results/`](../../infra/metrics/README.md).

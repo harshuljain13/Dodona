@@ -37,7 +37,7 @@ has demonstrated a benefit.
 
 ## The one that matters: prefix-aware placement does nothing
 
-`control/router/router.py`:
+`infra/control/router/router.py`:
 
 ```python
 def score_prefix_cache(snap, req):
@@ -49,7 +49,7 @@ def score_prefix_cache(snap, req):
 PREFILL_SCORERS = [score_prefix_cache, score_token_load, score_kv_utilisation]
 ```
 
-`control/router/pools.py`, in `VLLMWorker.snapshot()`:
+`infra/control/router/pools.py`, in `VLLMWorker.snapshot()`:
 
 ```python
 return Snapshot(

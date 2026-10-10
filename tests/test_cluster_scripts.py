@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-SETUP = ROOT / "cluster" / "setup"
+SETUP = ROOT / "infra" / "cluster" / "setup"
 
 SHELL_SCRIPTS = sorted(SETUP.glob("*.sh"))
 
@@ -45,7 +45,7 @@ def test_script_parses_under_bash(script: Path) -> None:
 
 
 def _referenced_scripts(text: str) -> set[str]:
-    return set(re.findall(r"cluster/setup/([A-Za-z0-9_]+\.(?:sh|py))", text))
+    return set(re.findall(r"infra/cluster/setup/([A-Za-z0-9_]+\.(?:sh|py))", text))
 
 
 @pytest.mark.parametrize(
@@ -112,12 +112,12 @@ def test_makefile_puts_both_import_roots_on_the_pythonpath() -> None:
 
 def test_prometheus_scrapes_the_jobs_the_dashboards_query() -> None:
     """An empty Grafana panel and a missing scrape job look identical."""
-    values = (ROOT / "cluster" / "k8s" / "observability" / "prometheus-values.yaml").read_text()
+    values = (ROOT / "infra" / "cluster" / "k8s" / "observability" / "prometheus-values.yaml").read_text()
     jobs = set(re.findall(r"job_name:\s*([\w-]+)", values))
     assert {"keda", "hami"} <= jobs, f"missing scrape jobs, found: {sorted(jobs)}"
 
 
 def test_the_harness_never_touches_the_cluster() -> None:
     """`make test` must stay runnable with no GPU and no kubeconfig."""
-    harness = (ROOT / "control" / "gateway" / "harness.py").read_text()
+    harness = (ROOT / "infra" / "control" / "gateway" / "harness.py").read_text()
     assert "helm" not in harness and "kubectl" not in harness

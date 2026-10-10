@@ -62,7 +62,7 @@ if (( PURGE_MODELS )); then
 else
   echo
   echo "    HF cache kept at ~/.cache/huggingface  ($(du -sh ~/.cache/huggingface 2>/dev/null | cut -f1 || echo 0))"
-  echo "    Drop it too:  bash cluster/setup/clean.sh --purge-models"
+  echo "    Drop it too:  bash infra/cluster/setup/clean.sh --purge-models"
 fi
 
 cat <<'NOTE'

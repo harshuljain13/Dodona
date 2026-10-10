@@ -97,7 +97,7 @@ def test_trace_path_labels_overflow_after_local_503(tmp_path, monkeypatch) -> No
     assert "total_ms" in rows[-1]
 
 def test_overflow_source_does_not_import_place_or_pools() -> None:
-    root = Path(__file__).resolve().parents[1] / "control"
+    root = Path(__file__).resolve().parents[1] / "infra" / "control"
     src = (root / "router" / "overflow.py").read_text()
     assert "from router.router" not in src and "import router.router" not in src
     assert "from gateway.admission" not in src and "import gateway.admission" not in src

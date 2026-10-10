@@ -15,12 +15,12 @@
 
 # Bash, not sh: arrays and [[ ]]. Under dash load_env is a syntax error.
 if [ -z "${BASH_VERSION:-}" ]; then
-  echo "up.sh needs bash:  bash cluster/setup/up.sh cluster   (or: make cluster)" >&2
+  echo "up.sh needs bash:  bash infra/cluster/setup/up.sh cluster   (or: make cluster)" >&2
   exit 1
 fi
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"   # repo root, above infra/
 cd "$PROJECT_ROOT"
 
 REMOTE_DIR="dodona"        # where sync.sh puts the project on the box
@@ -63,7 +63,7 @@ stop_engine() {
 
 sync_project() {
   announce "sync  —  Mac → $BOX:~/$REMOTE_DIR"
-  bash cluster/setup/sync.sh
+  bash infra/cluster/setup/sync.sh
 }
 
 show_card() {
@@ -81,7 +81,7 @@ show_card() {
 
 install_packages() {
   announce "packages  —  venv, requirements, vllm"
-  on_box_tty 'bash cluster/setup/box_packages.sh'
+  on_box_tty 'bash infra/cluster/setup/box_packages.sh'
 }
 
 # Holds the whole card, to measure the model's real footprint before slicing.
@@ -89,7 +89,7 @@ start_engine() {
   announce "engine  —  $MODEL on :8000, whole card"
   stop_engine
   on_box "source .venv/bin/activate && \
-    LOCAL_MODEL='$MODEL' setsid nohup bash cluster/setup/engine.sh \
+    LOCAL_MODEL='$MODEL' setsid nohup bash infra/cluster/setup/engine.sh \
     </dev/null >$ENGINE_LOG 2>&1 & \
     sleep 1; echo '    started, logging to ~/$REMOTE_DIR/$ENGINE_LOG'"
 }
@@ -105,12 +105,12 @@ wait_for_engine() {
     printf '.'; sleep 5
   done
   printf '\n'
-  fail "Engine did not answer in 15 min.  bash cluster/setup/up.sh logs"
+  fail "Engine did not answer in 15 min.  bash infra/cluster/setup/up.sh logs"
 }
 
 check_capacity() {
   announce "capacity  —  checks against the running engine"
-  on_box "python3 cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG" || fail \
+  on_box "python3 infra/cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG" || fail \
 "    The capacity check failed, which means the arithmetic is wrong rather than
     the cluster. Read docs/project/01-capacity.md before going further."
 }
@@ -120,12 +120,12 @@ start_fleet() {
   # Harmless if nothing is running: the slices need every byte of the card, so
   # any whole-card engine from `up.sh engine` has to go first.
   stop_engine
-  on_box_tty 'bash cluster/setup/fleet.sh'
+  on_box_tty 'bash infra/cluster/setup/fleet.sh'
 }
 
 start_observability() {
   announce "observability  —  Prometheus + Grafana + DCGM"
-  on_box_tty 'bash cluster/setup/observability.sh'
+  on_box_tty 'bash infra/cluster/setup/observability.sh'
 }
 
 open_tunnel() {
@@ -136,7 +136,7 @@ open_tunnel() {
     http://127.0.0.1:30800   vLLM prefill
     http://127.0.0.1:31495   Grafana
 PORTS
-  exec bash cluster/setup/tunnel.sh
+  exec bash infra/cluster/setup/tunnel.sh
 }
 
 # ── commands ───────────────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ cmd_observability() {
 cmd_down() {
   announce "stopping the whole-card engine"
   "${SSH[@]}" "$BOX" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; echo stopped'
-  echo "    Pods keep running:  sudo k3s kubectl delete -f cluster/k8s/fleet/"
+  echo "    Pods keep running:  sudo k3s kubectl delete -f infra/cluster/k8s/fleet/"
   echo "    The box is still billing. Stop the instance in your provider's console."
 }
 
@@ -188,14 +188,14 @@ cmd_logs() { exec "${SSH[@]}" "$BOX" "tail -f ~/$REMOTE_DIR/$ENGINE_LOG"; }
 cmd_clean() {
   sync_project
   announce "clean  —  deleting workloads, helm releases, k3s, stray engines"
-  on_box_tty 'bash cluster/setup/clean.sh'
+  on_box_tty 'bash infra/cluster/setup/clean.sh'
 }
 
 # Sync first: this runs the copy on the box, and a stale one checks nothing.
 cmd_check() {
   rsync -az -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new" \
-    cluster/setup/gate.py "$BOX:~/$REMOTE_DIR/cluster/setup/gate.py"
-  on_box "python3 cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG"
+    infra/cluster/setup/gate.py "$BOX:~/$REMOTE_DIR/infra/cluster/setup/gate.py"
+  on_box "python3 infra/cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG"
 }
 
 main() {

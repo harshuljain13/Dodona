@@ -26,4 +26,4 @@ print('torch', torch.__version__)
 print('cuda', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')
 print('vllm', vllm.__version__)
 "
-echo "Packages installed. Next: bash cluster/setup/engine.sh"
+echo "Packages installed. Next: bash infra/cluster/setup/engine.sh"

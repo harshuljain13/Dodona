@@ -109,7 +109,7 @@ def test_metrics_command_dumps_prometheus_text() -> None:
     assert "requests=" in profile
 
 def test_lab_source_stays_on_the_laptop() -> None:
-    src = (ROOT / "control" / "gateway" / "repl.py").read_text()
+    src = (ROOT / "infra" / "control" / "gateway" / "repl.py").read_text()
     assert "helm" not in src
     assert "os.system" not in src and "subprocess" not in src
     assert "FakeOverflow" in src

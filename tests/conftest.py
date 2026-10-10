@@ -8,8 +8,8 @@ import pytest
 from gateway.metrics import METRICS
 
 ROOT = Path(__file__).resolve().parents[1]
-TRACES = ROOT / "metrics"
-K8S = ROOT / "cluster" / "k8s"
+TRACES = ROOT / "infra" / "metrics"
+K8S = ROOT / "infra" / "cluster" / "k8s"
 
 @pytest.fixture(autouse=True)
 def _reset_metrics(request: pytest.FixtureRequest) -> None:

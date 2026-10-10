@@ -11,12 +11,12 @@
 .PHONY: help cluster observability ssh test clean
 
 SHELL := /usr/bin/env bash
-SETUP := cluster/setup
+SETUP := infra/cluster/setup
 PY    ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
 # control/ holds gateway, router and edge; cluster/ holds observability and
 # kernels. Both are import roots — same as tests/pytest.ini.
-export PYTHONPATH := $(CURDIR)/control:$(CURDIR)/cluster
+export PYTHONPATH := $(CURDIR)/infra/control:$(CURDIR)/infra/cluster
 
 help:
 	@echo ""
@@ -56,7 +56,7 @@ clean:
 # No GPU required. Compiles, checks every doc link, runs the suite, then
 # exercises the gateway and guardrail behaviours end to end.
 test:
-	@$(PY) -m compileall -q control cluster tests && echo "  modules compile"
+	@$(PY) -m compileall -q infra tests && echo "  modules compile"
 	@$(PY) $(SETUP)/check_docs.py
 	@if [ -x .venv/bin/pytest ]; then .venv/bin/pytest tests/ -q; \
 	 elif $(PY) -c "import pytest" 2>/dev/null; then $(PY) -m pytest tests/ -q; \

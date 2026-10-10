@@ -19,8 +19,8 @@ the signal range beside it cannot answer the only question that matters: was
 anything actually scarce while this ran? A policy whose signal never moved is
 indistinguishable from one that worked.
 
-    python3 control/edge/load.py --url http://127.0.0.1:30801 --sessions 8
-    python3 control/edge/load.py --url http://127.0.0.1:8080 --sessions 14 --run high-a
+    python3 infra/control/edge/load.py --url http://127.0.0.1:30801 --sessions 8
+    python3 infra/control/edge/load.py --url http://127.0.0.1:8080 --sessions 14 --run high-a
 
 Stdlib only, so it runs on the box without installing anything.
 """

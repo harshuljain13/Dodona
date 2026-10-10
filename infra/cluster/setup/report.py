@@ -4,9 +4,9 @@
 Not a dump. Every number is printed with the thing it tells you, and anything
 that looks wrong is called out with what to do about it. Run it on the GPU box:
 
-    python3 cluster/setup/report.py                 # what is the cluster doing
-    python3 cluster/setup/report.py --dashboards    # why panels are empty
-    python3 cluster/setup/report.py --json out.json
+    python3 infra/cluster/setup/report.py                 # what is the cluster doing
+    python3 infra/cluster/setup/report.py --dashboards    # why panels are empty
+    python3 infra/cluster/setup/report.py --json out.json
 
 The one question it exists to answer, at the bottom of every run:
 
@@ -22,6 +22,7 @@ import json
 import re
 import subprocess
 import sys
+from pathlib import Path
 import urllib.request
 
 G, Y, R, D, B = "\033[32m", "\033[33m", "\033[31m", "\033[2m", "\033[1m"
@@ -33,6 +34,14 @@ KV_PER_SLICE_GIB = 4.27
 SEQ_PER_REPLICA = 4.88
 MAX_MODEL_LEN = 16384
 THRESHOLD = 0.90
+
+
+def _default_report_path() -> str:
+    """Where a bare --json lands. Reports are output, so they go under infra/."""
+    root = Path(__file__).resolve().parents[2]      # infra/
+    stamp = subprocess.run(["date", "-u", "+%Y%m%dT%H%M%SZ"],
+                           capture_output=True, text=True).stdout.strip()
+    return str(root / "reports" / f"cluster-{stamp}.json")
 
 
 def sh(cmd: str) -> str:
@@ -189,7 +198,9 @@ def dashboards() -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dashboards", action="store_true", help="only the empty-panel explanation")
-    ap.add_argument("--json", default="", help="also write the numbers here")
+    ap.add_argument("--json", nargs="?", const=_default_report_path(),
+                    default="", help="also write the numbers here "
+                         "(bare flag writes infra/reports/cluster-<date>.json)")
     a = ap.parse_args()
     out: dict = {}
 

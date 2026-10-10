@@ -5,8 +5,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PROJECT_ROOT="$(cd "$ROOT/.." && pwd)"
-cd "$PROJECT_ROOT"   # the whole project, not just cluster/
+PROJECT_ROOT="$(cd "$ROOT/../.." && pwd)"
+cd "$PROJECT_ROOT"   # the whole project, not just infra/
 
 if [[ -f "$PROJECT_ROOT/.env" ]]; then
   set -a

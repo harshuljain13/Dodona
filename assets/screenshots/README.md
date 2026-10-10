@@ -1,7 +1,7 @@
 # assets/screenshots/
 
 Grafana exhibits and generated charts. Everything here comes from a run in
-[`../../metrics/`](../../metrics/) and carries the run id, so it can be
+[`infra/metrics/`](../../infra/metrics/) and carries the run id, so it can be
 regenerated rather than trusted.
 
 ## The eight dashboards

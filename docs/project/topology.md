@@ -82,7 +82,7 @@ to another process by writing a JSON record about it.
 
 ### Orchestration — real, and exactly as expected
 
-`control/gateway/queue.py`:
+`infra/control/gateway/queue.py`:
 
 ```python
 if handoff.decode is handoff.prefill:
@@ -97,12 +97,12 @@ Three steps, and the `src == dst` short-circuit the brief asks for. ✅
 
 ### Placement — real
 
-`control/router/router.py` picks both ends with different scorers — prefill on
+`infra/control/router/router.py` picks both ends with different scorers — prefill on
 prefix-cache locality, decode on load. ✅
 
 ### Transfer — **bookkeeping, not bytes**
 
-`control/router/kvbus.py`:
+`infra/control/router/kvbus.py`:
 
 ```python
 def transfer(self, src: str, dst: str, req: Request) -> dict:

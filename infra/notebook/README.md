@@ -1,11 +1,11 @@
-# notebook/ — Part 5
+# infra/notebook/ — Part 5
 
 The brief submits this separately: *"Github Link along with the notebook from
 part 5."* So it is a graded artifact in its own right, not an appendix.
 
 | | |
 |---|---|
-| `part5-queue.ipynb` | **Not written.** Answers [Part 5](../SUBMISSION.md#part-5--queue) from live scrapes |
+| `part5-queue.ipynb` | **Not written.** Answers [Part 5](../../SUBMISSION.md#part-5--queue) from live scrapes |
 
 ## What it has to show
 
@@ -37,7 +37,7 @@ Every answer in Part 5 needs a scrape, not an assertion.
 
 Scrapes are saved under [`../metrics/`](../metrics/) as raw text, so a number in
 the notebook can be traced to the scrape it came from. Plots go to
-[`../assets/screenshots/`](../assets/screenshots/).
+[`../assets/screenshots/`](../../assets/screenshots/).
 
 A cell that asserts without a scrape behind it is the thing this notebook exists
 to prevent.

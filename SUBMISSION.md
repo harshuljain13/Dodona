@@ -31,7 +31,7 @@ other half: what actually went wrong, recorded as it happened.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Gate `5b` failed — no `gpu_cache_usage_perc` | **vLLM V1 renamed the metric to `kv_cache_usage_perc`.** The old name does not exist | Renamed in eight documents. `control/router/pools.py` already accepted both, so the control plane was never broken — but every doc asserted a metric that is gone |
+| Gate `5b` failed — no `gpu_cache_usage_perc` | **vLLM V1 renamed the metric to `kv_cache_usage_perc`.** The old name does not exist | Renamed in eight documents. `infra/control/router/pools.py` already accepted both, so the control plane was never broken — but every doc asserted a metric that is gone |
 | Gate `5d` failed — "no `model weights` line" | vLLM 0.31 does not log one | Parse `Available KV cache memory` instead and derive overhead, which is the number that sizes the slices |
 | Overhead 20% higher than predicted | CUDA-graph reservation was not in the estimate | Recorded, not edited. See Part 1 |
 | Bring-up died with `Error 255` after setup succeeded | `pkill -f 'vllm serve'` over ssh **matched its own command line**, killed the remote shell, dropped the connection | `pkill -f '[v]llm serve'` |
@@ -854,7 +854,7 @@ admit → place → our queue → engine waiting / running / preempt
 ```
 
 **The notebook is the deliverable for this part** —
-[`notebook/part5-queue.ipynb`](notebook/) — because every answer below needs a
+[`infra/notebook/part5-queue.ipynb`](infra/notebook/) — because every answer below needs a
 live scrape, not an assertion. *Status: not written.*
 
 | Question | Answer | Source |

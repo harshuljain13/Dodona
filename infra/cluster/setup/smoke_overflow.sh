@@ -12,5 +12,5 @@ fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 export PYTHONPATH="$ROOT/../control${PYTHONPATH:+:$PYTHONPATH}"
-export TRACE_PATH="${TRACE_PATH:-$ROOT/../metrics/traces/requests.jsonl}"
+export TRACE_PATH="${TRACE_PATH:-$ROOT/../infra/metrics/traces/requests.jsonl}"
 exec python "$ROOT/setup/overflow_smoke.py"

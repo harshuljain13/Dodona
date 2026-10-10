@@ -116,7 +116,7 @@ one tool call per reply above.
 ## The access path
 
 Lambda's firewall allows only SSH, so everything goes through one tunnel
-(`cluster/setup/ssh.sh`). Open only `127.0.0.1` URLs, never the public IP.
+(`infra/cluster/setup/ssh.sh`). Open only `127.0.0.1` URLs, never the public IP.
 
 | URL | What |
 |---|---|

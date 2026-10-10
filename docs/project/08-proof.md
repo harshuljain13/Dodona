@@ -85,7 +85,7 @@ session:
 
 ## What the bundle contains
 
-One directory per run under [`../results/`](../../metrics/README.md):
+One directory per run under [`../results/`](../../infra/metrics/README.md):
 
 ```
 results/<experiment>/<run>/

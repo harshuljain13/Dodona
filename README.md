@@ -190,14 +190,19 @@ in this repo hardcodes them.
 | [`docs/cluster/`](docs/cluster/README.md) | The stack file by file — gateway, router, KV bus, observability |
 
 ```
-app/        the voice agent — talks only to our serve path
-control/    guard · admit · place · queue · hop · warm · stay-or-leave
-cluster/    how the engine comes up
-docs/       project-level and cluster-level deep dives
-tests/      22 test files
-notebook/   part5-queue.ipynb
-metrics/    scrapes, decision logs, reports
+app/                 the voice agent — talks only to our serve path
+infra/
+  control/           guard · admit · place · queue · hop · warm · stay-or-leave
+  cluster/           how the fleet comes up: setup/, k8s/, observability/
+  metrics/           traces and load-generator bundles
+  reports/           generated run reports
+  notebook/          part5-queue.ipynb
+docs/                project-level and cluster-level deep dives
+tests/               22 test files
 ```
+
+Everything that runs the cluster lives under `infra/`. Everything above it is
+the app, the docs, and the tests.
 
 ## Quick start
 
