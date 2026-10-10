@@ -40,9 +40,12 @@ Dodona makes it on purpose, and writes down what it saw.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
+  'darkMode':true,'background':'#0B0B0B',
   'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'lineColor':'#475569','clusterBkg':'#fcfdff','clusterBorder':'#94a3b8',
-  'edgeLabelBackground':'#ffffff'}}}%%
+  'primaryColor':'#111827','primaryTextColor':'#E5E7EB','primaryBorderColor':'#475569',
+  'lineColor':'#7C8CA6','textColor':'#E5E7EB','titleColor':'#E5E7EB',
+  'clusterBkg':'#0F1218','clusterBorder':'#263142','edgeLabelBackground':'#0B0B0B'
+}}}%%
 flowchart TD
     subgraph CL["Clients"]
       L(["<b>Listener</b><br/>speaks"])
@@ -117,17 +120,30 @@ flowchart TD
     class PM,GF,KD obs
     class RP out
 
-    classDef actor  fill:#ffe4e6,stroke:#be123c,stroke-width:2px,color:#881337
-    classDef ext    fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#581c87
-    classDef ours   fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px,color:#1e3a8a
-    classDef gate   fill:#fef3c7,stroke:#b45309,stroke-width:3px,color:#78350f
-    classDef engine fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d
-    classDef store  fill:#ffedd5,stroke:#c2410c,stroke-width:2px,color:#7c2d12
-    classDef lib    fill:#e0e7ff,stroke:#4338ca,stroke-width:2px,color:#312e81
-    classDef obs    fill:#f1f5f9,stroke:#475569,stroke-width:2px,color:#1e293b
-    classDef overflow fill:#fae8ff,stroke:#a21caf,stroke-width:2px,color:#701a75
-    classDef out    fill:#ccfbf1,stroke:#0f766e,stroke-width:2.5px,color:#134e4a
-    linkStyle default stroke:#475569,stroke-width:1.7px
+    classDef actor    fill:#2B0F18,stroke:#FB7185,stroke-width:2px,color:#FECDD3
+    classDef input    fill:#2B0F18,stroke:#FB7185,stroke-width:2px,color:#FECDD3
+    classDef ext      fill:#1E1033,stroke:#C084FC,stroke-width:2px,color:#E9D5FF
+    classDef accent   fill:#1E1033,stroke:#C084FC,stroke-width:2px,color:#E9D5FF
+    classDef ours     fill:#0C1A33,stroke:#60A5FA,stroke-width:2px,color:#DBEAFE
+    classDef primary  fill:#0C1A33,stroke:#60A5FA,stroke-width:2px,color:#DBEAFE
+    classDef alt      fill:#0C1A33,stroke:#60A5FA,stroke-width:2px,color:#DBEAFE
+    classDef gate     fill:#2B2008,stroke:#FBBF24,stroke-width:3px,color:#FDE68A
+    classDef decision fill:#2B2008,stroke:#FBBF24,stroke-width:3px,color:#FDE68A
+    classDef engine   fill:#06220F,stroke:#4ADE80,stroke-width:2px,color:#BBF7D0
+    classDef secondary fill:#06220F,stroke:#4ADE80,stroke-width:2px,color:#BBF7D0
+    classDef store    fill:#2A1405,stroke:#FB923C,stroke-width:2px,color:#FED7AA
+    classDef data     fill:#2A1405,stroke:#FB923C,stroke-width:2px,color:#FED7AA
+    classDef lib      fill:#13163A,stroke:#818CF8,stroke-width:2px,color:#C7D2FE
+    classDef highlight fill:#13163A,stroke:#818CF8,stroke-width:2px,color:#C7D2FE
+    classDef obs      fill:#0F172A,stroke:#94A3B8,stroke-width:2px,color:#CBD5E1
+    classDef neutral  fill:#0F172A,stroke:#94A3B8,stroke-width:2px,color:#CBD5E1
+    classDef overflow fill:#2A0F2A,stroke:#E879F9,stroke-width:2px,color:#F5D0FE
+    classDef out      fill:#04302B,stroke:#22D3EE,stroke-width:2.5px,color:#A5F3FC
+    classDef success  fill:#04302B,stroke:#22D3EE,stroke-width:2.5px,color:#A5F3FC
+    classDef pick     fill:#06220F,stroke:#4ADE80,stroke-width:3px,color:#BBF7D0
+    classDef dead     fill:#2B0F18,stroke:#F87171,stroke-width:2px,color:#FECACA
+    classDef note     fill:#0F1218,stroke:#475569,stroke-width:1.5px,color:#9FB0C9
+    linkStyle default stroke:#7C8CA6,stroke-width:1.7px
 ```
 
 🔵 what we write · 🟢 vLLM, configured not touched · 🟠 KV storage ·

@@ -31,13 +31,14 @@ runs before scoring, and two shortcuts can exit early.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
-  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
-  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
-  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#0C1A33','actorBorder':'#60A5FA','actorTextColor':'#DBEAFE','actorLineColor':'#334155',
+  'signalColor':'#9FB0C9','signalTextColor':'#E5E7EB',
+  'noteBkgColor':'#2B2008','noteBorderColor':'#FBBF24','noteTextColor':'#FDE68A',
+  'activationBkgColor':'#06220F','activationBorderColor':'#4ADE80',
+  'labelBoxBkgColor':'#04302B','labelBoxBorderColor':'#22D3EE','labelTextColor':'#A5F3FC',
+  'sequenceNumberColor':'#0B0B0B','loopTextColor':'#E5E7EB','textColor':'#E5E7EB'
 }}}%%
 sequenceDiagram
     participant G as Gateway
@@ -113,13 +114,14 @@ Where each rejection is decided, and how far the request got:
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
-  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
-  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
-  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#0C1A33','actorBorder':'#60A5FA','actorTextColor':'#DBEAFE','actorLineColor':'#334155',
+  'signalColor':'#9FB0C9','signalTextColor':'#E5E7EB',
+  'noteBkgColor':'#2B2008','noteBorderColor':'#FBBF24','noteTextColor':'#FDE68A',
+  'activationBkgColor':'#06220F','activationBorderColor':'#4ADE80',
+  'labelBoxBkgColor':'#04302B','labelBoxBorderColor':'#22D3EE','labelTextColor':'#A5F3FC',
+  'sequenceNumberColor':'#0B0B0B','loopTextColor':'#E5E7EB','textColor':'#E5E7EB'
 }}}%%
 sequenceDiagram
     participant C as Client

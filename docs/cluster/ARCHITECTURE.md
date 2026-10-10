@@ -33,12 +33,11 @@ Everything below the cluster steps runs on a laptop with no GPU.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
-  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
-  'lineColor':'#64748b','textColor':'#1e293b',
-  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'primaryColor':'#111827','primaryTextColor':'#E5E7EB','primaryBorderColor':'#475569',
+  'lineColor':'#7C8CA6','textColor':'#E5E7EB','titleColor':'#E5E7EB',
+  'clusterBkg':'#0F1218','clusterBorder':'#263142','edgeLabelBackground':'#0B0B0B'
 }}}%%
 flowchart LR
     OPERATOR["Lab operator<br/>[Person]"]
@@ -71,12 +70,11 @@ inventory table below is the complete list.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
-  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
-  'lineColor':'#64748b','textColor':'#1e293b',
-  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'primaryColor':'#111827','primaryTextColor':'#E5E7EB','primaryBorderColor':'#475569',
+  'lineColor':'#7C8CA6','textColor':'#E5E7EB','titleColor':'#E5E7EB',
+  'clusterBkg':'#0F1218','clusterBorder':'#263142','edgeLabelBackground':'#0B0B0B'
 }}}%%
 flowchart LR
     CHATTER["Chat user"]
@@ -105,12 +103,11 @@ flowchart LR
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
-  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
-  'lineColor':'#64748b','textColor':'#1e293b',
-  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'primaryColor':'#111827','primaryTextColor':'#E5E7EB','primaryBorderColor':'#475569',
+  'lineColor':'#7C8CA6','textColor':'#E5E7EB','titleColor':'#E5E7EB',
+  'clusterBkg':'#0F1218','clusterBorder':'#263142','edgeLabelBackground':'#0B0B0B'
 }}}%%
 flowchart LR
     subgraph SCRAPED["scrape targets"]
@@ -163,12 +160,11 @@ infrastructure.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
-  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
-  'lineColor':'#64748b','textColor':'#1e293b',
-  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'primaryColor':'#111827','primaryTextColor':'#E5E7EB','primaryBorderColor':'#475569',
+  'lineColor':'#7C8CA6','textColor':'#E5E7EB','titleColor':'#E5E7EB',
+  'clusterBkg':'#0F1218','clusterBorder':'#263142','edgeLabelBackground':'#0B0B0B'
 }}}%%
 flowchart LR
     subgraph ORCH["orch-serve"]
@@ -212,12 +208,11 @@ Where HAMi sits: it is infrastructure, not a container in the request path.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#2563eb',
-  'secondaryColor':'#f0fdf4','tertiaryColor':'#fffbeb',
-  'lineColor':'#64748b','textColor':'#1e293b',
-  'clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#2563eb'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'primaryColor':'#111827','primaryTextColor':'#E5E7EB','primaryBorderColor':'#475569',
+  'lineColor':'#7C8CA6','textColor':'#E5E7EB','titleColor':'#E5E7EB',
+  'clusterBkg':'#0F1218','clusterBorder':'#263142','edgeLabelBackground':'#0B0B0B'
 }}}%%
 flowchart LR
     subgraph MAC["Mac [Deployment Node]"]

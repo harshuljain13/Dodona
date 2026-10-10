@@ -25,13 +25,14 @@ runs two scripts in order.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
-  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
-  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
-  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#0C1A33','actorBorder':'#60A5FA','actorTextColor':'#DBEAFE','actorLineColor':'#334155',
+  'signalColor':'#9FB0C9','signalTextColor':'#E5E7EB',
+  'noteBkgColor':'#2B2008','noteBorderColor':'#FBBF24','noteTextColor':'#FDE68A',
+  'activationBkgColor':'#06220F','activationBorderColor':'#4ADE80',
+  'labelBoxBkgColor':'#04302B','labelBoxBorderColor':'#22D3EE','labelTextColor':'#A5F3FC',
+  'sequenceNumberColor':'#0B0B0B','loopTextColor':'#E5E7EB','textColor':'#E5E7EB'
 }}}%%
 sequenceDiagram
     participant U as You
@@ -77,13 +78,14 @@ Four files run before any routing decision happens.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
-  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
-  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
-  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#0C1A33','actorBorder':'#60A5FA','actorTextColor':'#DBEAFE','actorLineColor':'#334155',
+  'signalColor':'#9FB0C9','signalTextColor':'#E5E7EB',
+  'noteBkgColor':'#2B2008','noteBorderColor':'#FBBF24','noteTextColor':'#FDE68A',
+  'activationBkgColor':'#06220F','activationBorderColor':'#4ADE80',
+  'labelBoxBkgColor':'#04302B','labelBoxBorderColor':'#22D3EE','labelTextColor':'#A5F3FC',
+  'sequenceNumberColor':'#0B0B0B','loopTextColor':'#E5E7EB','textColor':'#E5E7EB'
 }}}%%
 sequenceDiagram
     participant C as Client
@@ -149,13 +151,14 @@ Two things that surprise people:
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
-  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
-  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
-  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#0C1A33','actorBorder':'#60A5FA','actorTextColor':'#DBEAFE','actorLineColor':'#334155',
+  'signalColor':'#9FB0C9','signalTextColor':'#E5E7EB',
+  'noteBkgColor':'#2B2008','noteBorderColor':'#FBBF24','noteTextColor':'#FDE68A',
+  'activationBkgColor':'#06220F','activationBorderColor':'#4ADE80',
+  'labelBoxBkgColor':'#04302B','labelBoxBorderColor':'#22D3EE','labelTextColor':'#A5F3FC',
+  'sequenceNumberColor':'#0B0B0B','loopTextColor':'#E5E7EB','textColor':'#E5E7EB'
 }}}%%
 sequenceDiagram
     participant A as admission.Gateway
@@ -198,13 +201,14 @@ queue; it *sequences the two phases*:
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
-  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
-  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
-  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#0C1A33','actorBorder':'#60A5FA','actorTextColor':'#DBEAFE','actorLineColor':'#334155',
+  'signalColor':'#9FB0C9','signalTextColor':'#E5E7EB',
+  'noteBkgColor':'#2B2008','noteBorderColor':'#FBBF24','noteTextColor':'#FDE68A',
+  'activationBkgColor':'#06220F','activationBorderColor':'#4ADE80',
+  'labelBoxBkgColor':'#04302B','labelBoxBorderColor':'#22D3EE','labelTextColor':'#A5F3FC',
+  'sequenceNumberColor':'#0B0B0B','loopTextColor':'#E5E7EB','textColor':'#E5E7EB'
 }}}%%
 sequenceDiagram
     participant A as admission
@@ -247,13 +251,14 @@ ordinary, complete vLLM. Nothing tells vLLM "you are prefill-only".
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
-  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
-  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
-  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#0C1A33','actorBorder':'#60A5FA','actorTextColor':'#DBEAFE','actorLineColor':'#334155',
+  'signalColor':'#9FB0C9','signalTextColor':'#E5E7EB',
+  'noteBkgColor':'#2B2008','noteBorderColor':'#FBBF24','noteTextColor':'#FDE68A',
+  'activationBkgColor':'#06220F','activationBorderColor':'#4ADE80',
+  'labelBoxBkgColor':'#04302B','labelBoxBorderColor':'#22D3EE','labelTextColor':'#A5F3FC',
+  'sequenceNumberColor':'#0B0B0B','loopTextColor':'#E5E7EB','textColor':'#E5E7EB'
 }}}%%
 sequenceDiagram
     participant R as Router
@@ -297,13 +302,14 @@ with enforced memory ceilings.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
-  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
-  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
-  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#0C1A33','actorBorder':'#60A5FA','actorTextColor':'#DBEAFE','actorLineColor':'#334155',
+  'signalColor':'#9FB0C9','signalTextColor':'#E5E7EB',
+  'noteBkgColor':'#2B2008','noteBorderColor':'#FBBF24','noteTextColor':'#FDE68A',
+  'activationBkgColor':'#06220F','activationBorderColor':'#4ADE80',
+  'labelBoxBkgColor':'#04302B','labelBoxBorderColor':'#22D3EE','labelTextColor':'#A5F3FC',
+  'sequenceNumberColor':'#0B0B0B','loopTextColor':'#E5E7EB','textColor':'#E5E7EB'
 }}}%%
 sequenceDiagram
     participant D as Deployment
@@ -343,13 +349,14 @@ does not route, admit, or place.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
-  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
-  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
-  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#0C1A33','actorBorder':'#60A5FA','actorTextColor':'#DBEAFE','actorLineColor':'#334155',
+  'signalColor':'#9FB0C9','signalTextColor':'#E5E7EB',
+  'noteBkgColor':'#2B2008','noteBorderColor':'#FBBF24','noteTextColor':'#FDE68A',
+  'activationBkgColor':'#06220F','activationBorderColor':'#4ADE80',
+  'labelBoxBkgColor':'#04302B','labelBoxBorderColor':'#22D3EE','labelTextColor':'#A5F3FC',
+  'sequenceNumberColor':'#0B0B0B','loopTextColor':'#E5E7EB','textColor':'#E5E7EB'
 }}}%%
 sequenceDiagram
     participant O as orch-serve
@@ -399,13 +406,14 @@ Each pod runs stock `vllm/vllm-openai:v0.11.0` with four meaningful flags:
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
-  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
-  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
-  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#0C1A33','actorBorder':'#60A5FA','actorTextColor':'#DBEAFE','actorLineColor':'#334155',
+  'signalColor':'#9FB0C9','signalTextColor':'#E5E7EB',
+  'noteBkgColor':'#2B2008','noteBorderColor':'#FBBF24','noteTextColor':'#FDE68A',
+  'activationBkgColor':'#06220F','activationBorderColor':'#4ADE80',
+  'labelBoxBkgColor':'#04302B','labelBoxBorderColor':'#22D3EE','labelTextColor':'#A5F3FC',
+  'sequenceNumberColor':'#0B0B0B','loopTextColor':'#E5E7EB','textColor':'#E5E7EB'
 }}}%%
 sequenceDiagram
     participant W as VLLMWorker
@@ -466,13 +474,14 @@ a 3B model is used throughout and never needs more than one slice.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'actorBkg':'#eff6ff','actorBorder':'#2563eb','actorTextColor':'#1e3a8a','actorLineColor':'#bfdbfe',
-  'signalColor':'#475569','signalTextColor':'#1e293b',
-  'noteBkgColor':'#fffbeb','noteBorderColor':'#d97706','noteTextColor':'#78350f',
-  'activationBkgColor':'#dcfce7','activationBorderColor':'#16a34a',
-  'labelBoxBkgColor':'#f0fdfa','labelBoxBorderColor':'#0d9488','labelTextColor':'#134e4a',
-  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+  'darkMode':true,'background':'#0B0B0B',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#0C1A33','actorBorder':'#60A5FA','actorTextColor':'#DBEAFE','actorLineColor':'#334155',
+  'signalColor':'#9FB0C9','signalTextColor':'#E5E7EB',
+  'noteBkgColor':'#2B2008','noteBorderColor':'#FBBF24','noteTextColor':'#FDE68A',
+  'activationBkgColor':'#06220F','activationBorderColor':'#4ADE80',
+  'labelBoxBkgColor':'#04302B','labelBoxBorderColor':'#22D3EE','labelTextColor':'#A5F3FC',
+  'sequenceNumberColor':'#0B0B0B','loopTextColor':'#E5E7EB','textColor':'#E5E7EB'
 }}}%%
 sequenceDiagram
     participant C as Client
