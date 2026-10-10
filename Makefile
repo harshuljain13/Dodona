@@ -49,15 +49,15 @@ help:
 	@echo ""
 
 # ── from your Mac, driving the box over ssh ───────────────────────────────
-engine:        ; @./up.sh --stage 1
-cluster:       ; @./up.sh --stage 2 --only
-observability: ; @./up.sh --stage 3 --only
-all:           ; @./up.sh --stage 3
-gate:          ; @./up.sh --gate
+engine:        ; @bash $(SETUP)/up.sh --stage 1
+cluster:       ; @bash $(SETUP)/up.sh --stage 2 --only
+observability: ; @bash $(SETUP)/up.sh --stage 3 --only
+all:           ; @bash $(SETUP)/up.sh --stage 3
+gate:          ; @bash $(SETUP)/up.sh --gate
 sync:          ; @bash $(SETUP)/sync_to_lambda.sh
 ssh:           ; @bash $(SETUP)/ssh.sh
-logs:          ; @./up.sh --logs
-down:          ; @./up.sh --down
+logs:          ; @bash $(SETUP)/up.sh --logs
+down:          ; @bash $(SETUP)/up.sh --down
 
 test:
 	@if [ -x .venv/bin/pytest ]; then .venv/bin/pytest tests/ -q; \

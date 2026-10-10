@@ -18,7 +18,7 @@
 # fix the script, not this file.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"   # project root
 cd "$ROOT"
 
 STAGE=1 TUNNEL=1 ACTION=up ONLY=0
@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
     --no-tunnel) TUNNEL=0; shift ;;
     --down)      ACTION=down; shift ;;
     --logs)      ACTION=logs; shift ;;
-    -h|--help)   sed -n '2,12p' "$0"; exit 0 ;;
+    -h|--help)   sed -n '2,14p' "$0"; exit 0 ;;
     *) echo "unknown flag: $1" >&2; exit 2 ;;
   esac
 done
@@ -99,7 +99,7 @@ for i in $(seq 1 180); do
   if "${SSH[@]}" "$LAMBDA" 'curl -sf localhost:8000/v1/models >/dev/null' 2>/dev/null; then
     printf ' ready (%ss)\n' "$((i*5))"; break
   fi
-  [[ $i -eq 180 ]] && { printf '\n'; echo "Engine did not answer in 15 min. ./up.sh --logs" >&2; exit 1; }
+  [[ $i -eq 180 ]] && { printf '\n'; echo "Engine did not answer in 15 min. make logs" >&2; exit 1; }
   printf '.'; sleep 5
 done
 
@@ -112,7 +112,7 @@ step "gate  —  the four stage-0 checks"
   exit 1
 }
 
-[[ "$STAGE" == "0" ]] && { step "stage 0 done"; echo "    ./up.sh          continue to Open WebUI"; echo "    ./up.sh --logs   engine log"; exit 0; }
+[[ "$STAGE" == "0" ]] && { step "stage 0 done"; echo "    make engine   continue to Open WebUI"; echo "    make logs     engine log"; exit 0; }
 
 # ---- 6. Open WebUI ------------------------------------------------------
 step "Open WebUI  —  :3000"
@@ -151,5 +151,5 @@ PORTS
   exec bash cluster/setup/ssh.sh
 else
   step "up"
-  echo "    bash cluster/setup/ssh.sh   to open the tunnel"
+  echo "    make ssh   to open the tunnel"
 fi

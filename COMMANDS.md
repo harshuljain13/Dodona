@@ -21,7 +21,7 @@ make up
 
 `make` lists every target. `make up` runs steps 1 through 7 below over ssh — it is not a second
 implementation, it calls the same scripts in `cluster/setup/`. **If a step is
-wrong, fix the script, not `up.sh`.**
+wrong, fix the script, not `cluster/setup/up.sh`.**
 
 Everything after this point is that sequence broken out, which is what you want
 when something fails and you need to run one piece at a time.
