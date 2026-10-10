@@ -1,0 +1,257 @@
+{
+  "args": {
+    "url": "http://127.0.0.1:30801",
+    "metrics_url": "",
+    "model": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    "sessions": 6,
+    "max_tokens": 120,
+    "tool_gap": 0.5,
+    "timeout": 600,
+    "seed": 1,
+    "run": "sanity"
+  },
+  "wall_s": 2.053837776184082,
+  "signal": [],
+  "results": [
+    {
+      "session": 4,
+      "turn": 1,
+      "prompt_chars": 8630,
+      "status": 0,
+      "latency_s": 0.032279014587402344,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 3,
+      "turn": 1,
+      "prompt_chars": 8633,
+      "status": 0,
+      "latency_s": 0.03263998031616211,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 2,
+      "turn": 1,
+      "prompt_chars": 8620,
+      "status": 0,
+      "latency_s": 0.03281211853027344,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 5,
+      "turn": 1,
+      "prompt_chars": 8616,
+      "status": 0,
+      "latency_s": 0.0326688289642334,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 0,
+      "turn": 1,
+      "prompt_chars": 8611,
+      "status": 0,
+      "latency_s": 0.03349924087524414,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 1,
+      "turn": 1,
+      "prompt_chars": 8612,
+      "status": 0,
+      "latency_s": 0.03338503837585449,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 3,
+      "turn": 2,
+      "prompt_chars": 11855,
+      "status": 0,
+      "latency_s": 0.0003581047058105469,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 1,
+      "turn": 2,
+      "prompt_chars": 11834,
+      "status": 0,
+      "latency_s": 0.0002522468566894531,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 0,
+      "turn": 2,
+      "prompt_chars": 11833,
+      "status": 0,
+      "latency_s": 0.000164031982421875,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 4,
+      "turn": 2,
+      "prompt_chars": 11852,
+      "status": 0,
+      "latency_s": 0.0004010200500488281,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 2,
+      "turn": 2,
+      "prompt_chars": 11842,
+      "status": 0,
+      "latency_s": 0.0001270771026611328,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 5,
+      "turn": 2,
+      "prompt_chars": 11838,
+      "status": 0,
+      "latency_s": 0.00010585784912109375,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 3,
+      "turn": 3,
+      "prompt_chars": 59878,
+      "status": 0,
+      "latency_s": 0.0004951953887939453,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 0,
+      "turn": 3,
+      "prompt_chars": 59856,
+      "status": 0,
+      "latency_s": 0.0003190040588378906,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 4,
+      "turn": 3,
+      "prompt_chars": 59875,
+      "status": 0,
+      "latency_s": 0.00024819374084472656,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 1,
+      "turn": 3,
+      "prompt_chars": 59857,
+      "status": 0,
+      "latency_s": 0.00036406517028808594,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 5,
+      "turn": 3,
+      "prompt_chars": 59861,
+      "status": 0,
+      "latency_s": 0.00025200843811035156,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 2,
+      "turn": 3,
+      "prompt_chars": 59865,
+      "status": 0,
+      "latency_s": 0.0002448558807373047,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 5,
+      "turn": 4,
+      "prompt_chars": 59890,
+      "status": 0,
+      "latency_s": 0.0003762245178222656,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 1,
+      "turn": 4,
+      "prompt_chars": 59886,
+      "status": 0,
+      "latency_s": 0.0006420612335205078,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 0,
+      "turn": 4,
+      "prompt_chars": 59885,
+      "status": 0,
+      "latency_s": 0.0005466938018798828,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 4,
+      "turn": 4,
+      "prompt_chars": 59904,
+      "status": 0,
+      "latency_s": 0.0008959770202636719,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 3,
+      "turn": 4,
+      "prompt_chars": 59907,
+      "status": 0,
+      "latency_s": 0.000354766845703125,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    },
+    {
+      "session": 2,
+      "turn": 4,
+      "prompt_chars": 59894,
+      "status": 0,
+      "latency_s": 0.0002079010009765625,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "URLError: <urlopen error [Errno 61] Connection refused>"
+    }
+  ]
+}
