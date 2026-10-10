@@ -130,6 +130,32 @@ class Prom:
         return {"count": count[0][1], "sum": total[0][1],
                 "mean": total[0][1] / count[0][1]}
 
+    def bucket_saturation(self, which: str = "e2e") -> dict[str, float]:
+        """How much of the data sits in the histogram's LOWEST bucket.
+
+        The question a suspicious percentile needs answered. vLLM's e2e
+        histogram starts at le=0.3 — there is no bucket below 300ms. Every
+        request on this cluster finishes in under 100ms, so all of them land in
+        bucket one, histogram_quantile interpolates inside [0, 0.3], and it
+        returns 0.15 / 0.27 / 0.297 for ANY metric whose data is entirely below
+        300ms. That is why e2e, queue, prefill and decode report identical
+        percentiles while their means differ 17x.
+
+        More samples do not help. Only slower requests, or finer buckets.
+        """
+        metric = LATENCY_HISTOGRAMS.get(which, which)
+        buckets = self.query(f"sum by (le) ({metric}_bucket)")
+        if not buckets:
+            return {}
+        edges = sorted((float(m.get("le", "inf")), v) for m, v in buckets)
+        edges = [(le, v) for le, v in edges if le != float("inf")]
+        if not edges:
+            return {}
+        total = max(v for _, v in edges)
+        lowest_edge, lowest_count = edges[0]
+        return {"lowest_edge": lowest_edge, "total": total,
+                "fraction_in_lowest": lowest_count / total if total else 0.0}
+
     def series_exist(self, prefix: str) -> int:
         """How many series start with this prefix. 0 means nothing scrapes it,
         which is a different problem from a metric that is genuinely zero."""
