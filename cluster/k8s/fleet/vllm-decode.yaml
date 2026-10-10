@@ -70,5 +70,8 @@ metadata:
   name: vllm-decode
   labels: { app: vllm-decode, phase: decode }
 spec:
+  # NodePort, not ClusterIP: ClusterIP is invisible from the host, so the ssh
+  # tunnel has nothing to forward and the fleet is unreachable from the Mac.
+  type: NodePort
   selector: { app: vllm-decode, phase: decode }
-  ports: [{ name: http, port: 8000, targetPort: 8000 }]
+  ports: [{ name: http, port: 8000, targetPort: 8000, nodePort: 30801 }]
