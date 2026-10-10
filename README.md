@@ -66,18 +66,31 @@ Three documents at the top, then one directory per thing that actually runs.
 
 ```
 dodona/
-  SUBMISSION.md      the brief answered, parts 0-8
-  PROJECT.md         the project and the C4 levels
-  app/               the voice agent — talks only to our serve path
-  control/           guard · admit · place · queue · hop · warm · stay-or-leave
-  cluster/           how the engine comes up, stage by stage
+  README.md · PROJECT.md · SUBMISSION.md
+
+  app/                 the Dodona voice agent — talks only to our serve path
+  control/             the control plane. Import root for the three packages:
+    gateway/             guard · admit · place · the AdmitPerf socket
+    router/              pools · placement · KV bus · Mooncake · warmup · eviction
+    edge/                guardrails and the load harnesses
+  cluster/
+    RUNBOOK.md           the bring-up, stage 0 -> 10, with a gate each
+    k8s/                 HAMi slices, Mooncake, observability, Open WebUI
+    setup/               Lambda bring-up, the SSH tunnel, smoke tests
+    observability/       dashboard definitions
+    kernels/             attention HBM math, eviction, warmup tooling
   docs/
-    project/         per-part deep dives + the results report
-    cluster/         the stack, file by file
-  notebook/          part5-queue.ipynb — the brief submits this separately
-  metrics/           scrapes, hop dicts, evict counts, 429/503
+    project/             per-part deep dives + the results report
+    cluster/             the stack, file by file
+  tests/               22 test files
+  notebook/            part5-queue.ipynb
+  metrics/             scrapes, decision logs, reports
   assets/screenshots/  Grafana exhibits and generated charts
 ```
+
+`control/` is the import root: `gateway`, `router` and `edge` are packages that
+import each other, carried over intact from the class-10 lab. `edge` is that
+lab's `app` package renamed, so the top-level `app/` is unambiguously ours.
 
 ## Status
 

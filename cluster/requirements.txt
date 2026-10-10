@@ -1,0 +1,5 @@
+pytest>=8.0
+
+# The policy the gateway applies. Pin it for a run you intend to cite: a report
+# naming kv_threshold should name the code that produced it.
+admitperf>=0.0.2

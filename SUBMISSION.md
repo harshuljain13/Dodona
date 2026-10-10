@@ -174,7 +174,7 @@ so the contention we measure is purely LLM-side.
 **1 × A100-40GB on one Lambda node. `Qwen2.5-7B-Instruct-AWQ` at int4. TP=1,
 three workers on three HAMi slices: one prefill and two decode.
 `max_model_len` 16,384, `max_num_seqs` 64. Mooncake for the hop. Overflow is the
-same model, hosted.**
+a smaller model on Superlinked, hard-capped.**
 
 ```
 one A100-40GB  ·  40.0 GiB reported  ·  ~37 GiB allocatable across 3 pods
@@ -427,7 +427,7 @@ hypothesis held.
 | 3 | **topology** | prefill/decode split, 1 + 2, on **HAMi** slices | Sliced because one card must yield three addressable workers. Split so the hop is never a no-op |
 | 4 | **concurrency** | `max_num_seqs` 64, `max_model_len` 16,384 | 64 sits far above what KV allows, so the cache runs out before the scheduler does — if it were lower, a KV policy could never fire |
 | 5 | **hop backend** | Mooncake | The only one of the three that moves bytes. `nccl.py` and `nixl.py` return immediately |
-| 6 | **overflow** | **`Qwen/Qwen2.5-7B-Instruct` on Together AI**, same weights | On 503/529 only. Same model means an overflowed answer **is** comparable with a local one — a smaller model would be a relief valve, not equivalent service, and pooling its quality with ours would be dishonest. Limiter: `OVERFLOW_MAX_REQS`, a lifetime cap, not a rate |
+| 6 | **overflow** | **`Qwen/Qwen3.5-4B` on Superlinked** (`OVERFLOW_BACKEND=superlinked`) | On 503/529 only, never 429. Two limiters, both named: `OVERFLOW_MAX_TOKENS=64` caps the answer, `OVERFLOW_MAX_REQS=20` caps the **lifetime** of the gateway process — not a rate. **A 4B answering for a 7B is a relief valve, not equivalent service**, so overflowed responses are never pooled with local ones when reporting anything about quality |
 
 ### Gateway and engine are two different boxes
 
@@ -895,7 +895,7 @@ concurrency figure in Part 1 moves with it.
 | "Cache is full, add another replica" | [Part 2](#if-we-scale-which-pool) — a replica costs 5.2 GiB of fleet KV |
 | "NCCL/NIXL moves KV tensors" | [Part 6](#which-backend) — both are stubs |
 | "A replica is ready when weights are on the GPU" | [Part 6](#is-it-actually-warm) — warm, then re-quote |
-| "Overflow is another API" with no model named | [Part 2](#part-2--design-the-cluster) item 6 — `Qwen2.5-7B-Instruct` on Together AI, `OVERFLOW_MAX_REQS` limiter |
+| "Overflow is Superlinked / another API" with no model and no limiter named | [Part 2](#part-2--design-the-cluster) item 6 — the brief names this one directly. Ours: `Qwen/Qwen3.5-4B`, capped by `OVERFLOW_MAX_TOKENS=64` and `OVERFLOW_MAX_REQS=20` lifetime |
 | "I reimplemented vLLM's scheduler" | [Part 2](#gateway-and-engine-are-two-different-boxes) |
 | A 429 that overflowed | [Part 3](#part-3--guardrails-admit-stay-vs-leave) — ordering is load-bearing |
 | "RAG is a third phase" | Two phases: prefill, decode |

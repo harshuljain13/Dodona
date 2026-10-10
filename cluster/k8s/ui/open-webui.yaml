@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-webui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: open-webui
+  template:
+    metadata:
+      labels:
+        app: open-webui
+    spec:
+      containers:
+        - name: webui
+          image: ghcr.io/open-webui/open-webui:main
+          env:
+            - name: WEBUI_AUTH
+              value: "false"
+            - name: ENABLE_OLLAMA_API
+              value: "false"
+            - name: ENABLE_OPENAI_API
+              value: "true"
+            - name: OPENAI_API_BASE_URL
+              value: http://orch-serve:8080/v1
+            - name: OPENAI_API_BASE_URLS
+              value: http://orch-serve:8080/v1
+            - name: OPENAI_API_KEY
+              value: not-needed
+            - name: OPENAI_API_KEYS
+              value: not-needed
+            - name: DEFAULT_MODELS
+              value: text
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: open-webui
+spec:
+  selector:
+    app: open-webui
+  ports:
+    - port: 8080
+      nodePort: 30030
+  type: NodePort

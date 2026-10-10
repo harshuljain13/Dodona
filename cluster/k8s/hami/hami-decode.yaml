@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-decode
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-decode
+      phase: decode
+  template:
+    metadata:
+      labels:
+        app: vllm-decode
+        phase: decode
+    spec:
+      schedulerName: hami-scheduler
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+              nvidia.com/gpumem: "27648"
+              nvidia.com/gpucores: "20"

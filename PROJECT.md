@@ -134,7 +134,7 @@ flowchart LR
   DG[["Deepgram<br/>[External]<br/>speech ↔ text"]]
   WEB[["Web<br/>[External]<br/>search and fetch"]]
   HF[["Hugging Face<br/>[External]<br/>model weights"]]
-  OVF[["Together AI<br/>[External]<br/>same model, overflow only"]]
+  OVF[["Superlinked<br/>[External]<br/>Qwen3.5-4B · overflow only<br/>capped at 20 requests"]]
 
   USER -->|"speaks a question"| SYS
   SYS -->|"speaks the answer"| USER

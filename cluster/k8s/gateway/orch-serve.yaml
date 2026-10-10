@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orch-serve
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orch-serve
+  template:
+    metadata:
+      labels:
+        app: orch-serve
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: orch
+          image: python:3.12-slim
+          workingDir: /lab
+          command:
+            - sh
+            - -c
+            - pip install -q -r requirements.txt && python -m gateway.serve
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: SERVE_HOST
+              value: "0.0.0.0"
+            - name: PREFILL_URLS
+              value: http://vllm-prefill:8000
+            - name: DECODE_URLS
+              value: http://vllm-decode:8000
+            - name: LAB_TOPOLOGY
+              value: disaggregated
+            - name: LAB_SPLIT
+              value: capability
+            - name: TEXT_MODEL
+              value: Qwen/Qwen2.5-3B-Instruct
+            - name: VISION_MODEL
+              value: Qwen/Qwen2.5-VL-3B-Instruct
+            - name: MOONCAKE_URL
+              value: http://mooncake-store:50051
+            - name: TRACE_PATH
+              value: /lab/traces/requests.jsonl
+          ports:
+            - containerPort: 8080
+              hostPort: 8080
+          volumeMounts:
+            - name: lab
+              mountPath: /lab
+      volumes:
+        - name: lab
+          hostPath:
+            path: /home/ubuntu/class10
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orch-serve
+spec:
+  selector:
+    app: orch-serve
+  ports:
+    - port: 8080
+      nodePort: 30080
+  type: NodePort

@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-prefill
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-prefill
+      phase: prefill
+  template:
+    metadata:
+      labels:
+        app: vllm-prefill
+        phase: prefill
+    spec:
+      schedulerName: hami-scheduler
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+              nvidia.com/gpumem: "22528"
+              nvidia.com/gpucores: "60"

@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mooncake-master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mooncake-master
+  template:
+    metadata:
+      labels:
+        app: mooncake-master
+    spec:
+      containers:
+        - name: master
+          image: mooncake-transfer-engine:lab
+          args: ["mooncake_master", "--port", "50051"]
+          ports:
+            - containerPort: 50051
+---
