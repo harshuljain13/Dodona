@@ -240,13 +240,21 @@ class Cluster:
         wired up, is being consulted, and is moving nothing.
         """
         m = self.pool_metrics(pool)
+
+        def by_source(source: str) -> float:
+            return sum(v for k, v in m.items()
+                       if k.startswith("vllm:prompt_tokens_by_source_total")
+                       and f'source="{source}"' in k)
+
         return {
             "queries": sum_by_name(m, "vllm:external_prefix_cache_queries_total"),
             "hits": sum_by_name(m, "vllm:external_prefix_cache_hits_total"),
-            "tokens_from_transfer": sum(
-                v for k, v in m.items()
-                if k.startswith("vllm:prompt_tokens_by_source_total")
-                and 'source="external_kv_transfer"' in k),
+            # The same prompt tokens, split by where their KV came from. Decode
+            # is SENT the whole prompt either way, so prompt_tokens_total never
+            # moves — only this split does.
+            "computed": by_source("local_compute"),
+            "local_cache": by_source("local_cache_hit"),
+            "tokens_from_transfer": by_source("external_kv_transfer"),
             "local_hits": sum_by_name(m, "vllm:prefix_cache_hits_total"),
             "local_queries": sum_by_name(m, "vllm:prefix_cache_queries_total"),
         }
