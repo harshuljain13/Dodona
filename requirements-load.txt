@@ -5,3 +5,4 @@ openai>=1.40
 # than nbconvert, which would need a LaTeX install.
 matplotlib>=3.8
 jupyterlab>=4.0
+ipykernel>=6.29

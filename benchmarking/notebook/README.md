@@ -6,10 +6,18 @@
 | [`utils.py`](utils.py) | shared by every notebook: `Cluster` reads the cluster, `Report` builds the PDF |
 
 ```bash
-.venv/bin/pip install -r requirements-load.txt     # matplotlib, jupyterlab
+.venv/bin/pip install -r requirements-load.txt     # matplotlib, jupyterlab, ipykernel
+
+# Register the venv as a kernel. Without this Jupyter shows no kernel to
+# attach: jupyterlab being installed in the venv does not register it.
+.venv/bin/python -m ipykernel install --user --name dodona --display-name "Dodona (.venv)"
+
 make ssh                                            # leave the tunnel open
 .venv/bin/jupyter lab benchmarking/notebook/
 ```
+
+The notebooks pin `kernelspec: dodona`, so they pick it up automatically. If
+the kernel menu says "no kernel", re-run the `ipykernel install` line.
 
 ## Why PDFs come from matplotlib
 
