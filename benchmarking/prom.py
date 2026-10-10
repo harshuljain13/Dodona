@@ -149,6 +149,59 @@ class Grafana:
         return dest
 
 
+#: The component checks Part 2 runs. Each is (label, PromQL, what it means).
+#: Grouped the way an on-call would read them, not the way the metrics are
+#: named — "is the scheduler queueing?" rather than "num_requests_waiting".
+COMPONENT_CHECKS: dict[str, list[tuple[str, str, str]]] = {
+    "prefill / decode roles": [
+        ("prefill prompt tokens", 'sum(vllm:prompt_tokens_total{pod=~"vllm-prefill.*"})',
+         "prefill should carry prompt work"),
+        ("prefill generated", 'sum(vllm:generation_tokens_total{pod=~"vllm-prefill.*"})',
+         "near 0: its leg is sent with max_tokens=1"),
+        ("decode generated", 'sum(vllm:generation_tokens_total{pod=~"vllm-decode.*"})',
+         "decode does the generating"),
+    ],
+    "scheduler": [
+        ("running", "sum(vllm:num_requests_running)", "in flight on the GPU"),
+        ("waiting", "sum(vllm:num_requests_waiting)", "queued behind max-num-seqs"),
+        ("preemptions", "sum(vllm:num_preemptions_total)",
+         "must be 0 — a preempt is a stall mid-answer"),
+        ("KV usage", "max(vllm:kv_cache_usage_perc)", "the signal admission reads"),
+    ],
+    "KV hop": [
+        ("connector asked", "sum(vllm:external_prefix_cache_queries_total)",
+         "decode looked for remote blocks"),
+        ("connector served", "sum(vllm:external_prefix_cache_hits_total)",
+         "blocks found remotely"),
+        ("tokens transferred",
+         'sum(vllm:prompt_tokens_by_source_total{source="external_kv_transfer"})',
+         "KV that arrived instead of being computed"),
+        ("tokens recomputed",
+         'sum(vllm:prompt_tokens_by_source_total{source="local_compute"})',
+         "prompt work decode had to do itself"),
+        ("hops recorded", "sum(orch_kv_transfer_total)",
+         "router bookkeeping — not proof of bytes"),
+    ],
+    "admission": [
+        ("requests", "sum(orch_requests_total)", "reached the gateway"),
+        ("completed", "sum(orch_completed_total)", "served"),
+        ("shed", "sum(orch_shed_total)", "refused, by reason below"),
+        ("overflow", "sum(orch_overflow_total)", "bursted to a provider"),
+    ],
+    "routing": [
+        ("placements", "sum(orch_pick_total)", "a pod was chosen"),
+        ("prefix-sticky", "sum(orch_sticky_total)", "placed on a prefix-warm pod"),
+        ("unknown snapshot", "sum(orch_pick_unknown_snapshot_total)",
+         "placed blind — the scorer had no signal"),
+    ],
+    "KEDA": [
+        ("scaler value", "max(keda_scaler_metrics_value)", "what KEDA sees"),
+        ("decode replicas", 'kube_deployment_status_replicas{deployment="vllm-decode"}',
+         "what it has done about it"),
+    ],
+}
+
+
 def panel_queries(dashboard: str) -> dict[str, list[str]]:
     """{panel title: [PromQL, ...]} from a dashboard we actually deploy.
 
