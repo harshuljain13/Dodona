@@ -1,26 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- BRIEF: Dodona banner. Simple. Black background, dodona-green (#10B981) and white
-     wordmark, one-line tagline, single thin green accent bar at the bottom. No motif,
-     no icon, no grid. Size: 1280x260. IDs: bg, wordmark, tagline, accent.
-     Same construction as AdmitPerf's banner. -->
+<!-- BRIEF: Dodona banner. Simple. Black background, white wordmark with a single cyan
+     period, one-line tagline, one thin cyan accent bar at the bottom. No motif, no icon,
+     no grid, no two-tone split. Size: 1280x260. IDs: bg, wordmark, tagline, accent.
+     Same construction as AdmitPerf's banner; cyan rather than yellow so the two
+     projects do not read as the same thing. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 260" width="1280" height="260" role="img" aria-label="Dodona — self-hosted voice research on one GPU">
   <g id="bg">
     <rect width="1280" height="260" fill="#0B0B0B"/>
   </g>
 
   <g id="wordmark" font-family="Helvetica, Arial, sans-serif" font-weight="900">
-    <text x="640" y="140" font-size="128" letter-spacing="-3" text-anchor="middle">
-      <tspan fill="#10B981">Dod</tspan><tspan fill="#FFFFFF">ona</tspan>
+    <text x="640" y="142" font-size="128" letter-spacing="-3" text-anchor="middle">
+      <tspan fill="#FFFFFF">Dodona</tspan><tspan fill="#22D3EE">.</tspan>
     </text>
   </g>
 
   <g id="tagline" font-family="Helvetica, Arial, sans-serif">
-    <text x="640" y="188" font-size="20" fill="#BFBFBF" font-weight="400" letter-spacing="3" text-anchor="middle">
+    <text x="640" y="190" font-size="20" fill="#9AA4B2" font-weight="400" letter-spacing="3.5" text-anchor="middle">
       self-hosted voice research on one GPU
     </text>
   </g>
 
   <g id="accent">
-    <rect x="560" y="214" width="160" height="4" fill="#10B981"/>
+    <rect x="580" y="216" width="120" height="4" fill="#22D3EE"/>
   </g>
 </svg>
