@@ -7,8 +7,8 @@ and links out.
 | Go deeper | |
 |---|---|
 | [`PROJECT.md`](PROJECT.md) | The project: the problem, the decisions, and the **C4 architecture levels** |
-| [`docs/project/`](docs/README.md) | Per-part deep dives: the full arithmetic, the run protocol, the results report |
-| [`docs/cluster/`](docs/cluster/README.md) | The serving stack, file by file — gateway, router, KV bus, observability |
+| [`docs/project/`](../README.md) | Per-part deep dives: the full arithmetic, the run protocol, the results report |
+| [`docs/cluster/`](cluster/README.md) | The serving stack, file by file — gateway, router, KV bus, observability |
 
 ## Progress
 
@@ -350,7 +350,7 @@ All **predicted**; measured at [Part 8](#part-8--proof-measure-the-app-not-a-gen
 Tools are AgentShip builtins — `web_search`, `scrape_url`, `http_request`,
 `calculator`. Nothing new is written on the app side.
 
-→ [`docs/project/00-use-case.md`](docs/project/00-use-case.md)
+→ [`docs/project/00-use-case.md`](project/00-use-case.md)
 
 ## Part 1 — Capacity on paper
 
@@ -526,7 +526,7 @@ Checked at [Part 8](#part-8--proof-measure-the-app-not-a-generic-trace): if
 `kv_cache_usage_perc` saturates before `num_requests_waiting` grows, the
 hypothesis held.
 
-→ [`docs/project/01-capacity.md`](docs/project/01-capacity.md)
+→ [`docs/project/01-capacity.md`](project/01-capacity.md)
 
 ## Part 2 — Design the cluster
 
@@ -650,8 +650,8 @@ Pods start **one at a time**; three contending at startup can leave one with hal
 the KV of its peers, and a fleet with unequal caches makes the pool-wide
 concurrency figure wrong.
 
-→ [`docs/project/02-cluster.md`](docs/project/02-cluster.md) ·
-[`docs/cluster/infrastructure.md`](docs/cluster/infrastructure.md)
+→ [`docs/project/02-cluster.md`](project/02-cluster.md) ·
+[`docs/cluster/infrastructure.md`](cluster/infrastructure.md)
 
 ## Part 3 — Guardrails, admit, stay vs leave
 
@@ -751,8 +751,8 @@ Three details that each prevent a report that looks fine and is wrong:
 - **The policy fails open**, with `admitperf_gate_active` as a separate metric, so
   a crashing policy is distinguishable from `no_admission`.
 
-→ [`docs/project/03-admission.md`](docs/project/03-admission.md) ·
-[`docs/cluster/gateway.md`](docs/cluster/gateway.md)
+→ [`docs/project/03-admission.md`](project/03-admission.md) ·
+[`docs/cluster/gateway.md`](cluster/gateway.md)
 
 ## Part 4 — Place
 
@@ -761,7 +761,7 @@ Three details that each prevent a report that looks fine and is wrong:
 > returns `None` and contributes nothing — prefill falls back to load and KV
 > headroom. It works in simulation because `FakeWorker` populates the field,
 > which is why the tests pass over a dead path. See
-> [`docs/project/real-vs-simulated.md`](docs/project/real-vs-simulated.md).
+> [`docs/project/real-vs-simulated.md`](project/real-vs-simulated.md).
 
 ```
 pick(req, workers, *, policy) → Worker | Shed
@@ -844,8 +844,8 @@ the decode worker picked may no longer be the least loaded. Deciding at transfer
 time would place better. Named so that any decode imbalance in the run is
 attributed here and not to the admission policy.
 
-→ [`docs/project/04-placement.md`](docs/project/04-placement.md) ·
-[`docs/cluster/router.md`](docs/cluster/router.md)
+→ [`docs/project/04-placement.md`](project/04-placement.md) ·
+[`docs/cluster/router.md`](cluster/router.md)
 
 ## Part 5 — Queue
 
@@ -854,7 +854,7 @@ admit → place → our queue → engine waiting / running / preempt
 ```
 
 **The notebook is the deliverable for this part** —
-[`infra/notebook/part5-queue.ipynb`](infra/notebook/) — because every answer below needs a
+[`infra/notebook/part5-queue.ipynb`](../infra/notebook/) — because every answer below needs a
 live scrape, not an assertion. *Status: not written.*
 
 | Question | Answer | Source |
@@ -869,7 +869,7 @@ live scrape, not an assertion. *Status: not written.*
 | Client gone (`aborted`) — who frees the KV, and how? | The engine. We mark `Request.aborted` and stop reading; vLLM drops the sequence and returns its blocks. **Voice makes this common** — a listener who talks over the answer aborts mid-generation | notebook |
 | After a worker returns — slam it at 100%, or ramp? | **Ramp.** `READY` precedes serving by minutes while CUDA graphs capture. Slamming a just-returned worker quotes a TTFT that is warmup, not inference | [Part 6](#part-6--hop-when-do-you-move-kv-is-the-replica-warm) |
 
-→ [`docs/project/05-queue.md`](docs/project/05-queue.md)
+→ [`docs/project/05-queue.md`](project/05-queue.md)
 
 ## Part 6 — Hop: when do you move KV? Is the replica warm?
 
@@ -878,7 +878,7 @@ live scrape, not an assertion. *Status: not written.*
 > economics below compare against a transfer that does not currently happen, and
 > the claim that Mooncake "moves bytes" is wrong: it is a 78-line hop recorder,
 > identical in modules 9b, 10 and here. See
-> [`docs/project/topology.md`](docs/project/topology.md) for what a real split
+> [`docs/project/topology.md`](project/topology.md) for what a real split
 > requires and the three options. This section is rewritten once that is decided.
 
 With topology B, **`src != dst` always** — prefill is pod 0, decode is pod 1 or 2
@@ -984,8 +984,8 @@ Warmth matters more here than in a text app: **a cold replica's first token is
 audible as dead air.** The ~1.8 s first-request penalty of single-bucket CUDA
 graph capture is invisible in a chat box and glaring in a voice turn.
 
-→ [`docs/project/06-hop.md`](docs/project/06-hop.md) ·
-[`docs/cluster/kvbus.md`](docs/cluster/kvbus.md)
+→ [`docs/project/06-hop.md`](project/06-hop.md) ·
+[`docs/cluster/kvbus.md`](cluster/kvbus.md)
 
 ## Part 7 — Wire the app to the cluster
 
@@ -1048,7 +1048,7 @@ Engine side needs `--enable-auto-tool-choice --tool-call-parser hermes`.
 are two client-side numbers (first audio, full answer) that are both *downstream*
 of engine TTFT, so conflating them would be doubly wrong.
 
-→ [`docs/project/07-wiring.md`](docs/project/07-wiring.md) · [`app/README.md`](app/)
+→ [`docs/project/07-wiring.md`](project/07-wiring.md) · [`app/README.md`](../app/)
 
 ## Part 8 — Proof: measure the app, not a generic trace
 
@@ -1111,8 +1111,8 @@ Three seeds each. All results *TBM*.
 P6 comes first in time — read off `config.json` on a live worker. Every
 concurrency figure in Part 1 moves with it.
 
-→ [`docs/project/08-proof.md`](docs/project/08-proof.md) ·
-[`docs/project/results-report.md`](docs/project/results-report.md)
+→ [`docs/project/08-proof.md`](project/08-proof.md) ·
+[`docs/project/results-report.md`](project/results-report.md)
 
 ---
 
@@ -1139,7 +1139,7 @@ Dodona is built **stage by stage** — nothing is inherited wholesale. Runbook:
 | | |
 |---|---|
 | The design, the arithmetic, the decision trees | **This document** |
-| Stages 0–10 | **None started.** See [`README.md`](README.md#status) |
+| Stages 0–10 | **None started.** See [`README.md`](../README.md#status) |
 | Any measured number | **None.** All `TBM` |
 
 Reference implementations we port from, piece by piece, rather than run as a

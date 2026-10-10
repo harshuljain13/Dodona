@@ -1,7 +1,7 @@
 # Part 1 — Capacity: how we got to the configuration
 
 The deep version of
-[`SUBMISSION.md` Part 1](../../SUBMISSION.md#part-1--capacity-on-paper). **This
+[`SUBMISSION.md` Part 1](../SUBMISSION.md#part-1--capacity-on-paper). **This
 file is the authority for every number in the project.**
 
 Six decisions, in order. Each narrows the next.

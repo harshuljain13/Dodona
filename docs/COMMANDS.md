@@ -104,7 +104,7 @@ nvidia-smi --query-gpu=name,memory.total,compute_cap --format=csv
 Expect `A100`, `40960 MiB`, compute capability `8.0`.
 
 **`8.0` is sm80, which has no fp8 tensor cores.** That is why the model is int4
-and not fp8 — see [`docs/project/01-capacity.md`](docs/project/01-capacity.md).
+and not fp8 — see [`docs/project/01-capacity.md`](project/01-capacity.md).
 If this says `8.9` or `9.0`, stop: the whole capacity chain should be redone,
 because fp8 becomes available and int4 stops being forced.
 
@@ -147,7 +147,7 @@ environment:
 
 It also reads `compute_cap` and warns if the card is not sm80 — because on sm89
 or sm90 fp8 becomes available, int4 stops being forced, and
-[`docs/project/01-capacity.md`](docs/project/01-capacity.md) step 4 needs redoing.
+[`docs/project/01-capacity.md`](project/01-capacity.md) step 4 needs redoing.
 
 ### 4b — the container path, if the venv fights you
 
@@ -371,5 +371,5 @@ commands are known to work — rather than guessed in advance and quietly wrong.
 | | |
 |---|---|
 | [`RUNBOOK.md`](RUNBOOK.md) | The bring-up in order, the gate at each step, and a failure-mode table |
-| [`docs/cluster/COMMANDS.md`](docs/cluster/COMMANDS.md) | Debugging reference inherited from the course lab — port chains, pod inspection, Grafana queries. Written for that layout, so paths differ |
-| [`docs/project/01-capacity.md`](docs/project/01-capacity.md) | Where every predicted number here comes from |
+| [`docs/cluster/COMMANDS.md`](cluster/COMMANDS.md) | Debugging reference inherited from the course lab — port chains, pod inspection, Grafana queries. Written for that layout, so paths differ |
+| [`docs/project/01-capacity.md`](project/01-capacity.md) | Where every predicted number here comes from |

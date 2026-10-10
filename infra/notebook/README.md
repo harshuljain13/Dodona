@@ -5,7 +5,7 @@ part 5."* So it is a graded artifact in its own right, not an appendix.
 
 | | |
 |---|---|
-| `part5-queue.ipynb` | **Not written.** Answers [Part 5](../../SUBMISSION.md#part-5--queue) from live scrapes |
+| `part5-queue.ipynb` | **Not written.** Answers [Part 5](../../docs/SUBMISSION.md#part-5--queue) from live scrapes |
 
 ## What it has to show
 

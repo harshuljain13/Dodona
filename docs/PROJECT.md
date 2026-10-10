@@ -5,8 +5,8 @@ first, then down.
 
 - **This file** — the project, and the C4-style architecture levels.
 - [`SUBMISSION.md`](SUBMISSION.md) — the cohort brief answered, part by part.
-- [`docs/project/`](docs/README.md) — project deep dives: capacity arithmetic, per-part design, the run protocol.
-- [`docs/cluster/`](docs/cluster/README.md) — cluster deep dives: the gateway, router, KV bus and observability, file by file.
+- [`docs/project/`](../README.md) — project deep dives: capacity arithmetic, per-part design, the run protocol.
+- [`docs/cluster/`](cluster/README.md) — cluster deep dives: the gateway, router, KV bus and observability, file by file.
 
 ---
 
@@ -115,7 +115,7 @@ It also makes warmth matter more than it does in text: a cold replica's first
 token is *audible*. The ~1.8 s penalty of single-bucket CUDA-graph capture is
 invisible in a chat box and glaring in a spoken turn.
 
-Detail: [`docs/project/00-use-case.md`](docs/project/00-use-case.md).
+Detail: [`docs/project/00-use-case.md`](project/00-use-case.md).
 
 ## The decision the cluster has to make
 
@@ -404,7 +404,7 @@ max_num_seqs = 64  ->  KV binds, admission can bite
 Full six-step decision chain, the rejected alternatives and the number that
 rejected each:
 [`SUBMISSION.md`](SUBMISSION.md#the-decision-chain) and
-[`docs/project/01-capacity.md`](docs/project/01-capacity.md).
+[`docs/project/01-capacity.md`](project/01-capacity.md).
 
 **Replication is what makes KV scarce.** Three copies of the weights cost
 15.6 GiB of the 36 GiB allocated, leaving 14.4 GiB of KV across the fleet where a
@@ -460,7 +460,7 @@ multi-agent system; Envoy and llm-d.
 
 Ten stages, each ending in something testable. Runbook:
 [`RUNBOOK.md`](RUNBOOK.md). Status table:
-[`README.md`](README.md#status).
+[`README.md`](../README.md#status).
 
 The ordering has one deliberate feature worth naming: **observability comes
 before the gateway**, because admission is a *function of* engine

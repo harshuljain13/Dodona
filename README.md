@@ -182,10 +182,10 @@ in this repo hardcodes them.
 
 | | |
 |---|---|
-| [**PROJECT.md**](PROJECT.md) | The problem in full, the decision behind every choice, the C4 architecture levels, alternatives rejected, risks |
-| [**SUBMISSION.md**](SUBMISSION.md) | The design answered part by part, with a decision tree per part |
-| [**COMMANDS.md**](COMMANDS.md) | Every command in order, marked `[Mac]` or `[GPU]` |
-| [**RUNBOOK.md**](RUNBOOK.md) | The bring-up in order, the gate at each step, and what each failure actually means |
+| [**PROJECT.md**](docs/PROJECT.md) | The problem in full, the decision behind every choice, the C4 architecture levels, alternatives rejected, risks |
+| [**SUBMISSION.md**](docs/SUBMISSION.md) | The design answered part by part, with a decision tree per part |
+| [**COMMANDS.md**](docs/COMMANDS.md) | Every command in order, marked `[Mac]` or `[GPU]` |
+| [**RUNBOOK.md**](docs/RUNBOOK.md) | The bring-up in order, the gate at each step, and what each failure actually means |
 | [`docs/project/`](docs/README.md) | Capacity arithmetic, per-part depth, the run protocol, the results report |
 | [`docs/cluster/`](docs/cluster/README.md) | The stack file by file — gateway, router, KV bus, observability |
 
@@ -197,12 +197,17 @@ infra/
   metrics/           traces and load-generator bundles
   reports/           generated run reports
   notebook/          part5-queue.ipynb
-docs/                project-level and cluster-level deep dives
+docs/
+  PROJECT.md         the problem, every decision, the C4 levels
+  SUBMISSION.md      the design answered part by part
+  RUNBOOK.md         the bring-up in order, with a gate at each step
+  COMMANDS.md        every command, marked [Mac] or [GPU]
+  project/ cluster/  deep dives
 tests/               22 test files
 ```
 
-Everything that runs the cluster lives under `infra/`. Everything above it is
-the app, the docs, and the tests.
+`infra/` runs the cluster, `docs/` explains it, `app/` is the agent. The repo
+root holds this README and the Makefile, nothing else.
 
 ## Quick start
 
@@ -227,7 +232,7 @@ ssh — there is no separate login step.
 | `make test` | the control plane, locally, **with no GPU** |
 
 Both bring-up targets are safe to re-run. Stopping, logs, load generation and
-the one-off tools are plain commands in [COMMANDS.md](COMMANDS.md).
+the one-off tools are plain commands in [COMMANDS.md](docs/COMMANDS.md).
 
 When one step fails and you want to redo just that step, `make ssh` and then the
 `box-*` targets — `box-setup`, `box-serve`, `box-gate`, `box-cluster`,
@@ -242,7 +247,7 @@ derived from those two.** If either fails, redo the arithmetic before renting
 more time.
 
 → Every command individually, and what each failure means:
-[**COMMANDS.md**](COMMANDS.md) · [**RUNBOOK.md**](RUNBOOK.md)
+[**COMMANDS.md**](docs/COMMANDS.md) · [**RUNBOOK.md**](docs/RUNBOOK.md)
 
 ## Status
 
@@ -252,7 +257,7 @@ predictions are written down to be checked later **without being edited**.
 Stages **3** (a live `/metrics` scrape) and **8** (a hop or a warmup proof) are
 the two that must exist. Observability comes before the gateway deliberately —
 admission is a *function of* engine metrics, so there is nothing to decide on
-until the scrape exists. Progress: [RUNBOOK.md](RUNBOOK.md).
+until the scrape exists. Progress: [RUNBOOK.md](docs/RUNBOOK.md).
 
 ## Contributing
 

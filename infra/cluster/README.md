@@ -1,12 +1,12 @@
 # cluster/ — how the engine comes up
 
-Built in order. **[`../RUNBOOK.md`](../../RUNBOOK.md) is the thing you execute** —
+Built in order. **[`../RUNBOOK.md`](../../docs/RUNBOOK.md) is the thing you execute** —
 ten stages, each with a gate you check before starting the next.
 
 | | |
 |---|---|
-| [`../COMMANDS.md`](../../COMMANDS.md) | **Every command, in order.** Marked `[Mac]` or `[GPU]` |
-| [`../RUNBOOK.md`](../../RUNBOOK.md) | The bring-up in order, with the gate at each step |
+| [`../COMMANDS.md`](../../docs/COMMANDS.md) | **Every command, in order.** Marked `[Mac]` or `[GPU]` |
+| [`../RUNBOOK.md`](../../docs/RUNBOOK.md) | The bring-up in order, with the gate at each step |
 | `k8s/` | Manifests: three HAMi slices, 1 prefill + 2 decode, Mooncake, observability |
 | `setup/` | Lambda bring-up, the SSH tunnel, smoke tests |
 

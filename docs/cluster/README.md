@@ -6,7 +6,7 @@ accurate as the code does.
 
 For *this project's* decisions — why 4 × A100, why int4, why disaggregated, what
 is being measured — go up to [`../../docs/`](../README.md). Start from
-[`../../SUBMISSION.md`](../../SUBMISSION.md) if you have not.
+[`../../SUBMISSION.md`](../SUBMISSION.md) if you have not.
 
 | Page | Read it for |
 |---|---|

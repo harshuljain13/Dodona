@@ -8,7 +8,7 @@ Two sets, and the split matters.
 | [**`cluster/`**](../infra/cluster/README.md) | **How the stack works.** Gateway, router, KV bus, observability, infrastructure — file by file. Documents code, so it stays accurate as the code does | [`infra/cluster/README.md`](../infra/cluster/README.md) |
 
 Start from [`../README.md`](../README.md), then
-[`../SUBMISSION.md`](../SUBMISSION.md), then come here.
+[`../SUBMISSION.md`](SUBMISSION.md), then come here.
 
 ## Project-level — the parts
 
@@ -47,7 +47,7 @@ which piece of arithmetic was misunderstood.
 disclosing, not a hole we missed.
 
 The eight predictions live in
-[`../SUBMISSION.md`](../SUBMISSION.md#predictions-written-before-the-run) and are
+[`../SUBMISSION.md`](SUBMISSION.md#predictions-written-before-the-run) and are
 checked in [`project/08-proof.md`](project/08-proof.md).
 
 ## Honest state of these docs

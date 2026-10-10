@@ -5,15 +5,15 @@ reaches a GPU.
 
 | Decision | Signature | Part |
 |---|---|---|
-| **guard** | `inspect(payload) → Guard` | [3](../../SUBMISSION.md#part-3--guardrails-admit-stay-vs-leave) |
-| **admit** | `should_shed(req, snap) → (shed?, code, reason, retry_after_seconds)` | [3](../../SUBMISSION.md#part-3--guardrails-admit-stay-vs-leave) |
-| **place** | `pick(req, workers, *, policy) → Worker \| Shed` | [4](../../SUBMISSION.md#part-4--place) |
-| **queue / hop** | `transfer(src, dst)` | [5](../../SUBMISSION.md#part-5--queue), [6](../../SUBMISSION.md#part-6--hop-when-do-you-move-kv-is-the-replica-warm) |
-| **declare warm** | warmup gate, then re-quote | [6](../../SUBMISSION.md#part-6--hop-when-do-you-move-kv-is-the-replica-warm) |
-| **stay vs leave** | overflow gate | [3](../../SUBMISSION.md#part-3--guardrails-admit-stay-vs-leave) |
+| **guard** | `inspect(payload) → Guard` | [3](../../docs/SUBMISSION.md#part-3--guardrails-admit-stay-vs-leave) |
+| **admit** | `should_shed(req, snap) → (shed?, code, reason, retry_after_seconds)` | [3](../../docs/SUBMISSION.md#part-3--guardrails-admit-stay-vs-leave) |
+| **place** | `pick(req, workers, *, policy) → Worker \| Shed` | [4](../../docs/SUBMISSION.md#part-4--place) |
+| **queue / hop** | `transfer(src, dst)` | [5](../../docs/SUBMISSION.md#part-5--queue), [6](../../docs/SUBMISSION.md#part-6--hop-when-do-you-move-kv-is-the-replica-warm) |
+| **declare warm** | warmup gate, then re-quote | [6](../../docs/SUBMISSION.md#part-6--hop-when-do-you-move-kv-is-the-replica-warm) |
+| **stay vs leave** | overflow gate | [3](../../docs/SUBMISSION.md#part-3--guardrails-admit-stay-vs-leave) |
 
 **Status: not written.** Stages 4–8 of
-[`../RUNBOOK.md`](../../RUNBOOK.md), built one at a time.
+[`../RUNBOOK.md`](../../docs/RUNBOOK.md), built one at a time.
 
 ## What is *not* here
 

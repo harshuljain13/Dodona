@@ -49,7 +49,8 @@ def _referenced_scripts(text: str) -> set[str]:
 
 
 @pytest.mark.parametrize(
-    "caller", [ROOT / "Makefile", SETUP / "up.sh", SETUP / "fleet.sh", ROOT / "COMMANDS.md"],
+    "caller", [ROOT / "Makefile", SETUP / "up.sh", SETUP / "fleet.sh",
+               ROOT / "docs" / "COMMANDS.md"],
     ids=lambda p: p.name,
 )
 def test_every_referenced_script_exists(caller: Path) -> None:
