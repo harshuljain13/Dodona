@@ -1,51 +1,52 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 220" width="900" height="220" role="img" aria-label="Dodona — a voice research agent, and the cluster that gates it">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 190" width="960" height="190" role="img" aria-label="Dodona — self-hosted voice research, and the cluster that gates it">
   <title>Dodona</title>
-  <defs>
-    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#111c2e"/>
-      <stop offset="1" stop-color="#0a1120"/>
-    </linearGradient>
-    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#86efac"/>
-      <stop offset="0.5" stop-color="#5eead4"/>
-      <stop offset="1" stop-color="#93c5fd"/>
-    </linearGradient>
-    <linearGradient id="wave" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#5eead4"/>
-      <stop offset="1" stop-color="#93c5fd"/>
-    </linearGradient>
-  </defs>
 
-  <!-- dark panel, so the lockup reads on a light or a dark page -->
-  <rect x="0" y="0" width="900" height="220" rx="28" fill="url(#panel)"/>
+  <!-- background -->
+  <rect width="960" height="190" rx="14" fill="#0b1220"/>
+  <rect x="0.5" y="0.5" width="959" height="189" rx="13.5" fill="none" stroke="#1d2a3e"/>
 
-  <!-- emblem: an oak leaf whose midrib is a waveform.
+  <!-- mark: a leaf drawn as two arcs, its midrib a signal.
        The oracle at Dodona read answers from the sound of wind in the oak leaves. -->
-  <g transform="translate(56,46)">
-    <rect x="0" y="0" width="128" height="128" rx="30" fill="#172336"/>
-    <g transform="translate(64,64)">
-      <!-- leaf -->
-      <path d="M-44 0 C-26 -42 26 -42 44 0 C26 42 -26 42 -44 0 Z"
-            fill="none" stroke="url(#leaf)" stroke-width="4.5" stroke-linejoin="round"/>
-      <!-- midrib as a sound wave -->
-      <polyline points="-38,0 -28,0 -23,-13 -17,13 -11,-20 -5,20 1,-11 7,11 13,-6 19,6 25,0 38,0"
-                fill="none" stroke="url(#wave)" stroke-width="3.4"
-                stroke-linecap="round" stroke-linejoin="round"/>
-      <!-- stem -->
-      <path d="M44 0 L58 0" stroke="url(#leaf)" stroke-width="4.5" stroke-linecap="round"/>
+  <g transform="translate(60,47)">
+    <rect width="96" height="96" rx="12" fill="#101b2d" stroke="#23324a"/>
+    <g transform="translate(48,48)" fill="none" stroke="#5eead4" stroke-linecap="round">
+      <!-- leaf: mirrored arcs meeting at the tips -->
+      <path d="M0 -30 A 30 30 0 0 1 0 30 A 30 30 0 0 1 0 -30 Z" stroke-width="2.4" opacity="0.95"/>
+      <!-- midrib -->
+      <path d="M0 -30 L0 30" stroke-width="1.6" opacity="0.5"/>
+      <!-- veins, shortening toward the tip -->
+      <g stroke-width="1.6" opacity="0.75">
+        <path d="M0 -14 L11 -20"/><path d="M0 -14 L-11 -20"/>
+        <path d="M0 0 L14 -5"/><path d="M0 0 L-14 -5"/>
+        <path d="M0 14 L11 10"/><path d="M0 14 L-11 10"/>
+      </g>
     </g>
   </g>
 
   <!-- wordmark -->
-  <text x="228" y="108" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif"
-        font-size="64" font-weight="700" letter-spacing="-1.5" fill="#f1f5f9">Dodona</text>
-  <text x="230" y="146" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif"
-        font-size="21" font-weight="400" fill="#94a3b8">a voice research agent, and the cluster that decides what it may ask</text>
+  <text x="196" y="88" font-family="ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif"
+        font-size="46" font-weight="600" letter-spacing="7.5" fill="#edf2f8">DODONA</text>
 
-  <!-- three arcs: sound leaving the leaf -->
-  <g fill="none" stroke="#5eead4" stroke-linecap="round" opacity="0.55">
-    <path d="M826 86 A 28 28 0 0 1 826 134" stroke-width="3"/>
-    <path d="M846 72 A 44 44 0 0 1 846 148" stroke-width="3" opacity="0.7"/>
-    <path d="M866 58 A 60 60 0 0 1 866 162" stroke-width="3" opacity="0.45"/>
+  <!-- rule -->
+  <rect x="198" y="106" width="86" height="1.5" fill="#5eead4" opacity="0.85"/>
+
+  <text x="198" y="134" font-family="ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif"
+        font-size="16.5" font-weight="400" letter-spacing="0.3" fill="#8b9bb4">Self-hosted voice research — and the cluster that decides what it may ask</text>
+
+  <!-- right rail: the fleet, as three slices of one card -->
+  <g transform="translate(800,47)">
+    <text x="0" y="10" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="10.5" letter-spacing="1.4" fill="#5b6b84">1 × A100-40GB</text>
+    <g>
+      <rect x="0"  y="26" width="100" height="16" rx="3" fill="#13223a" stroke="#2a3a55"/>
+      <rect x="0"  y="26" width="31"  height="16" rx="3" fill="#1e3a5f"/>
+      <rect x="0"  y="48" width="100" height="16" rx="3" fill="#13223a" stroke="#2a3a55"/>
+      <rect x="0"  y="48" width="31"  height="16" rx="3" fill="#14564c"/>
+      <rect x="0"  y="70" width="100" height="16" rx="3" fill="#13223a" stroke="#2a3a55"/>
+      <rect x="0"  y="70" width="31"  height="16" rx="3" fill="#14564c"/>
+    </g>
+    <text x="36" y="38" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="9.5" fill="#6f8099">prefill</text>
+    <text x="36" y="60" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="9.5" fill="#6f8099">decode</text>
+    <text x="36" y="82" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="9.5" fill="#6f8099">decode</text>
   </g>
 </svg>

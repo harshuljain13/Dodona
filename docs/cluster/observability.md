@@ -9,6 +9,14 @@ Part of the [module 10 docs](README.md). Overview: [ARCHITECTURE.md](ARCHITECTUR
 ## The observation path
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
+  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
+  'lineColor':'#7c8da6','textColor':'#1e293b',
+  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+}}}%%
 flowchart LR
     ROUTER["Router.pick<br/>router/router.py"]
     METRICS["<b>METRICS</b><br/>gateway/metrics.py"]
@@ -41,6 +49,14 @@ into one gauge per pod.
 ## The dashboard path
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
+  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
+  'lineColor':'#7c8da6','textColor':'#1e293b',
+  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+}}}%%
 flowchart LR
     PY["<b>observability/dashboards.py</b><br/>panels as Python"]
     JSON["ten .json files<br/>k8s-config/observability/dashboards/"]
@@ -64,6 +80,15 @@ every run.
 ## One measured request
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant C as Client
     participant S as serve.prepare_chat

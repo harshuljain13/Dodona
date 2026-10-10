@@ -4,6 +4,14 @@ Three gates, in order, each answering a different question. The order is the
 design: the cheapest check runs first, and a refusal never costs a GPU.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
+  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
+  'lineColor':'#7c8da6','textColor':'#1e293b',
+  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+}}}%%
 flowchart LR
     REQ["request"] --> G["<b>guardrails</b><br/>is this well-formed?"]
     G -->|"no"| R400["400<br/>never costs a GPU"]

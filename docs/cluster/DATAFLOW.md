@@ -24,6 +24,15 @@ One command, `setup/lambda_cluster.sh`, wraps everything. It sources a guard and
 runs two scripts in order.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant U as You
     participant C as lambda_cluster.sh
@@ -67,6 +76,15 @@ monitoring get pods` is empty until Step 22.
 Four files run before any routing decision happens.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant C as Client
     participant H as serve.py Handler
@@ -130,6 +148,15 @@ Two things that surprise people:
 | `trace.py` | side | Writes `traces/requests.jsonl` |
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant A as admission.Gateway
     participant R as router.Router.place
@@ -170,6 +197,15 @@ and `app/`.
 queue; it *sequences the two phases*:
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant A as admission
     participant Q as queue.enqueue
@@ -210,6 +246,15 @@ The split is a **routing convention, not an engine feature**. Both pods run an
 ordinary, complete vLLM. Nothing tells vLLM "you are prefill-only".
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant R as Router
     participant P as vllm-prefill
@@ -251,6 +296,15 @@ HAMi is a scheduler plus a CUDA shim. It lets two pods hold one physical GPU
 with enforced memory ceilings.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant D as Deployment
     participant S as hami-scheduler
@@ -288,6 +342,15 @@ KEDA turns a Prometheus number into a replica count. That is all it does; it
 does not route, admit, or place.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant O as orch-serve
     participant P as Prometheus
@@ -335,6 +398,15 @@ Each pod runs stock `vllm/vllm-openai:v0.11.0` with four meaningful flags:
 | `--gpu-memory-utilization` | 0.50 | Fraction **of the HAMi slice** |
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant W as VLLMWorker
     participant API as vLLM API server
@@ -393,6 +465,15 @@ a 3B model is used throughout and never needs more than one slice.
 ## The whole path, one diagram
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant C as Client
     participant S as serve.py

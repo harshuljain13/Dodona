@@ -30,6 +30,15 @@ The scoring table below says *what* is weighed. This says *when* — the filter
 runs before scoring, and two shortcuts can exit early.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant G as Gateway
     participant R as Router.pick
@@ -103,6 +112,15 @@ Which rejection each component produces, and whether it can overflow:
 Where each rejection is decided, and how far the request got:
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant C as Client
     participant O as Overflow

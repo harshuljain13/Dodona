@@ -12,6 +12,14 @@ Lambda's firewall allows only SSH, so nothing is reachable directly. One
 `ssh -L` session carries everything:
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
+  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
+  'lineColor':'#7c8da6','textColor':'#1e293b',
+  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+}}}%%
 flowchart LR
     MAC["Mac<br/>127.0.0.1"]
     SSH["ssh -L x7<br/>setup/ssh.sh"]
@@ -36,6 +44,15 @@ Every URL you open traverses five layers. Knowing the order is how you tell a
 dead tunnel from a dead pod.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant B as Browser (Mac)
     participant S as ssh -L (Step 2)
@@ -77,6 +94,15 @@ There are **no readiness probes** on the vLLM pods. `1/1` flips when the
 container process starts, which is minutes before vLLM serves anything.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant K as kubelet
     participant C as container
@@ -110,6 +136,15 @@ lines before it. `kubectl logs … | grep -v '(APIServer'` is how you see it.
 ## Dashboards — generated, not written
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant D as day2_observability.sh
     participant H as Helm
@@ -135,6 +170,15 @@ every run**, hand-edits to the files are overwritten — change `METRIC_NAMES` i
 ## The autoscale loop
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant O as orch-serve
     participant P as Prometheus

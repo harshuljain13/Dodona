@@ -6,6 +6,14 @@ then the containers it is made of, then inside the one container we write.
 ## Level 1 — Context
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
+  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
+  'lineColor':'#7c8da6','textColor':'#1e293b',
+  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+}}}%%
 flowchart LR
     USER["Researcher<br/>[Person]"]
     ME["Us<br/>[Person]<br/>run load, read report"]
@@ -30,6 +38,14 @@ served on capacity we pay for is overspending, not a capacity problem.
 ## Level 2 — Containers
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
+  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
+  'lineColor':'#7c8da6','textColor':'#1e293b',
+  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+}}}%%
 flowchart TB
     subgraph CLIENTS["Clients"]
         AS["<b>AgentShip</b><br/>[Container]<br/>the research agent:<br/>search, fetch, reason"]
@@ -69,6 +85,14 @@ from module 10 and configured.
 ## Level 3 — Inside the gateway
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
+  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
+  'lineColor':'#7c8da6','textColor':'#1e293b',
+  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+}}}%%
 flowchart LR
     subgraph GW["Gateway"]
         G["<b>guardrails</b><br/>reject malformed"]
@@ -149,6 +173,15 @@ say so.
 ## What happens to a request
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'13.5px',
+  'actorBkg':'#eff6ff','actorBorder':'#64748b','actorTextColor':'#0f172a','actorLineColor':'#cbd5e1',
+  'signalColor':'#475569','signalTextColor':'#1e293b',
+  'noteBkgColor':'#fef9c3','noteBorderColor':'#ca8a04','noteTextColor':'#0f172a',
+  'activationBkgColor':'#dbeafe','activationBorderColor':'#64748b',
+  'labelBoxBkgColor':'#f1f5f9','labelBoxBorderColor':'#cbd5e1','labelTextColor':'#0f172a',
+  'sequenceNumberColor':'#ffffff','loopTextColor':'#1e293b'
+}}}%%
 sequenceDiagram
     participant C as AgentShip
     participant GW as Gateway

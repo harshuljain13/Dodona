@@ -3,29 +3,32 @@
 </p>
 
 <p align="center">
-  <a href="#the-problem">Problem</a> ·
-  <a href="#how-it-works">How it works</a> ·
-  <a href="#quick-start">Quick start</a> ·
-  <a href="PROJECT.md">Project</a> ·
-  <a href="SUBMISSION.md">Design</a>
+  <b>Ask aloud. It searches, reads the sources, and answers out loud with citations.</b><br>
+  <sub>Every token of inference on one GPU you rent. No hosted chat API in the answer path.</sub>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/GPU-1%C3%97%20A100--40GB-76B900.svg" alt="1x A100-40GB">
-  <img src="https://img.shields.io/badge/model-Qwen2.5--7B--AWQ-f59e0b.svg" alt="Qwen2.5-7B-Instruct-AWQ">
-  <img src="https://img.shields.io/badge/engine-vLLM-orange.svg" alt="vLLM">
-  <img src="https://img.shields.io/badge/decode%20pool-11%20concurrent-6366f1.svg" alt="decode pool 11">
-  <img src="https://img.shields.io/badge/stage-0%20of%2010-lightgrey.svg" alt="stage 0 of 10">
+  <img src="https://img.shields.io/badge/GPU-1%C3%97%20A100--40GB-1a7f37?style=flat-square" alt="1x A100-40GB">
+  <img src="https://img.shields.io/badge/model-Qwen2.5--7B--AWQ%20int4-b45309?style=flat-square" alt="Qwen2.5-7B-Instruct-AWQ int4">
+  <img src="https://img.shields.io/badge/engine-vLLM-c2410c?style=flat-square" alt="vLLM">
+  <img src="https://img.shields.io/badge/decode%20pool-11%20seq-4338ca?style=flat-square" alt="decode pool 11 sequences">
+  <img src="https://img.shields.io/badge/voice-Deepgram%20%C2%B7%20off--GPU-0f766e?style=flat-square" alt="Deepgram, off-GPU">
+  <img src="https://img.shields.io/badge/stage-0%20of%2010-64748b?style=flat-square" alt="stage 0 of 10">
+</p>
+
+<p align="center">
+  <a href="#the-problem">Problem</a> &nbsp;·&nbsp;
+  <a href="#how-it-works">How it works</a> &nbsp;·&nbsp;
+  <a href="#the-numbers">Numbers</a> &nbsp;·&nbsp;
+  <a href="#quick-start">Quick start</a> &nbsp;·&nbsp;
+  <a href="PROJECT.md">Project</a> &nbsp;·&nbsp;
+  <a href="SUBMISSION.md">Design</a>
 </p>
 
 ---
 
-Ask aloud. Dodona searches, fetches sources, reads them, and **answers out loud
-with citations** — entirely on one GPU you rent. No hosted chat API in the answer
-path.
-
-> The oracle at Dodona answered questions by reading the sound of wind through
-> the oak leaves. Voice in, sourced answer out.
+> *The oracle at Dodona answered questions by reading the sound of wind through
+> the oak leaves.* Voice in, sourced answer out.
 
 ## The problem
 
@@ -55,15 +58,14 @@ the policy could have fired at all.
 ## How it works
 
 ```mermaid
-%%{init: {
-  'theme': 'base',
-  'themeVariables': {
-    'primaryColor': '#dbeafe', 'primaryTextColor': '#0f172a', 'primaryBorderColor': '#000000',
-    'lineColor': '#000000', 'textColor': '#1e293b', 'fontSize': '15px',
-    'fontFamily': 'Inter, Segoe UI, Helvetica Neue, Arial, sans-serif',
-    'clusterBkg': '#ffffff', 'clusterBorder': '#94a3b8'
-  }
-}}%%
+%%{init: {'theme':'base','themeVariables':{
+  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
+  'primaryColor':'#eff6ff','primaryTextColor':'#0f172a','primaryBorderColor':'#94a3b8',
+  'secondaryColor':'#f1f5f9','tertiaryColor':'#f8fafc',
+  'lineColor':'#7c8da6','textColor':'#1e293b',
+  'clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1',
+  'edgeLabelBackground':'#ffffff','nodeBorder':'#94a3b8'
+}}}%%
 flowchart LR
     USER(["Listener"])
 
@@ -115,24 +117,29 @@ flowchart LR
     class MC data
     class REP success
 
-    classDef primary fill:#dbeafe,stroke:#000000,stroke-width:2px,color:#0f172a,font-weight:bold
-    classDef secondary fill:#dcfce7,stroke:#000000,stroke-width:2px,color:#0f172a,font-weight:bold
-    classDef accent fill:#f3e8ff,stroke:#000000,stroke-width:2px,color:#0f172a,font-weight:bold
-    classDef decision fill:#fef3c7,stroke:#000000,stroke-width:2px,color:#0f172a,font-weight:bold
-    classDef data fill:#ffedd5,stroke:#000000,stroke-width:2px,color:#0f172a,font-weight:bold
-    classDef neutral fill:#f3f4f6,stroke:#000000,stroke-width:2px,color:#0f172a,font-weight:bold
-    classDef success fill:#ccfbf1,stroke:#000000,stroke-width:2px,color:#0f172a,font-weight:bold
-    classDef input fill:#ffe4e6,stroke:#000000,stroke-width:2px,color:#0f172a,font-weight:bold
-    classDef highlight fill:#e8e0ff,stroke:#000000,stroke-width:2px,color:#0f172a,font-weight:bold
-
-    linkStyle default stroke:#000000,stroke-width:2px
+    classDef primary   fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
+    classDef secondary fill:#d1fae5,stroke:#059669,stroke-width:1.5px,color:#0f172a
+    classDef accent    fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
+    classDef decision  fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
+    classDef gate      fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#0f172a
+    classDef data      fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
+    classDef neutral   fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
+    classDef success   fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
+    classDef out       fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#0f172a
+    classDef input     fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#0f172a
+    classDef highlight fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#0f172a
+    classDef pick      fill:#d1fae5,stroke:#059669,stroke-width:1.8px,color:#064e3b
+    classDef alt       fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
+    classDef dead      fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
+    classDef note      fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#475569
+    linkStyle default stroke:#7c8da6,stroke-width:1.5px
 ```
 
 The dotted lines are the point: admission reads engine state, so the verdict
 depends on what the workers are actually doing — and the value it read is stored
 beside the verdict.
 
-## The configuration
+## The numbers
 
 ```
 1 × A100-40GB · Qwen2.5-7B-Instruct-AWQ (int4) · TP=1
@@ -148,6 +155,15 @@ max_num_seqs = 64  →  KV binds
 it is the only way a 7B fits three ways on 40 GiB. On a bigger card we would have
 *declined* to quantize: freeing memory triples concurrency and leaves nothing for
 admission to bind on.
+
+| | At `max_model_len` | At the mean real request |
+|---|---|---|
+| KV per sequence | 0.875 GiB | 0.433 GiB |
+| Sequences per replica | 5.5 | 11.1 |
+| **Decode pool** | **11.0** | **22.2** |
+
+A 16× spread between the two columns is the whole reason load level is the x-axis
+of the experiment: admission matters in the first regime and not the second.
 
 → The six-step chain and every rejected alternative:
 [`docs/project/01-capacity.md`](docs/project/01-capacity.md)
@@ -212,14 +228,16 @@ carried over intact from the class-10 lab.
 **Nothing has run on hardware.** Every number above is *predicted*, and eight
 predictions are recorded to be checked later **without being edited**.
 
-| Stage | | Stage | |
-|---|---|---|---|
-| 0 vLLM on the bare box | ○ | 6 Admission as a socket | ○ |
-| 1 Open WebUI | ○ | 7 Placement | ○ |
-| 2 k3s + HAMi, 3 slices | ○ | 8 KV hop + warm gate | ○ |
-| 3 Prometheus + Grafana | ○ | 9 The voice agent | ○ |
-| 4 Gateway, pass-through | ○ | 10 Measure | ○ |
-| 5 Guardrails + tenant window | ○ | | |
+| | Stage | | | Stage |
+|---|---|---|---|---|
+| ○ | **0** vLLM on the bare box | | ○ | **6** Admission as a socket |
+| ○ | **1** Open WebUI | | ○ | **7** Placement |
+| ○ | **2** k3s + HAMi, three slices | | ○ | **8** KV hop + warm gate ◆ |
+| ○ | **3** Prometheus + Grafana ◆ | | ○ | **9** The voice agent |
+| ○ | **4** Gateway, pass-through | | ○ | **10** Measure |
+| ○ | **5** Guardrails + tenant window | | | |
+
+<sub>○ not started · ◆ one of the two stages that <b>must</b> exist</sub>
 
 Stages **3** and **8** are the two that have to exist — a live `/metrics` scrape,
 and a hop or a warmup proof. Stage 3 precedes the gateway deliberately: admission
