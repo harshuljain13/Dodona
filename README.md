@@ -207,19 +207,24 @@ installs vLLM, starts the engine detached so it survives the ssh session, waits
 for it to answer, **runs the four gate checks**, brings up Open WebUI, and leaves
 you holding the tunnel. Then open **http://127.0.0.1:3000** and talk to it.
 
-`make` on its own lists every target, split by where it runs.
+`make` on its own lists everything. **Three targets bring the stack up**, each
+one further than the last:
 
-| On your Mac | | On the GPU box (`make ssh` first) | |
-|---|---|---|---|
-| `make up` | the lot | `make setup` | venv, requirements, vLLM |
-| `make sync` | rsync to the box | `make serve` | the engine on :8000 |
-| `make ssh` | tunnel + a shell | `make gate` | **the four stage-0 checks** |
-| `make logs` | tail the engine log | `make setup-cluster` | k3s + HAMi + three slices |
-| `make down` | stop engine and WebUI | `make observability` | Prometheus + Grafana |
-| `make test` · `make lint` | pytest · links | `make webui` · `make smoke` | :3000 · smoke tests |
+| | | Stage |
+|---|---|---|
+| `make engine` | one worker on the whole card, Open WebUI, tunnel | 0–1 |
+| `make cluster` | k3s + HAMi + **1 prefill + 2 decode** on three 12 GiB slices | 2 |
+| `make observability` | Prometheus + Grafana + DCGM | 3 |
+| `make all` | all three, in order | 0–3 |
 
-GPU-side targets refuse to run on a machine with no NVIDIA device rather than
-failing halfway, and tell you to `make ssh` first.
+All four run **from your Mac** and drive the box over ssh — no separate login.
+Day to day: `make gate` · `make sync` · `make ssh` · `make logs` · `make down` ·
+`make test` · `make lint`.
+
+When one step fails and you want to redo just that step, `make ssh` and then the
+`box-*` targets — `box-setup`, `box-serve`, `box-gate`, `box-cluster`,
+`box-observability`, `box-webui`, `box-smoke`. They refuse to run on a machine
+with no NVIDIA device and tell you the Mac-side equivalent.
 
 The gate is the part worth watching. Two of its four checks decide whether
 anything else is worth doing — `config.json` must read 28 layers / 4 KV heads /

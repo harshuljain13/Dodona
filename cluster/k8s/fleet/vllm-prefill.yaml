@@ -1,0 +1,73 @@
+# Prefill pool — one replica, slice 0.
+#
+# gpumem 12288 is what the pod sees as its WHOLE device, so vLLM's
+# --gpu-memory-utilization 0.90 applies to 12 GiB, not to the card's 40.
+# 12 x 0.90 - 5.20 weights - 0.80 runtime = 4.80 GiB of KV.
+#
+# One prefill worker is enough: it builds KV and frees it immediately, so it
+# never holds a live sequence and is not what gates concurrency.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-prefill
+  labels: { app: vllm-prefill, phase: prefill }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: vllm-prefill, phase: prefill }
+  template:
+    metadata:
+      labels: { app: vllm-prefill, phase: prefill }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: /metrics
+    spec:
+      schedulerName: hami-scheduler
+      volumes:
+        # One cache for every pod. Without this each replica re-downloads
+        # 5.6 GB, and three pods starting together will saturate the disk.
+        - name: hf-cache
+          hostPath: { path: /home/ubuntu/.cache/huggingface, type: DirectoryOrCreate }
+        - name: shm
+          emptyDir: { medium: Memory, sizeLimit: 8Gi }
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          args:
+            - --model=Qwen/Qwen2.5-7B-Instruct-AWQ
+            - --served-model-name=Qwen/Qwen2.5-7B-Instruct-AWQ
+            - --max-model-len=16384
+            - --max-num-seqs=64
+            - --gpu-memory-utilization=0.90
+            - --enable-prefix-caching
+            - --host=0.0.0.0
+            - --port=8000
+          ports: [{ name: http, containerPort: 8000 }]
+          volumeMounts:
+            - { name: hf-cache, mountPath: /root/.cache/huggingface }
+            - { name: shm, mountPath: /dev/shm }
+          # READY must not mean "can serve". startupProbe gives the engine up to
+          # 20 minutes to load weights and capture CUDA graphs; readinessProbe
+          # only then starts gating traffic.
+          startupProbe:
+            httpGet: { path: /health, port: 8000 }
+            periodSeconds: 10
+            failureThreshold: 120
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            periodSeconds: 10
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+              nvidia.com/gpumem: "12288"   # 12 GiB — the slice, not the card
+              nvidia.com/gpucores: "40"    # prefill is compute-bound
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-prefill
+  labels: { app: vllm-prefill, phase: prefill }
+spec:
+  selector: { app: vllm-prefill, phase: prefill }
+  ports: [{ name: http, port: 8000, targetPort: 8000 }]

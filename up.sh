@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # One command. Run on: your Mac.
 #
-#   ./up.sh              sync -> setup -> serve -> gate checks -> Open WebUI -> tunnel
-#   ./up.sh --stage 0    stop after the engine is serving and the gate has run
+# Driven by the Makefile — `make engine`, `make cluster`, `make observability`,
+# `make all`. Run it directly only if you want a flag the Makefile does not map.
+#
+#   --stage 0|1|2|3   how far to go   (1 = engine + WebUI + tunnel)
+#   --only            just that stage, skip the ones before it
+#   --gate            run the four checks against a box that is already up
+#   --no-tunnel       do the work, give the terminal back
+#   --logs  --down
 #   ./up.sh --no-tunnel  do everything, but do not hold the terminal open
 #   ./up.sh --down       stop the engine and Open WebUI on the box
 #   ./up.sh --logs       tail the engine log
@@ -15,10 +21,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
-STAGE=1 TUNNEL=1 ACTION=up
+STAGE=1 TUNNEL=1 ACTION=up ONLY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stage)     STAGE="$2"; shift 2 ;;
+    --only)      ONLY=1; shift ;;
+    --gate)      ACTION=gate; shift ;;
     --no-tunnel) TUNNEL=0; shift ;;
     --down)      ACTION=down; shift ;;
     --logs)      ACTION=logs; shift ;;
@@ -50,11 +58,22 @@ case "$ACTION" in
     exit 0 ;;
   logs)
     exec "${SSH[@]}" "$LAMBDA" 'tail -f ~/dodona/engine.log' ;;
+  gate)
+    exec "${SSH[@]}" "$LAMBDA" 'cd ~/dodona && python3 cluster/setup/gate.py --log ~/dodona/engine.log' ;;
 esac
 
 # ---- 1. ship the code ---------------------------------------------------
 step "sync  —  Mac → $LAMBDA:~/dodona"
 bash cluster/setup/sync_to_lambda.sh
+
+if [[ "$ONLY" == "1" ]]; then
+  [[ "$STAGE" -ge 2 ]] && { step "cluster  —  k3s + HAMi, one prefill + two decode"
+    "${SSH[@]}" "$LAMBDA" 'pkill -f "vllm serve" || true; sleep 3'
+    "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/lambda_cluster.sh'; }
+  [[ "$STAGE" -ge 3 ]] && { step "observability  —  Prometheus + Grafana + DCGM"
+    "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/day2_observability.sh'; }
+  step "done"; echo "    make ssh   to open the tunnel"; exit 0
+fi
 
 # ---- 2. what card is it? ------------------------------------------------
 step "card"
@@ -104,6 +123,21 @@ step "Open WebUI  —  :3000"
     --add-host=host.docker.internal:host-gateway \
     -v open-webui:/app/backend/data \
     ghcr.io/open-webui/open-webui:main >/dev/null && echo '    started'"
+
+# ---- 6b. k3s + HAMi + the three slices (stage 2) ------------------------
+if [[ "$STAGE" -ge 2 ]]; then
+  step "cluster  —  k3s + HAMi, one prefill + two decode, applied one at a time"
+  echo "    The single-worker engine from step 4 is stopped first: it holds the"
+  echo "    whole card, and the three slices need all 36 GiB of it."
+  "${SSH[@]}" "$LAMBDA" 'pkill -f "vllm serve" || true; sleep 3'
+  "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/lambda_cluster.sh'
+fi
+
+# ---- 6c. observability (stage 3) ----------------------------------------
+if [[ "$STAGE" -ge 3 ]]; then
+  step "observability  —  Prometheus + Grafana + DCGM"
+  "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/day2_observability.sh'
+fi
 
 # ---- 7. tunnel ----------------------------------------------------------
 if [[ "$TUNNEL" == "1" ]]; then
