@@ -29,7 +29,7 @@ flowchart LR
     POOLS["build_pools()<br/>creates ONE KVBus"]
     W1["prefill workers"]
     W2["decode workers"]
-    BUS["KVBus<br/>_cached[(worker,prefix)] = tokens<br/>hops[]"]
+    BUS["KVBus<br/>_cached[(worker,prefix)] = tokens"]
 
     POOLS --> BUS
     POOLS --> W1

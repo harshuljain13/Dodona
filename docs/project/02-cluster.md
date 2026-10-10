@@ -16,13 +16,13 @@ then the containers it is made of, then inside the one container we write.
 }}}%%
 flowchart LR
     USER["Researcher<br/>[Person]"]
-    ME["Us<br/>[Person]<br/>run load, read report"]
+    ME["Us<br/>[Person]"]
 
-    SYS["<b>Deep research agent on a<br/>self-hosted cluster</b><br/>[Software System]<br/>Answers questions.<br/>Decides what to admit.<br/>Records why"]
+    SYS["Deep research agent on a<br/>self-hosted cluster"]
 
-    WEB["Web<br/>[External]<br/>search and fetch"]
-    HF["Hugging Face<br/>[External]<br/>model weights"]
-    OVF["Overflow provider<br/>[External]<br/>a smaller hosted model"]
+    WEB["Web<br/>[External]"]
+    HF["Hugging Face<br/>[External]"]
+    OVF["Overflow provider<br/>[External]"]
 
     USER -->|"asks a question"| SYS
     ME -->|"reads the report"| SYS
@@ -48,21 +48,21 @@ served on capacity we pay for is overspending, not a capacity problem.
 }}}%%
 flowchart TB
     subgraph CLIENTS["Clients"]
-        AS["<b>AgentShip</b><br/>[Container]<br/>the research agent:<br/>search, fetch, reason"]
-        UI["<b>Open WebUI</b><br/>[Container]<br/>human access, demo"]
-        LOAD["<b>Load generator</b><br/>[Container]<br/>same trace every run"]
+        AS["AgentShip<br/>[Container]"]
+        UI["Open WebUI<br/>[Container]"]
+        LOAD["Load generator<br/>[Container]"]
     end
 
     subgraph MINE["What we write"]
-        GW["<b>Gateway</b><br/>[Container :8080]<br/>guard · admit · place · hop<br/>writes the decision log"]
-        AP["<b>AdmitPerf</b><br/>[Library]<br/>policy registry,<br/>report generator"]
+        GW["Gateway<br/>[Container :8080]"]
+        AP["AdmitPerf<br/>[Library]"]
     end
 
     subgraph INHERITED["What we configure but do not touch"]
-        PF["<b>vLLM prefill</b><br/>[Container x2]<br/>GPU 0, GPU 1"]
-        DC["<b>vLLM decode</b><br/>[Container x2]<br/>GPU 2, GPU 3"]
-        MC["<b>Mooncake</b><br/>[Container]<br/>KV store"]
-        OBS["<b>Prometheus<br/>+ Grafana</b>"]
+        PF["vLLM prefill<br/>[Container x2]"]
+        DC["vLLM decode<br/>[Container x2]"]
+        MC["Mooncake<br/>[Container]"]
+        OBS["Prometheus<br/>+ Grafana"]
     end
 
     AS --> GW
@@ -95,15 +95,15 @@ from module 10 and configured.
 }}}%%
 flowchart LR
     subgraph GW["Gateway"]
-        G["<b>guardrails</b><br/>reject malformed"]
-        A["<b>admission</b><br/>a socket,<br/>not a rule"]
-        P["<b>placement</b><br/>which worker"]
-        H["<b>hop</b><br/>move the KV"]
-        L["<b>decision log</b><br/>one row each:<br/>signal value, verdict"]
+        G["guardrails<br/>reject malformed"]
+        A["admission<br/>a socket,"]
+        P["placement<br/>which worker"]
+        H["hop<br/>move the KV"]
+        L["decision log<br/>one row each:"]
     end
 
-    POL["<b>Policy</b><br/>[AdmitPerf]<br/>declares its 5 axes,<br/>reads its signal,<br/>returns a verdict"]
-    REP["<b>Report</b><br/>[AdmitPerf]<br/>policy card,<br/>signal range,<br/>liveness verdict"]
+    POL["Policy<br/>[AdmitPerf]"]
+    REP["Report<br/>[AdmitPerf]"]
 
     G --> A --> P --> H
     A -->|"decide(request, state)"| POL

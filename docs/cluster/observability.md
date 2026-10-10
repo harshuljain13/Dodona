@@ -19,8 +19,8 @@ Part of the [module 10 docs](README.md). Overview: [ARCHITECTURE.md](ARCHITECTUR
 }}}%%
 flowchart LR
     ROUTER["Router.pick<br/>router/router.py"]
-    METRICS["<b>METRICS</b><br/>gateway/metrics.py"]
-    HIST["<b>Histogram</b><br/>per stage"]
+    METRICS["METRICS<br/>gateway/metrics.py"]
+    HIST["Histogram<br/>per stage"]
     RENDER["render<br/>Prometheus text on /metrics"]
 
     ROUTER -->|"observe_duration('pick', dt)"| METRICS
@@ -58,7 +58,7 @@ into one gauge per pod.
   'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart LR
-    PY["<b>observability/dashboards.py</b><br/>panels as Python"]
+    PY["observability/dashboards.py<br/>panels as Python"]
     JSON["ten .json files<br/>k8s-config/observability/dashboards/"]
     CM["ConfigMap class10-dashboards<br/>label grafana_dashboard=1"]
     SIDECAR["Grafana sidecar"]

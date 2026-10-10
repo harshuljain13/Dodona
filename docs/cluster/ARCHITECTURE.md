@@ -44,10 +44,10 @@ flowchart LR
     OPERATOR["Lab operator<br/>[Person]"]
     CHATTER["Chat user<br/>[Person]"]
 
-    SYS["<b>Module 10 cluster</b><br/>[Software System]<br/>Admits, places and serves inference;<br/>measures itself while doing it"]
+    SYS["Module 10 cluster<br/>[Software System]"]
 
-    BURST["Burst capacity<br/>[External System]<br/>OpenAI-compatible endpoint"]
-    HF["Hugging Face Hub<br/>[External System]<br/>Model weights"]
+    BURST["Burst capacity<br/>[External System]"]
+    HF["Hugging Face Hub<br/>[External System]"]
 
     OPERATOR -->|"drives load,<br/>reads dashboards"| SYS
     CHATTER -->|"chats in the browser"| SYS
@@ -83,14 +83,14 @@ flowchart LR
     LOAD["Locust / crew_flood<br/>[on your Mac]"]
 
     subgraph CLUSTER["k3s cluster"]
-        WEBUI["<b>open-webui</b><br/>[Container: NodePort 30030]"]
-        ORCH["<b>orch-serve</b><br/>[Container: Python :8080]<br/>guardrails · admission · routing"]
-        PRE["<b>vllm-prefill</b><br/>[Container: vLLM :8000]<br/>text model"]
-        DEC["<b>vllm-decode</b><br/>[Container: vLLM :8000]<br/>vision model"]
-        MOON["<b>mooncake-store</b><br/>[Container: :50051]<br/>KV hop records"]
+        WEBUI["open-webui<br/>[Container: NodePort 30030]"]
+        ORCH["orch-serve<br/>[Container: Python :8080]"]
+        PRE["vllm-prefill<br/>[Container: vLLM :8000]"]
+        DEC["vllm-decode<br/>[Container: vLLM :8000]"]
+        MOON["mooncake-store<br/>[Container: :50051]"]
     end
 
-    BURST["<b>Burst capacity</b><br/>[External System]"]
+    BURST["Burst capacity<br/>[External System]"]
 
     CHATTER --> WEBUI
     WEBUI -->|"OPENAI_API_BASE_URL"| ORCH
@@ -117,12 +117,12 @@ flowchart LR
         ORCH2["orch-serve :8080"]
         VLLM2["vllm-prefill / vllm-decode :8000"]
         MOON2["mooncake-store :50051"]
-        DCGM["<b>dcgm-exporter</b><br/>[Container: DaemonSet]<br/>GPU telemetry"]
+        DCGM["dcgm-exporter<br/>[Container: DaemonSet]"]
     end
 
-    PROM["<b>prometheus-server</b><br/>[Container: monitoring ns]"]
-    GRAF["<b>grafana</b><br/>[Container: NodePort]<br/>ten Class 10 dashboards"]
-    KEDA["<b>KEDA operator</b><br/>[Container: keda ns]<br/>metric → replica count"]
+    PROM["prometheus-server<br/>[Container: monitoring ns]"]
+    GRAF["grafana<br/>[Container: NodePort]"]
+    KEDA["KEDA operator<br/>[Container: keda ns]"]
     SCALE["replica count on<br/>vllm-prefill / vllm-decode"]
 
     ORCH2 --> PROM
@@ -172,16 +172,16 @@ infrastructure.
 }}}%%
 flowchart LR
     subgraph ORCH["orch-serve"]
-        H["<b>Handler</b><br/>[Component: gateway/serve.py]"]
-        GR["<b>guardrails</b><br/>[Component: app/guardrails.py]"]
-        OF["<b>Overflow</b><br/>[Component: router/overflow.py]<br/>local-first, bursts on 503/529"]
-        AD["<b>Gateway</b><br/>[Component: gateway/admission.py]<br/>per-tenant cap"]
-        RT["<b>Router</b><br/>[Component: router/router.py]<br/>filter → deadline → score"]
-        QU["<b>enqueue</b><br/>[Component: gateway/queue.py]<br/>sequences the two phases"]
-        KV["<b>KVBus</b><br/>[Component: router/kvbus.py]"]
-        PO["<b>Worker adapters</b><br/>[Component: router/pools.py]"]
-        MT["<b>METRICS</b><br/>[Component: gateway/metrics.py]"]
-        PL["<b>planner</b><br/>[Component: router/planner.py]<br/>print-only"]
+        H["Handler<br/>[Component: gateway/serve.py]"]
+        GR["guardrails<br/>[Component: app/guardrails.py]"]
+        OF["Overflow<br/>[Component: router/overflow.py]"]
+        AD["Gateway<br/>[Component: gateway/admission.py]"]
+        RT["Router<br/>[Component: router/router.py]"]
+        QU["enqueue<br/>[Component: gateway/queue.py]"]
+        KV["KVBus<br/>[Component: router/kvbus.py]"]
+        PO["Worker adapters<br/>[Component: router/pools.py]"]
+        MT["METRICS<br/>[Component: gateway/metrics.py]"]
+        PL["planner<br/>[Component: router/planner.py]"]
     end
 
     H --> GR
@@ -226,7 +226,7 @@ flowchart LR
 
     subgraph BOX["Lambda GPU box [Deployment Node]"]
         subgraph K3S["k3s"]
-            SCHED["<b>hami-scheduler</b><br/>[kube-system]<br/>binds pods to GPU slices"]
+            SCHED["hami-scheduler<br/>[kube-system]"]
             PODS["all nine containers"]
         end
         GPU["Physical GPU<br/>sliced into gpumem / gpucores shares"]

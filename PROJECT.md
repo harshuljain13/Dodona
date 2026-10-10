@@ -178,15 +178,15 @@ then inside the piece we write. The single high-level view is in
   'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart LR
-  USER(["Listener<br/>[Person]<br/>asks aloud"])
-  OPERATOR(["Us<br/>[Person]<br/>run load, read report"])
+  USER(["Listener<br/>[Person]"])
+  OPERATOR(["Us<br/>[Person]"])
 
-  SYS["<b>Dodona</b><br/>[Software System]<br/>Answers spoken questions<br/>with citations.<br/>Decides what to admit.<br/>Records why"]
+  SYS["Dodona<br/>[Software System]"]
 
-  DG[["Deepgram<br/>[External]<br/>speech ↔ text"]]
-  WEB[["Web<br/>[External]<br/>search and fetch"]]
-  HF[["Hugging Face<br/>[External]<br/>model weights"]]
-  OVF[["Superlinked<br/>[External]<br/>Qwen3.5-4B · overflow only<br/>capped at 20 requests"]]
+  DG[["Deepgram<br/>[External]"]]
+  WEB[["Web<br/>[External]"]]
+  HF[["Hugging Face<br/>[External]"]]
+  OVF[["Superlinked<br/>[External]"]]
 
   USER -->|"speaks a question"| SYS
   SYS -->|"speaks the answer"| USER
@@ -239,21 +239,21 @@ SM time.
 }}}%%
 flowchart TB
   subgraph CLIENTS["Clients"]
-    AG["<b>Dodona agent</b><br/>[Container]<br/>search · fetch · read · cite"]
-    UI["<b>Open WebUI</b><br/>[Container]<br/>hand testing, stage 1"]
-    LOAD["<b>Load generator</b><br/>[Container]<br/>same trace every run"]
+    AG["Dodona agent<br/>[Container]"]
+    UI["Open WebUI<br/>[Container]"]
+    LOAD["Load generator<br/>[Container]"]
   end
 
   subgraph OURS["control/ — what we write"]
-    GW["<b>Gateway</b><br/>[Container :8080]<br/>guard · admit · place<br/>queue · hop · warm<br/>writes the decision log"]
-    AP["<b>AdmitPerf</b><br/>[Library]<br/>policy registry<br/>report generator"]
+    GW["Gateway<br/>[Container :8080]"]
+    AP["AdmitPerf<br/>[Library]"]
   end
 
   subgraph ENGINE["What we configure but do not touch"]
-    PF["<b>vLLM prefill</b><br/>[Container ×1]<br/>slice 0 · 12 GiB"]
-    DC["<b>vLLM decode</b><br/>[Container ×2]<br/>slices 1-2 · 12 GiB"]
-    MC[("<b>Mooncake</b><br/>KV store")]
-    OBS[("<b>Prometheus<br/>+ Grafana</b>")]
+    PF["vLLM prefill<br/>[Container ×1]"]
+    DC["vLLM decode<br/>[Container ×2]"]
+    MC[("Mooncake<br/>KV store")]
+    OBS[("Prometheus<br/>+ Grafana")]
   end
 
   AG --> GW
@@ -309,17 +309,17 @@ the *same* trace so two runs can be compared.
 }}}%%
 flowchart LR
   subgraph GW["control/"]
-    G[/"<b>guard</b><br/>inspect(payload)<br/>reject malformed"/]
-    T{"<b>tenant window</b><br/>over share? → 429"}
-    A{"<b>admit</b><br/>should_shed()<br/>a socket, not a rule"}
-    P["<b>place</b><br/>pick(req, workers)"]
-    H["<b>queue + hop</b><br/>transfer(src, dst)<br/>declare warm"]
-    L[("<b>decision log</b><br/>one row each:<br/>signal value, verdict")]
+    G[/"guard<br/>inspect(payload)"/]
+    T{"tenant window<br/>over share? → 429"}
+    A{"admit<br/>should_shed()"}
+    P["place<br/>pick(req, workers)"]
+    H["queue + hop<br/>transfer(src, dst)"]
+    L[("decision log<br/>one row each:")]
     G --> T --> A --> P --> H
   end
 
-  POL[["<b>Policy</b><br/>[AdmitPerf]<br/>declares its 5 axes<br/>reads its signal<br/>returns a verdict"]]
-  REP(["<b>Report</b><br/>policy card · range<br/>liveness verdict"])
+  POL[["Policy<br/>[AdmitPerf]"]]
+  REP(["Report<br/>policy card · range"])
 
   A -->|"decide(request, state)"| POL
   A -->|"write row"| L

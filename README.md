@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="Dodona" width="100%">
+  <img src="assets/banner.svg" alt="Dodona" width="100%">
 </p>
 
 <p align="center">
@@ -59,85 +59,50 @@ the policy could have fired at all.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'ui-sans-serif, -apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif','fontSize':'14px',
-  'primaryColor':'#ecfdf5','primaryTextColor':'#0f172a','primaryBorderColor':'#059669',
-  'secondaryColor':'#f8fafc','tertiaryColor':'#ffffff',
-  'lineColor':'#94a3b8','textColor':'#1e293b',
-  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0',
-  'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
-}}}%%
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'15px','lineColor':'#94a3b8',
+  'clusterBkg':'#ffffff','clusterBorder':'#a7f3d0','edgeLabelBackground':'#ffffff'}}}%%
 flowchart LR
-    USER(["Listener"])
+    L(["Listener"])
+    STT["Deepgram STT"]
+    AG[["Research agent"]]
+    TTS["Deepgram TTS"]
+    AP[["AdmitPerf"]]
 
-    subgraph OFFGPU["Off-GPU"]
-        STT[/"Deepgram<br/>speech → text"/]
-        TTS[/"Deepgram<br/>text → speech"/]
-    end
-
-    AS[["Dodona agent<br/>search · fetch · read · cite"]]
-
-    subgraph CTRL["control/ — what we write"]
+    subgraph CP["control plane &nbsp;·&nbsp; ours"]
         direction LR
-        G[/"guard"/]
-        A{"admit"}
-        P["place"]
-        Q["queue + hop<br/>declare warm"]
-        G --> A --> P --> Q
+        GD[/"guard"/] --> AD{"admit"} --> PL["place"] --> HP["hop"]
     end
 
-    AP[["AdmitPerf<br/>policy · decision log"]]
-
-    subgraph GPUBOX["1 × A100-40GB · three HAMi slices × 12 GiB"]
+    subgraph GPU["1 × A100-40GB &nbsp;·&nbsp; three slices"]
         direction LR
-        PF["vLLM prefill × 1<br/>builds KV, frees it"]
-        MC[("Mooncake<br/>KV store")]
-        DC["vLLM decode × 2<br/>holds KV while<br/>generating"]
-        PF --> MC --> DC
+        PF["prefill ×1"] --> MC[("Mooncake")] --> DC["decode ×2"]
     end
 
-    REP(["run report<br/>SIGNAL LIVENESS"])
+    L --> STT --> AG --> GD
+    HP --> PF
+    DC --> AG --> TTS --> L
+    AD <--> AP
+    DC -. "kv&nbsp;pressure" .-> AD
 
-    USER --> STT --> AS --> G
-    A <-->|"decide(request, state)"| AP
-    P --> PF
-    Q -.->|"drives"| MC
-    DC -->|"tokens"| AS
-    AS --> TTS --> USER
-    PF -.->|"kv_cache_usage<br/>num_requests_waiting"| A
-    DC -.-> A
-    AP --> REP
+    class L,STT,TTS edge
+    class AG,AP ours
+    class GD,PL,HP ours
+    class AD gate
+    class PF,DC engine
+    class MC store
 
-    class USER input
-    class AS accent
-    class STT,TTS neutral
-    class G,P,Q primary
-    class A decision
-    class AP highlight
-    class PF,DC secondary
-    class MC data
-    class REP success
-
-    classDef primary   fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef secondary fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef accent    fill:#ffffff,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef decision  fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef gate      fill:#ffffff,stroke:#047857,stroke-width:2px,color:#065f46
-    classDef data      fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef neutral   fill:#f8fafc,stroke:#cbd5e1,stroke-width:1.5px,color:#475569
-    classDef success   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef out       fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#065f46
-    classDef input     fill:#ffffff,stroke:#94a3b8,stroke-width:1.5px,color:#334155
-    classDef highlight fill:#dcfce7,stroke:#15803d,stroke-width:1.5px,color:#14532d
-    classDef pick      fill:#d1fae5,stroke:#047857,stroke-width:2px,color:#064e3b
-    classDef alt       fill:#ecfdf5,stroke:#059669,stroke-width:1.5px,color:#0f172a
-    classDef dead      fill:#ffffff,stroke:#e2e8f0,stroke-width:1.5px,color:#94a3b8
-    classDef note      fill:#ffffff,stroke:#e2e8f0,stroke-width:1px,color:#64748b
+    classDef ours   fill:#d1fae5,stroke:#047857,stroke-width:1.5px,color:#064e3b
+    classDef gate   fill:#ffffff,stroke:#047857,stroke-width:2.5px,color:#064e3b
+    classDef engine fill:#f8fafc,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef store  fill:#f8fafc,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+    classDef edge   fill:#ffffff,stroke:#cbd5e1,stroke-width:1.5px,color:#64748b
     linkStyle default stroke:#94a3b8,stroke-width:1.5px
 ```
 
-The dotted lines are the point: admission reads engine state, so the verdict
-depends on what the workers are actually doing — and the value it read is stored
-beside the verdict.
+**Green is ours, grey we only configure.** The one dashed edge is the whole
+point: `admit` reads live KV pressure off the decode pool, so its verdict depends
+on what the workers are actually doing — and the value it read is stored next to
+the verdict.
 
 ## The numbers
 
@@ -176,7 +141,7 @@ Needs a ≥40 GiB NVIDIA card, Docker with the NVIDIA runtime, and Python 3.11+.
 git clone https://github.com/harshuljain13/Dodona.git && cd Dodona
 cp .env.example .env            # fill in host, model, worker URLs, keys
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r cluster/requirements.txt
+pip install -r requirements.txt
 pytest tests/
 ```
 

@@ -91,20 +91,20 @@ flowchart LR
     subgraph CTRL["control/ — what we write"]
         direction LR
         G[/"guard<br/>malformed → 400"/]
-        A{"admit<br/>a socket,<br/>not a rule"}
+        A{"admit<br/>a socket,"}
         P["place<br/>which worker"]
         Q["queue + hop<br/>declare warm"]
         G --> A --> P --> Q
     end
 
-    AP[["AdmitPerf<br/>policy · decision log<br/>· report generator"]]
-    OVF[["overflow gate<br/>503 / 529 may leave<br/>429 never does"]]
+    AP[["AdmitPerf<br/>policy · decision log"]]
+    OVF[["overflow gate<br/>503 / 529 may leave"]]
 
     subgraph GPUBOX["1 × A100-40GB · three HAMi slices × 12 GiB"]
         direction LR
         PF["vLLM prefill × 1<br/>builds KV, frees it"]
         MC[("Mooncake<br/>KV store")]
-        DC["vLLM decode × 2<br/>holds KV while<br/>generating"]
+        DC["vLLM decode × 2<br/>holds KV while"]
         PF --> MC --> DC
     end
 
@@ -222,18 +222,18 @@ the project.**
 }}}%%
 flowchart TD
     Q{"Which track?"}
-    A["<b>Track A — RAG</b><br/>k chunks + system + question<br/>mostly prefill, unique prefixes"]
-    B["<b>Track B — tool agent</b><br/>think → tool → observe → answer<br/>growing context, shared tool schema"]
-    AB["<b>A + B combined</b>"]
+    A["Track A — RAG<br/>k chunks + system + question"]
+    B["Track B — tool agent<br/>think → tool → observe → answer"]
+    AB["A + B combined"]
 
-    AX["one-shot: context never grows<br/>cost at arrival = cost at finish<br/><b>admission is easy, so uninteresting</b>"]
-    ABX["explicitly extra, not required<br/>two workloads to characterise<br/><b>no time for it</b>"]
+    AX["one-shot: context never grows<br/>cost at arrival = cost at finish"]
+    ABX["explicitly extra, not required<br/>two workloads to characterise"]
 
-    V{"<b>Add voice?</b>"}
-    VY["<b>yes — Deepgram, off-GPU</b><br/>gives every request a real deadline<br/>two SLOs on one request:<br/>TTFA < 1 s · full answer 10-30 s"]
-    VX["GPU-hosted Whisper/TTS would<br/>eat a slice and add a stage whose<br/>latency is not the thing we study"]
+    V{"Add voice?"}
+    VY["yes — Deepgram, off-GPU<br/>gives every request a real deadline"]
+    VX["GPU-hosted Whisper/TTS would<br/>eat a slice and add a stage whose"]
 
-    FIN["<b>CHOSEN</b><br/>Track B · voice at the edge<br/>herbs &amp; supplements, cited"]
+    FIN["CHOSEN<br/>Track B · voice at the edge"]
 
     Q -->|"mostly prefill"| A
     Q -->|"multi-step decode<br/>+ lengthening prefill"| B
@@ -368,28 +368,28 @@ average request size.** Admission matters in the first regime and not the second
   'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart TD
-    G["<b>1 · GPU</b><br/>1 × A100-40GB · one node<br/>40.0 GiB · ~37 allocatable<br/><b>sm80 — no fp8 at all</b>"]
-    GX["H100-80 — not available<br/>4 cards — not available, and<br/>nobody could reproduce it"]
+    G["1 · GPU<br/>1 × A100-40GB · one node"]
+    GX["H100-80 — not available<br/>4 cards — not available, and"]
 
-    M["<b>2 · MODEL</b><br/>Qwen2.5-7B-Instruct<br/>56 KiB/token"]
-    MX["32B int4 — 18.1 GiB won't fit a 12 GiB slice<br/>14B int4 — 1.0 GiB KV left → 0.3 seq, refuses<br/>Qwen3-4B bf16 — 144 KiB/tok → 1.1 seq<br/>3B bf16 — works (pool 15) but weaker researcher"]
+    M["2 · MODEL<br/>Qwen2.5-7B-Instruct"]
+    MX["32B int4 — 18.1 GiB won't fit a 12 GiB slice<br/>14B int4 — 1.0 GiB KV left → 0.3 seq, refuses"]
 
-    F{"<b>3 · FITS bf16?</b><br/>14.19 GiB weights"}
-    FX["12 GiB slice → 10.80 budget → <b>will not load</b><br/>two 18 GiB slices → 0.81 GiB KV → 0.93 seq<br/><b>loads, reports READY, refuses everything</b>"]
+    F{"3 · FITS bf16?<br/>14.19 GiB weights"}
+    FX["12 GiB slice → 10.80 budget → will not load<br/>two 18 GiB slices → 0.81 GiB KV → 0.93 seq"]
 
-    Q["<b>4 · QUANTIZE — AWQ int4</b><br/>5.2 GiB weights · 4.80 GiB KV"]
-    QX["<b>forced, not chosen.</b> fp8 needs sm89+<br/>and the A100 has no fp8 tensor cores,<br/>so int4 is the only way the model fits"]
+    Q["4 · QUANTIZE — AWQ int4<br/>5.2 GiB weights · 4.80 GiB KV"]
+    QX["forced, not chosen. fp8 needs sm89+<br/>and the A100 has no fp8 tensor cores,"]
 
-    P["<b>5 · PARALLELISM — TP=1</b><br/>a worker fits one slice"]
-    PX["TP>1 — nothing to shard, and HAMi<br/>slices of one card are not<br/>independent HBM pools"]
+    P["5 · PARALLELISM — TP=1<br/>a worker fits one slice"]
+    PX["TP>1 — nothing to shard, and HAMi<br/>slices of one card are not"]
 
-    R{"<b>6 · HOW MANY WORKERS?</b><br/>brief floor: at least two"}
-    TOPO["<b>→ Part 2</b><br/>1 prefill + 2 decode"]
+    R{"6 · HOW MANY WORKERS?<br/>brief floor: at least two"}
+    TOPO["→ Part 2<br/>1 prefill + 2 decode"]
 
-    FIN["<b>FINAL</b> · 1×A100-40 · Qwen2.5-7B-AWQ int4 · TP=1<br/>3 HAMi slices × 12 GiB · 1 prefill + 2 decode<br/>max_model_len 16,384 · decode pool 11.0"]
+    FIN["FINAL · 1×A100-40 · Qwen2.5-7B-AWQ int4 · TP=1<br/>3 HAMi slices × 12 GiB · 1 prefill + 2 decode"]
 
     G --> M --> F
-    F -->|"<b>NO</b>"| FX
+    F -->|"NO"| FX
     FX --> Q --> P --> R --> TOPO ==> FIN
 
     G -.-|"rejected"| GX
@@ -492,18 +492,18 @@ We set engine flags. We do not reimplement its scheduler.
   'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart TD
-    S{"<b>Topology on one 40 GiB card</b><br/>≥2 workers · want hop AND placement"}
+    S{"Topology on one 40 GiB card<br/>≥2 workers · want hop AND placement"}
 
-    A["<b>A</b> · 3 colocated replicas<br/>3 × 12 GiB · pool 16.5"]
-    B["<b>B</b> · 1 prefill + 2 decode<br/>3 × 12 GiB · pool 11.0"]
-    C["<b>C</b> · 2 prefill + 2 decode<br/>4 × 9 GiB · pool 4.8"]
-    D["<b>D</b> · 1 prefill + 1 decode<br/>2 × 18 GiB · pool 11.4"]
+    A["A · 3 colocated replicas<br/>3 × 12 GiB · pool 16.5"]
+    B["B · 1 prefill + 2 decode<br/>3 × 12 GiB · pool 11.0"]
+    C["C · 2 prefill + 2 decode<br/>4 × 9 GiB · pool 4.8"]
+    D["D · 1 prefill + 1 decode<br/>2 × 18 GiB · pool 11.4"]
 
-    AX["src == dst always → <b>no hop</b><br/>Part 6 becomes warmup-only<br/>(permitted, but gives up Mooncake)"]
-    CX["9 GiB slice → only 2.1 GiB KV<br/>→ 2.4 seq/replica · <b>pool 4.8</b><br/>and prefill is over-provisioned:<br/>it frees its KV immediately"]
-    DX["one decode worker → <b>pick() has no choice</b><br/>that is routing, not placement<br/>Part 4 has nothing to measure"]
+    AX["src == dst always → no hop<br/>Part 6 becomes warmup-only"]
+    CX["9 GiB slice → only 2.1 GiB KV<br/>→ 2.4 seq/replica · pool 4.8"]
+    DX["one decode worker → pick() has no choice<br/>that is routing, not placement"]
 
-    FIN["<b>CHOSEN — B</b><br/>hop always crosses workers<br/>two decode candidates to place among<br/>KV still binds at pool 11.0"]
+    FIN["CHOSEN — B<br/>hop always crosses workers"]
 
     S --> A & B & C & D
     A -.-|"rejected"| AX
@@ -611,18 +611,18 @@ overspending, not a capacity event.
   'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart TD
-    S{"<b>What does the policy read?</b>"}
-    KV["<b>kv_pressure</b><br/>vllm:kv_cache_usage_perc<br/>threshold 0.90"]
-    QD["<b>queue_depth</b><br/>vllm:num_requests_waiting"]
-    DL["<b>deadline slack</b><br/>will it miss TTFA / full answer?"]
-    TQ["<b>tenant quota</b><br/>token window per caller"]
+    S{"What does the policy read?"}
+    KV["kv_pressure<br/>vllm:kv_cache_usage_perc"]
+    QD["queue_depth<br/>vllm:num_requests_waiting"]
+    DL["deadline slack<br/>will it miss TTFA / full answer?"]
+    TQ["tenant quota<br/>token window per caller"]
 
-    KVY["<b>KV is the limiter</b> (Part 1)<br/>so this is the signal that can<br/>actually reach a threshold"]
-    QDX["used as a <b>placement scorer</b> instead<br/>(Part 4) — the brief requires it<br/>be a scorer, not only an admit input"]
-    DLX["<b>tempting, because voice gives a real<br/>deadline</b> — but it needs a finish-time<br/>model for a session whose context grows.<br/>Kept as the coarse timeout_queue shed"]
-    TQX["kept, as the <b>tenant window</b> above —<br/>a different question from capacity"]
+    KVY["KV is the limiter (Part 1)<br/>so this is the signal that can"]
+    QDX["used as a placement scorer instead<br/>(Part 4) — the brief requires it"]
+    DLX["tempting, because voice gives a real<br/>deadline — but it needs a finish-time"]
+    TQX["kept, as the tenant window above —<br/>a different question from capacity"]
 
-    FIN["<b>CHOSEN — kv_threshold @ 0.90</b><br/>Class A: pure function of request + state<br/>unit request · online · deadline objective"]
+    FIN["CHOSEN — kv_threshold @ 0.90<br/>Class A: pure function of request + state"]
 
     S --> KV & QD & DL & TQ
     KV --> KVY ==> FIN
@@ -692,17 +692,17 @@ input**, as the brief requires.
   'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart TD
-    S{"<b>Which policy?</b>"}
-    LL["<b>least_loaded</b><br/>active + queue depth + KV headroom"]
-    P2C["<b>p2c</b><br/>power of two choices"]
-    PTL["<b>prefix_then_load</b><br/>cache locality first, then load"]
+    S{"Which policy?"}
+    LL["least_loaded<br/>active + queue depth + KV headroom"]
+    P2C["p2c<br/>power of two choices"]
+    PTL["prefix_then_load<br/>cache locality first, then load"]
 
-    P2CX["needs ≥3 candidates to beat<br/>least_loaded. We have <b>2 decode</b><br/>→ degenerates to the same pick"]
+    P2CX["needs ≥3 candidates to beat<br/>least_loaded. We have 2 decode"]
 
-    PFP["<b>prefill → prefix_then_load</b><br/>a worker holding the 1k shared<br/>prefix saves re-prefilling it"]
-    DCP["<b>decode → least_loaded</b><br/>prefix is irrelevant: the KV<br/>arrives over the hop regardless"]
+    PFP["prefill → prefix_then_load<br/>a worker holding the 1k shared"]
+    DCP["decode → least_loaded<br/>prefix is irrelevant: the KV"]
 
-    FIN["<b>CHOSEN</b> — a different scorer per pool<br/>never bounce: a shed is a shed,<br/>not a re-pick"]
+    FIN["CHOSEN — a different scorer per pool<br/>never bounce: a shed is a shed,"]
 
     S --> LL & P2C & PTL
     P2C -.-|"rejected"| P2CX
@@ -819,14 +819,14 @@ is phase separation, and `gpucores` time-slicing only partly delivers that.
   'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart TD
-    S{"<b>Hop backend</b>"}
-    MC["<b>mooncake</b><br/>store + transfer engine<br/>records to /hops"]
-    NC["<b>nccl.py</b>"]
-    NX["<b>nixl.py</b>"]
+    S{"Hop backend"}
+    MC["mooncake<br/>store + transfer engine"]
+    NC["nccl.py"]
+    NX["nixl.py"]
 
-    NCX["<b>four-line stub — returns immediately</b><br/>moves no bytes, records nothing.<br/>'NCCL/NIXL in this repo moves KV'<br/>is on the brief's bad-answer list"]
+    NCX["four-line stub — returns immediately<br/>moves no bytes, records nothing."]
 
-    FIN["<b>CHOSEN — mooncake</b><br/>and KV_BACKEND is checked before<br/>any conclusion is drawn from an<br/>empty /hops panel"]
+    FIN["CHOSEN — mooncake<br/>and KV_BACKEND is checked before"]
 
     S --> MC & NC & NX
     NC -.-|"rejected"| NCX

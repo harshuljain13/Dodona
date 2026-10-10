@@ -13,11 +13,11 @@ design: the cheapest check runs first, and a refusal never costs a GPU.
   'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart LR
-    REQ["request"] --> G["<b>guardrails</b><br/>is this well-formed?"]
+    REQ["request"] --> G["guardrails<br/>is this well-formed?"]
     G -->|"no"| R400["400<br/>never costs a GPU"]
-    G -->|"yes"| T["<b>tenant limit</b><br/>is this caller<br/>over their share?"]
+    G -->|"yes"| T["tenant limit<br/>is this caller"]
     T -->|"over"| R429["429<br/>stays local"]
-    T -->|"within"| A["<b>admission</b><br/>can the fleet<br/>serve this now?"]
+    T -->|"within"| A["admission<br/>can the fleet"]
     A -->|"no, capacity"| R503["503 / overflow"]
     A -->|"yes"| P["place"]
 ```

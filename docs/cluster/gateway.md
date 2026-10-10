@@ -20,9 +20,9 @@ New in 10, and it runs *before* admission:
   'edgeLabelBackground':'#ffffff','nodeBorder':'#059669'
 }}}%%
 flowchart LR
-    REQ["incoming payload"] --> GUARD["<b>guardrails.inspect</b><br/>app/guardrails.py"]
+    REQ["incoming payload"] --> GUARD["guardrails.inspect<br/>app/guardrails.py"]
     GUARD -->|"ok"| ADMIT["Gateway.handle<br/>tenant cap"]
-    GUARD -->|"400"| REJECT["model_not_allowed · bad_max_tokens<br/>prompt_too_long · empty_prompt<br/>vision_needs_image"]
+    GUARD -->|"400"| REJECT["model_not_allowed · bad_max_tokens<br/>prompt_too_long · empty_prompt"]
 ```
 
 Five rejections, all **400**, all before any routing happens. It also *mutates*

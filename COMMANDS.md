@@ -95,73 +95,98 @@ below will run.
 
 ## Step 4 — serve the model `[GPU]`
 
-```bash
-docker pull vllm/vllm-openai:latest
+Two ways. **Use the scripts** — they exist, they read `.env`, and they encode the
+flags that are in the capacity arithmetic so you cannot forget one.
 
-docker run -d --name vllm-stage0 --gpus all --ipc=host \
-  -p 8000:8000 \
+### 4a — the scripted path
+
+```bash
+cd ~/dodona
+bash cluster/setup/lambda_setup.sh      # venv, requirements, vllm, verify
+bash cluster/setup/lambda_vllm.sh       # serve, on :8000
+```
+
+`lambda_setup.sh` builds `.venv`, installs `requirements.txt` and
+`requirements-load.txt` from the project root, installs `vllm>=0.28`, then
+verifies that torch and vLLM import and can see the device. **If that last check
+fails, stop** — a CUDA/torch mismatch surfaces here as a missing `libcudart.so.*`
+at import time, and it is far cheaper to find now than at stage 2.
+
+`lambda_vllm.sh` serves with these defaults, each overridable from the
+environment:
+
+| | Default | Why |
+|---|---|---|
+| `LOCAL_MODEL` | `Qwen/Qwen2.5-7B-Instruct-AWQ` | int4 is forced on sm80 — no fp8 tensor cores |
+| `MAX_MODEL_LEN` | `16384` | The context the capacity figures assume. At 8,192 the decode pool is 22, not 11 |
+| `MAX_NUM_SEQS` | `64` | Deliberately **above** the KV limit of 5.5, so the cache runs out before the scheduler does |
+| `UTIL` | `0.90` | The 0.90 in `12 × 0.90 = 10.80 GiB`. At stage 0 it is 0.90 of the *card*; from stage 2, of the *slice* |
+| `SCHEDULING_POLICY` | `fcfs` | The lab used `priority`, which earns its place once the gateway sets one per request (stage 4+). Nothing sets one yet |
+
+It also reads `compute_cap` and warns if the card is not sm80 — because on sm89
+or sm90 fp8 becomes available, int4 stops being forced, and
+[`docs/project/01-capacity.md`](docs/project/01-capacity.md) step 4 needs redoing.
+
+### 4b — the container path, if the venv fights you
+
+Pinned CUDA and torch, so it sidesteps the mismatch entirely. The cost is that
+the control plane later runs outside the container and has to reach in.
+
+```bash
+docker run -d --name vllm-stage0 --gpus all --ipc=host -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
   --model Qwen/Qwen2.5-7B-Instruct-AWQ \
-  --max-model-len 16384 \
-  --max-num-seqs 64 \
-  --gpu-memory-utilization 0.90
+  --max-model-len 16384 --max-num-seqs 64 --gpu-memory-utilization 0.90 \
+  --enable-prefix-caching
 ```
 
-**Four flags, and every one of them is in the capacity arithmetic.** Nothing else
-belongs at this stage.
+`--ipc=host` is not optional: vLLM uses shared memory and Docker's default 64 MB
+limit produces crashes that look like anything but a shm limit. The HF cache
+mount means a restart does not re-download the ~5.6 GB of weights.
 
-| | Why it is here |
-|---|---|
-| `--max-model-len 16384` | The context the capacity figures assume. Change it and the decode pool moves — at 8,192 it is 22, not 11 |
-| `--max-num-seqs 64` | Deliberately **above** the KV limit of 5.5, so the cache runs out before the scheduler does. Set it lower and a KV-pressure policy could never fire |
-| `--gpu-memory-utilization 0.90` | The 0.90 in `12 × 0.90 = 10.80 GiB`. At stage 0 it applies to the whole card; from stage 2 it applies to the slice |
-| `--ipc=host` | Not optional. vLLM uses shared memory and Docker's default 64 MB limit produces crashes that look like anything but a shm limit |
-
-The HF cache mount means a restart does not re-download the ~5.6 GB of weights.
-
-### Flags deliberately *not* here yet
-
-| Flag | When it arrives | Why not now |
-|---|---|---|
-| `--quantization awq_marlin` | never, probably | vLLM reads `quantization_config` out of `config.json` and picks a kernel itself. Forcing `awq_marlin` only narrows what it may choose, and if Marlin is unavailable you get a hard error instead of a working fallback. **Better to let it choose and read back which kernel it took** — see 5d |
-| `--enable-prefix-caching` | stage 10, if not already default | On by default in current vLLM. It matters for prediction P4 (>70% hit rate on the ~1k shared prefix), but at stage 0 there is no shared prefix to hit |
-| `--enable-auto-tool-choice`<br/>`--tool-call-parser hermes` | **stage 9**, with the agent | See below |
-
-### Why `hermes`, and why it can wait
-
-By default vLLM hands back whatever the model generated as **text** in
-`choices[0].message.content`. When Qwen2.5 decides to call a tool it emits
-something like `<tool_call>{"name": "web_search", ...}</tool_call>` — and without
-a parser that arrives as a *string*, not as the structured `tool_calls` array the
-OpenAI API contract defines.
-
-`--enable-auto-tool-choice` turns parsing on; `--tool-call-parser hermes` names
-the format to parse. `hermes` is the Hermes-style `<tool_call>…</tool_call>`
-convention, which is what the Qwen2.5-Instruct family emits — so for this model it
-is the right parser, not an arbitrary pick.
-
-**It matters because of what reads the response.** LangGraph binds tools through
-the OpenAI `tools` parameter and looks for `tool_calls` coming back. No parser →
-no `tool_calls` → AgentShip concludes the model answered in prose → the agent loop
-ends after one turn. That failure looks like a weak model and is nothing of the
-kind. It is the same bug in its other half as the dropped-`tools` problem in
-`control/router/pools.py`.
-
-But **stage 0 has no tools and no agent.** Open WebUI does not use them either.
-So the flags buy nothing here and only widen the surface that can fail while we
-are trying to establish something much simpler: does the model serve, and is the
-arithmetic right.
-
-Watch it come up — **this takes minutes, not seconds:**
+### Either way — wait for it
 
 ```bash
+# scripted: it is in the foreground, watch the log
+# container:
 docker logs -f vllm-stage0
 ```
 
 Wait for `Application startup complete`. ⚠ **`READY` is not the same as "can
-serve"** — CUDA-graph capture continues after startup, so the first request is
+serve"** — CUDA-graph capture continues past startup, so the first request is
 slow. That is the warmth problem, and it is why stage 8 re-quotes TTFT.
+
+### Flags deliberately *not* set yet
+
+| Flag | When | Why not now |
+|---|---|---|
+| `--quantization awq_marlin` | never, probably | vLLM reads `quantization_config` from `config.json` and picks a kernel itself. Forcing it only narrows the choice, and turns an unavailable kernel into a hard error instead of a working fallback. Step 5d reads back which it took |
+| `--enable-auto-tool-choice`<br/>`--tool-call-parser hermes` | **stage 9**, with the agent | See below |
+| `--kv-cache-dtype fp8` | never | sm80 cannot, and it would halve bytes/token — how fast the cache fills is the thing being studied |
+
+### Why `hermes`, and why it can wait
+
+By default vLLM hands back whatever the model generated as **text** in
+`choices[0].message.content`. When Qwen2.5 calls a tool it emits
+`<tool_call>{"name": "web_search", ...}</tool_call>` — and without a parser that
+arrives as a *string*, not the structured `tool_calls` array the OpenAI contract
+defines.
+
+`--enable-auto-tool-choice` turns parsing on; `--tool-call-parser hermes` names
+the format. `hermes` is the `<tool_call>…</tool_call>` convention the
+Qwen2.5-Instruct family emits, so for this model it is the right parser, not an
+arbitrary pick.
+
+**It matters because of what reads the response.** LangGraph binds tools through
+the OpenAI `tools` parameter and looks for `tool_calls` coming back. No parser →
+no `tool_calls` → AgentShip concludes the model answered in prose → the loop ends
+after one turn. That looks like a weak model and is nothing of the kind. Same bug
+in its other half as the dropped-`tools` problem in `control/router/pools.py`.
+
+But **stage 0 has no tools and no agent**, and Open WebUI does not use them. The
+flags buy nothing here and widen the surface that can fail while we establish
+something much simpler: does the model serve, and is the arithmetic right.
 
 ## Step 5 — the gate: four checks `[GPU]`
 
