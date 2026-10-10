@@ -17,7 +17,7 @@ and links out.
 | 0 | engine on the whole card | ✅ **2026-10-10** — all five gate checks pass |
 | 1 | Open WebUI | ✅ |
 | 2 | k3s + HAMi, 1 prefill + 2 decode | ✅ **2026-10-10** — 3 pods, 10,624 MiB each, KV identical across all three |
-| 3 | Prometheus + Grafana | not started |
+| 3 | Prometheus + Grafana | ✅ **2026-10-10** — scraping all three pods, `vllm:kv_cache_usage_perc` live. **Pass/fail item met** |
 | 4–8 | gateway · guard · admit · place · hop | not started |
 | 9–10 | the agent, then the runs | not started |
 
@@ -37,6 +37,9 @@ other half: what actually went wrong, recorded as it happened.
 | `make engine` died: `Error 255` after setup succeeded | `pkill -f 'vllm serve'` over ssh **matched its own command line**, killed the remote shell, dropped the connection | `pkill -f '[v]llm serve'` |
 | `up.sh: line 101: syntax error near '('` | Invoked under `sh`, which cannot do the `SSH=(...)` array | Guard that refuses to run outside bash |
 | `make gate` checked the wrong thing after a fix | `--gate` runs the copy **on the box**, and it was stale | `--gate` rsyncs `gate.py` first |
+| `make observability` ran the whole cluster stage first | `--only` was `>= 2 then >= 3`, i.e. "skip 0 and 1", not "just this one" | A `case` on the stage |
+| Three `Operation not permitted` from `pkill` | Unscoped, so it reached for the vLLM processes **inside the pods**, which run as root | `pkill -u "$(id -u)"` |
+| Grafana unreachable at `127.0.0.1:31495` | The chart assigns a **random** NodePort — it landed on 31457, while the tunnel forwards a fixed list | `nodePort: 31495` pinned in `grafana-values.yaml` |
 
 ---
 

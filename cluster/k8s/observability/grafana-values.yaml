@@ -2,6 +2,10 @@ persistence:
   enabled: false
 service:
   type: NodePort
+  # Pinned. The chart picks a random NodePort otherwise, and the ssh tunnel
+  # forwards a fixed list — a random one means Grafana is simply unreachable
+  # from the Mac, with nothing to say why.
+  nodePort: 31495
 sidecar:
   dashboards:
     enabled: true
