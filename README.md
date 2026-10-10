@@ -191,13 +191,15 @@ in this repo hardcodes them.
 
 ```
 app/                 the voice agent — talks only to our serve path
-benchmarking/        load generators — run on the box, never over the tunnel
-infra/
-  control/           guard · admit · place · queue · hop · warm · stay-or-leave
-  cluster/           how the fleet comes up: setup/, k8s/, observability/
-  metrics/           traces and load-generator bundles
+benchmarking/        everything that measures the cluster
+  load.py            agent-shaped load; run it ON THE BOX, not over the tunnel
+  locustfile.py      the Locust UI, for watching rather than measuring
   reports/           generated run reports
   notebook/          part5-queue.ipynb
+infra/               everything that runs the cluster
+  control/           guard · admit · place · queue · hop · warm · overflow
+  cluster/           setup/, k8s/, observability/, kernels/
+  metrics/           traces and load bundles
 docs/
   PROJECT.md         the problem, every decision, the C4 levels
   SUBMISSION.md      the design answered part by part

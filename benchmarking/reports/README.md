@@ -5,7 +5,7 @@ reproducible from a command.
 
 | | |
 |---|---|
-| `cluster-<name>.json` | `python3 infra/cluster/setup/report.py --json infra/reports/cluster-<name>.json` |
+| `cluster-<name>.json` | `python3 infra/cluster/setup/report.py --json benchmarking/reports/cluster-<name>.json` |
 | `cluster-<name>.txt` | the same run, as the text it printed |
 
 `report.py` reads the live cluster and interprets it — every number comes with
@@ -17,6 +17,6 @@ The question it exists to answer, at the bottom of every run:
 A latency number without that beside it cannot tell a policy that worked from
 one that never had anything to decide.
 
-Load-generator bundles live under [`../metrics/`](../metrics/), not here:
+Load-generator bundles live under [`infra/metrics/`](../../infra/metrics/), not here:
 `infra/metrics/<run>/load.json` is the raw per-request record, this is the
 interpretation.

@@ -1,4 +1,4 @@
-# infra/notebook/ — Part 5
+# benchmarking/notebook/ — Part 5
 
 The brief submits this separately: *"Github Link along with the notebook from
 part 5."* So it is a graded artifact in its own right, not an appendix.
@@ -35,7 +35,7 @@ Every answer in Part 5 needs a scrape, not an assertion.
 
 ## Conventions
 
-Scrapes are saved under [`../metrics/`](../metrics/) as raw text, so a number in
+Scrapes are saved under [`infra/metrics/`](../../infra/metrics/) as raw text, so a number in
 the notebook can be traced to the scrape it came from. Plots go to
 [`../assets/screenshots/`](../../assets/screenshots/).
 
