@@ -9,11 +9,33 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/GPU-1%C3%97%20A100--40GB-047857?style=flat-square" alt="1x A100-40GB">
-  <img src="https://img.shields.io/badge/model-Qwen2.5--7B--AWQ%20int4-059669?style=flat-square" alt="Qwen2.5-7B-Instruct-AWQ int4">
-  <img src="https://img.shields.io/badge/engine-vLLM-10b981?style=flat-square" alt="vLLM">
-  <img src="https://img.shields.io/badge/decode%20pool-11%20seq-065f46?style=flat-square" alt="decode pool 11 sequences">
-  <img src="https://img.shields.io/badge/voice-Deepgram%20%C2%B7%20off--GPU-16a34a?style=flat-square" alt="Deepgram, off-GPU">
-  <img src="https://img.shields.io/badge/stage-0%20of%2010-94a3b8?style=flat-square" alt="stage 0 of 10">
+  <img src="https://img.shields.io/badge/model-Qwen2.5--7B--Instruct--AWQ%20int4-047857?style=flat-square" alt="Qwen2.5-7B-Instruct-AWQ int4">
+  <img src="https://img.shields.io/badge/max__model__len-16%2C384-047857?style=flat-square" alt="max_model_len 16384">
+  <img src="https://img.shields.io/badge/decode%20pool-11%20sequences-047857?style=flat-square" alt="decode pool 11 sequences">
+  <img src="https://img.shields.io/badge/stage-0%20of%2010-64748b?style=flat-square" alt="stage 0 of 10">
+</p>
+
+<p align="center">
+  <a href="https://github.com/vllm-project/vllm"><img src="https://img.shields.io/badge/engine-vLLM-10b981?style=flat-square" alt="vLLM"></a>
+  <a href="https://github.com/Project-HAMi/HAMi"><img src="https://img.shields.io/badge/GPU%20slicing-HAMi-10b981?style=flat-square" alt="HAMi"></a>
+  <a href="https://github.com/kvcache-ai/Mooncake"><img src="https://img.shields.io/badge/KV%20transport-Mooncake-10b981?style=flat-square" alt="Mooncake"></a>
+  <a href="https://k3s.io"><img src="https://img.shields.io/badge/k3s-orchestration-10b981?style=flat-square&logo=kubernetes&logoColor=white" alt="k3s"></a>
+  <a href="https://prometheus.io"><img src="https://img.shields.io/badge/metrics-Prometheus-10b981?style=flat-square&logo=prometheus&logoColor=white" alt="Prometheus"></a>
+  <a href="https://grafana.com"><img src="https://img.shields.io/badge/dashboards-Grafana-10b981?style=flat-square&logo=grafana&logoColor=white" alt="Grafana"></a>
+</p>
+
+<p align="center">
+  <a href="https://lambdalabs.com"><img src="https://img.shields.io/badge/compute-Lambda-334155?style=flat-square" alt="Lambda Cloud"></a>
+  <a href="https://deepgram.com"><img src="https://img.shields.io/badge/voice-Deepgram%20%C2%B7%20off--GPU-334155?style=flat-square" alt="Deepgram, off-GPU"></a>
+  <a href="https://superlinked.com"><img src="https://img.shields.io/badge/overflow-Superlinked%20%C2%B7%20Qwen3.5--4B-334155?style=flat-square" alt="Superlinked overflow"></a>
+  <a href="https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-AWQ"><img src="https://img.shields.io/badge/weights-Hugging%20Face-334155?style=flat-square&logo=huggingface&logoColor=white" alt="Hugging Face"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Agent-Ship/agent-ship"><img src="https://img.shields.io/badge/agent-AgentShip-065f46?style=flat-square" alt="AgentShip"></a>
+  <a href="https://github.com/harshuljain13/AdmitPerf"><img src="https://img.shields.io/badge/admission-AdmitPerf-065f46?style=flat-square" alt="AdmitPerf"></a>
+  <a href="https://github.com/langchain-ai/langgraph"><img src="https://img.shields.io/badge/graph-LangGraph-065f46?style=flat-square" alt="LangGraph"></a>
+  <img src="https://img.shields.io/badge/python-3.11%2B-065f46?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
 </p>
 
 <p align="center">
