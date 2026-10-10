@@ -81,10 +81,33 @@ def test_hami_and_keda_fields() -> None:
     prefill = (K8S / "fleet" / "vllm-prefill.yaml").read_text()
     decode = (K8S / "fleet" / "vllm-decode.yaml").read_text()
     for name, y in (("prefill", prefill), ("decode", decode)):
-        assert "--model=" in y, f"{name} must name a model, or the pod crash-loops"
+        # Either form is fine; naming no model at all crash-loops the pod.
+        assert "--model=" in y or "vllm serve Qwen/" in y, f"{name} must name a model"
         assert "type: Recreate" in y, f"{name} cannot RollingUpdate on a full GPU"
         assert "--tool-call-parser=hermes" in y, f"{name} needs the tool parser"
-    assert "replicas: 1" in prefill and "replicas: 2" in decode
+    # One of each at rest. KEDA adds the second decode under load, which is what
+    # makes the scaler observable instead of installed-and-inert.
+    assert "replicas: 1" in prefill and "replicas: 1" in decode
+
+def test_mooncake_moves_real_kv_blocks() -> None:
+    """The hop is bytes or it is bookkeeping. These are what make it bytes.
+
+    Without --kv-transfer-config the decode pod re-prefills the whole prompt and
+    the "hop" is a JSON row. Roles must be opposite, and the consumer has to be
+    told where the producer's bootstrap server is or it never finds the blocks.
+    """
+    prefill = (K8S / "fleet" / "vllm-prefill.yaml").read_text()
+    decode = (K8S / "fleet" / "vllm-decode.yaml").read_text()
+    for name, y in (("prefill", prefill), ("decode", decode)):
+        assert "--kv-transfer-config" in y, f"{name} has no connector: no blocks move"
+        assert '"kv_connector":"MooncakeConnector"' in y, f"{name} names no connector"
+        # Not in the vllm image; cuda13 because torch here is 2.13.0+cu130.
+        assert "mooncake-transfer-engine-cuda13" in y, f"{name} never installs mooncake"
+    assert '"kv_role":"kv_producer"' in prefill
+    assert '"kv_role":"kv_consumer"' in decode
+    assert '"bootstrap_server_address":"vllm-prefill:8998"' in decode
+    assert "containerPort: 8998" in prefill, "bootstrap port must be exposed"
+    assert "port: 8998" in prefill, "and reachable through the Service"
     assert "SERVE_HOST" in (K8S / "gateway" / "orch-serve.yaml").read_text()
     # Ours, from docs/project/01-capacity.md. The lab's VL-3B and its
     # tensor/pipeline/data-parallel flags are gone: TP=1 because 5.2 GiB of
@@ -93,9 +116,8 @@ def test_hami_and_keda_fields() -> None:
     assert "--tensor-parallel-size" not in prefill, "TP=1; nothing to shard"
     assert "--max-model-len=16384" in prefill
     assert 'nvidia.com/gpumem: "12288"' in prefill
-    # SOMETHING has to bind, or every policy arm is a no-op. On the A100 the KV
-    # limit was ~4.9 sequences per worker, so 64 let KV bind first. On this H100
-    # it is ~73.5, so 64 binds nothing — 8 makes decode slots the limiter on
-    # purpose. Both pools must agree or the arms are not comparable.
-    assert "--max-num-seqs=8" in prefill
-    assert "--max-num-seqs=8" in decode
+    # Must stay ABOVE the per-slice KV limit of ~4.9 sequences, so the cache runs
+    # out before the scheduler and a KV-pressure policy can fire. The whole-card
+    # figure (~73.5) is NOT the one that applies to a 12 GiB slice.
+    assert "--max-num-seqs=64" in prefill
+    assert "--max-num-seqs=64" in decode

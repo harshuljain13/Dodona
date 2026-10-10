@@ -4,16 +4,17 @@
 # --gpu-memory-utilization 0.90 applies to 12 GiB, not to the card's 40.
 # 12 x 0.90 - 5.20 weights - 0.80 runtime = 4.80 GiB of KV.
 #
-# Two is the minimum for pick() to be a real decision rather than routing — with
-# one candidate there is nothing to place against and Part 4 has nothing to
-# measure. 4.80 GiB / 0.875 GiB per 16k sequence = 5.5 each, so a pool of 11.
+# ONE replica at rest; KEDA scales to two under load. That keeps the scaler
+# observable rather than installed-and-inert, and makes pick() a real decision
+# exactly when there is load worth placing. ~4.3 GiB of KV / 0.875 GiB per 16k
+# sequence = ~4.9 sequences per replica.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: vllm-decode
   labels: { app: vllm-decode, phase: decode }
 spec:
-  replicas: 2
+  replicas: 1
   # Recreate, not RollingUpdate. The default surges a new pod before retiring
   # the old one, and on a fully-allocated GPU the replacement can never be
   # scheduled — it sits Pending forever and the rollout hangs. A single card
@@ -40,26 +41,25 @@ spec:
       containers:
         - name: vllm
           image: vllm/vllm-openai:latest
+          env:
+            - { name: WITH_NVIDIA_PEERMEM, value: "1" }
+          # Mooncake consumer. bootstrap_server_address points at the prefill
+          # pod's embedded server — that is how this pod discovers the blocks
+          # the producer wrote instead of re-prefilling the prompt.
+          command: ["sh", "-c"]
           args:
-            - --model=Qwen/Qwen2.5-7B-Instruct-AWQ
-            - --served-model-name=Qwen/Qwen2.5-7B-Instruct-AWQ
-            - --max-model-len=16384
-            # 8, not 64. On this card KV never binds: a 7B leaves 64 GiB of cache,
-            # which is ~73 concurrent 16k sequences. Capping the scheduler makes
-            # DECODE SLOTS the limiter instead, so num_requests_waiting rises and
-            # an admission policy has something to decide. Measured, not assumed.
-            - --max-num-seqs=8
-            - --gpu-memory-utilization=0.90
-            - --enable-prefix-caching
-            # Qwen2.5 emits <tool_call>{...}</tool_call> as TEXT. Without a
-            # parser it lands in message.content, never in tool_calls — the
-            # agent then thinks the model answered in prose and its loop ends
-            # after one turn. Open WebUI sends tool_choice:"auto" by default,
-            # so the engine rejects the request outright without these.
-            - --enable-auto-tool-choice
-            - --tool-call-parser=hermes
-            - --host=0.0.0.0
-            - --port=8000
+            - >-
+              pip install -q mooncake-transfer-engine-cuda13 &&
+              exec vllm serve Qwen/Qwen2.5-7B-Instruct-AWQ
+              --served-model-name=Qwen/Qwen2.5-7B-Instruct-AWQ
+              --max-model-len=16384
+              --max-num-seqs=64
+              --gpu-memory-utilization=0.90
+              --enable-prefix-caching
+              --enable-auto-tool-choice
+              --tool-call-parser=hermes
+              --host=0.0.0.0 --port=8000
+              --kv-transfer-config '{"kv_connector":"MooncakeConnector","kv_role":"kv_consumer","kv_connector_extra_config":{"mooncake_protocol":"rdma","device_name":"mlx5_0","bootstrap_server_address":"vllm-prefill:8998"}}'
           ports: [{ name: http, containerPort: 8000 }]
           volumeMounts:
             - { name: hf-cache, mountPath: /root/.cache/huggingface }

@@ -30,6 +30,13 @@ helm upgrade --install grafana grafana/grafana \
 echo "== DCGM exporter (cluster GPU) =="
 kubectl apply -f "$ROOT/k8s/observability/dcgm-exporter.yaml" || true
 
+# The ScaledObjects go here, not in fleet.sh: they query Prometheus, so KEDA
+# reports them as unready until it exists. KEDA the operator is installed by
+# k3s.sh; without these it is running and inert.
+kubectl apply -f "$ROOT/k8s/router/keda-prefill.yaml"
+kubectl apply -f "$ROOT/k8s/router/keda-decode.yaml"
+kubectl get scaledobject
+
 echo "== Grafana dashboards (sidecar ConfigMap) =="
 python3 -m observability.dashboards
 kubectl -n monitoring create configmap dodona-dashboards \

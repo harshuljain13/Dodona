@@ -1,8 +1,8 @@
 # Prefill pool — one replica, slice 0.
 #
 # gpumem 12288 is what the pod sees as its WHOLE device, so vLLM's
-# --gpu-memory-utilization 0.90 applies to 12 GiB, not to the card's 40.
-# 12 x 0.90 - 5.20 weights - 0.80 runtime = 4.80 GiB of KV.
+# --gpu-memory-utilization 0.90 applies to 12 GiB, not to the whole card.
+# 12 x 0.90 - 5.20 weights - ~1.3 runtime = ~4.3 GiB of KV, ~4.9 sequences.
 #
 # One prefill worker is enough: it builds KV and frees it immediately, so it
 # never holds a live sequence and is not what gates concurrency.
@@ -39,27 +39,37 @@ spec:
       containers:
         - name: vllm
           image: vllm/vllm-openai:latest
+          env:
+            # nvidia_peermem pins GPU memory for RDMA. Set 0 on hosts without
+            # the kernel module and Mooncake uses the DMA-BUF path instead.
+            - { name: WITH_NVIDIA_PEERMEM, value: "1" }
+            - { name: VLLM_MOONCAKE_BOOTSTRAP_PORT, value: "8998" }
+          # Mooncake, for real KV transfer. Everything below this line is what
+          # turns the hop from a JSON record into bytes crossing between pods.
+          #
+          # The package is not in the image, so it is pip-installed at start.
+          # cuda13 because torch here is 2.13.0+cu130; the cuda12 wheel fails
+          # with "libcudart.so.12: cannot open shared object file".
+          command: ["sh", "-c"]
           args:
-            - --model=Qwen/Qwen2.5-7B-Instruct-AWQ
-            - --served-model-name=Qwen/Qwen2.5-7B-Instruct-AWQ
-            - --max-model-len=16384
-            # 8, not 64. On this card KV never binds: a 7B leaves 64 GiB of cache,
-            # which is ~73 concurrent 16k sequences. Capping the scheduler makes
-            # DECODE SLOTS the limiter instead, so num_requests_waiting rises and
-            # an admission policy has something to decide. Measured, not assumed.
-            - --max-num-seqs=8
-            - --gpu-memory-utilization=0.90
-            - --enable-prefix-caching
-            # Qwen2.5 emits <tool_call>{...}</tool_call> as TEXT. Without a
-            # parser it lands in message.content, never in tool_calls — the
-            # agent then thinks the model answered in prose and its loop ends
-            # after one turn. Open WebUI sends tool_choice:"auto" by default,
-            # so the engine rejects the request outright without these.
-            - --enable-auto-tool-choice
-            - --tool-call-parser=hermes
-            - --host=0.0.0.0
-            - --port=8000
-          ports: [{ name: http, containerPort: 8000 }]
+            - >-
+              pip install -q mooncake-transfer-engine-cuda13 &&
+              exec vllm serve Qwen/Qwen2.5-7B-Instruct-AWQ
+              --served-model-name=Qwen/Qwen2.5-7B-Instruct-AWQ
+              --max-model-len=16384
+              --max-num-seqs=64
+              --gpu-memory-utilization=0.90
+              --enable-prefix-caching
+              --enable-auto-tool-choice
+              --tool-call-parser=hermes
+              --host=0.0.0.0 --port=8000
+              --kv-transfer-config '{"kv_connector":"MooncakeConnector","kv_role":"kv_producer","kv_connector_extra_config":{"mooncake_protocol":"rdma","device_name":"mlx5_0"}}'
+          ports:
+            - { name: http, containerPort: 8000 }
+            # The embedded bootstrap server. Prefill ranks register here and
+            # decode queries it to find the blocks; without a Service on this
+            # port the consumer never discovers the producer.
+            - { name: bootstrap, containerPort: 8998 }
           volumeMounts:
             - { name: hf-cache, mountPath: /root/.cache/huggingface }
             - { name: shm, mountPath: /dev/shm }
@@ -89,4 +99,6 @@ spec:
   # tunnel has nothing to forward and the fleet is unreachable from the Mac.
   type: NodePort
   selector: { app: vllm-prefill, phase: prefill }
-  ports: [{ name: http, port: 8000, targetPort: 8000, nodePort: 30800 }]
+  ports:
+    - { name: http, port: 8000, targetPort: 8000, nodePort: 30800 }
+    - { name: bootstrap, port: 8998, targetPort: 8998 }
