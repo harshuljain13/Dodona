@@ -10,7 +10,7 @@ description: >-
 # Redoing the capacity arithmetic
 
 `docs/project/01-capacity.md` is **the authority for every number in the project**. Change a
-number there, and `SUBMISSION.md` and `README.md` follow. Never the reverse.
+number there, and `SUBMISSION.md`, `PROJECT.md` and `README.md` follow. Never the reverse.
 
 ## The formula, and the three places it goes wrong
 
@@ -82,8 +82,8 @@ In this order, or the documents will disagree:
 
 1. `docs/project/01-capacity.md` — the arithmetic, the decision chain, the predictions
 2. `SUBMISSION.md` — Part 1, Part 2's config block, Part 8's session counts
-3. `README.md` — the config block, the badges and the status table
-4. `docs/project/architecture.md` — the C4 labels
+3. `PROJECT.md` — the configuration section and the C4 labels
+4. `README.md` — the config block, the badges and the status table
 5. `cluster/RUNBOOK.md` — stage 0's expected values and stage 2's slice sizes
 6. `docs/README.md` — update which deep dives are now stale
 

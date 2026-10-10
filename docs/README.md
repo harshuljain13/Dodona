@@ -17,7 +17,6 @@ touching the others, and so the unfinished ones are visibly unfinished.
 
 | Part | File | State | Cluster-side counterpart |
 |---|---|---|---|
-| — | [`project/architecture.md`](project/architecture.md) | the C4 levels: context, containers, inside the gateway | — |
 | 0 — The application and the workload | [`project/00-use-case.md`](project/00-use-case.md) | ported, numbers pending | — |
 | 1 — Capacity on paper | [`project/01-capacity.md`](project/01-capacity.md) | **rewritten for 1×A100 / 7B-AWQ** | — |
 | 2 — Design the cluster | [`project/02-cluster.md`](project/02-cluster.md) | ported, numbers pending | [`infrastructure.md`](cluster/infrastructure.md), [`ARCHITECTURE.md`](cluster/ARCHITECTURE.md) |

@@ -13,9 +13,9 @@ description: >-
 
 | File | Owns | Never contains |
 |---|---|---|
-| `README.md` | What it is, why the workload is hard, the config, setup, status, alternatives rejected, risks, contributing | The brief's part structure |
-| `SUBMISSION.md` | **The brief answered, parts 0–8**, a decision tree per part | Project motivation — that is `README.md` |
-| `docs/project/architecture.md` | The C4 levels | — |
+| `README.md` | What it is, the problem, the config, quick start, status. **Crisp** | Depth. It is a front door |
+| `PROJECT.md` | The problem in full, the decisions, the C4 levels, alternatives rejected, risks, scope | The brief's part structure |
+| `SUBMISSION.md` | **The brief answered, parts 0–8**, a decision tree per part | Project motivation — that is `PROJECT.md` |
 | `docs/project/01-capacity.md` | **Every number.** The authority | — |
 | `docs/project/0N-*.md` | Per-part depth | Numbers that disagree with `01-capacity.md` |
 | `docs/cluster/*.md` | How the code works, file by file | This project's decisions |
@@ -25,9 +25,9 @@ Two splits worth holding onto:
 
 - **`docs/project/` is ours and carries the predictions. `docs/cluster/` documents code**
   and stays accurate as the code does.
-- **`SUBMISSION.md` answers the brief. `README.md` explains the project.** When something
-  belongs in both, put the reasoning in `README.md` and the answer in `SUBMISSION.md` with
-  a link.
+- **`SUBMISSION.md` answers the brief. `PROJECT.md` explains the project. `README.md` is
+  the front door and stays short.** When something belongs in two, put the reasoning in
+  `PROJECT.md`, the answer in `SUBMISSION.md`, and at most a sentence in `README.md`.
 
 ## The predicted / measured convention
 
