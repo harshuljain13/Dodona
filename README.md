@@ -25,9 +25,9 @@
 citations — entirely on one GPU you rent.** No hosted chat API in the answer path.
 
 The agent is the easy half. One fetched source arrives as a **12,000-token
-prefill holding 0.66 GiB of KV**; a single A100 split three ways serves
-**11 concurrent sequences**; and a listener is waiting out loud, so latency is
-dead air rather than a percentile. The cluster has to decide what to let in —
+prefill**, a single card split three ways serves only a handful of concurrent
+sequences, and a listener is waiting out loud — so latency is dead air rather
+than a percentile. The cluster has to decide what to let in —
 and most deployments make that decision by accident, when a queue fills and
 everything slows together.
 
@@ -60,7 +60,7 @@ flowchart TD
       GD["<b>guard</b><br/>malformed → 400"]
       AD{"<b>admit</b><br/>kv_pressure ≥ 0.90?"}
       PL["<b>place</b><br/>least_loaded + queue depth"]
-      HP["<b>hop</b><br/>src ≠ dst → transfer"]
+      HP["<b>hop</b><br/>src ≠ dst → record"]
       GD --> AD --> PL --> HP
       AP["<b>AdmitPerf</b><br/>policy · decision log"]
       RF(["<b>503</b> · kv_free"])
@@ -69,14 +69,13 @@ flowchart TD
     end
 
 
-    subgraph K8S["<b>k3s</b> + <b>HAMi</b> · 1 × A100-40GB"]
-      PF["<b>vLLM prefill-0</b><br/>slice 0 · 40% cores<br/>12k tok → 0.66 GiB KV"]
-      MC[("<b>Mooncake</b><br/>KV store")]
-      D0["<b>vLLM decode-0</b><br/>slice 1 · 28% cores<br/>4.80 GiB KV · 5.5 seq"]
-      D1["<b>vLLM decode-1</b><br/>slice 2 · 28% cores<br/>4.80 GiB KV · 5.5 seq"]
-      PF --> MC
-      MC --> D0
-      MC --> D1
+    subgraph K8S["<b>k3s</b> + <b>HAMi</b> · one card, three slices"]
+      PF["<b>vLLM prefill-0</b><br/>slice 0 · builds the prompt's KV"]
+      D0["<b>vLLM decode-0</b><br/>slice 1 · generates"]
+      D1["<b>vLLM decode-1</b><br/>slice 2 · generates"]
+      PF -->|"decode RE-PREFILLS:<br/>no blocks move"| D0
+      PF --> D1
+      MC[("<b>KVBus</b><br/>records the hop<br/><i>bookkeeping only</i>")]
       D0 ~~~ D1
     end
 
@@ -93,6 +92,7 @@ flowchart TD
     AG --> GD
     UI --> GD
     HP --> PF
+    HP -.-> MC
     D0 --> AG
     D1 --> AG
     AD -->|"refused"| RF
@@ -166,10 +166,17 @@ mid-comparison means the deployment moved, not the policy. KEDA is wired and
 left at `min 1 · max 2` so the mechanism is real and visible.
 
 ```
-1 × A100-40GB · Qwen2.5-7B-Instruct-AWQ (int4) · TP=1
-3 HAMi slices × 12 GiB · 1 prefill + 2 decode · max_model_len 16,384
-→ 4.80 GiB of KV per worker · 5.5 sequences each · decode pool 11
+1 × NVIDIA GPU · 3 HAMi slices · 1 prefill + 2 decode · TP=1
+Qwen2.5-7B-Instruct-AWQ (int4) · max_model_len 16,384
 ```
+
+The concurrency that follows depends on the card, so it is measured rather than
+quoted. `make cluster` prints it, and the arithmetic is in
+[`docs/project/01-capacity.md`](docs/project/01-capacity.md).
+
+Measured on 1 × A100-40GB with 12 GiB slices: **4.80 GiB of KV per worker, 5.5
+sequences each, decode pool 11.** On any other card these change, and nothing
+in this repo hardcodes them.
 
 ## Documentation
 
@@ -178,7 +185,7 @@ left at `min 1 · max 2` so the mechanism is real and visible.
 | [**PROJECT.md**](PROJECT.md) | The problem in full, the decision behind every choice, the C4 architecture levels, alternatives rejected, risks |
 | [**SUBMISSION.md**](SUBMISSION.md) | The design answered part by part, with a decision tree per part |
 | [**COMMANDS.md**](COMMANDS.md) | Every command in order, marked `[Mac]` or `[GPU]` |
-| [**RUNBOOK.md**](RUNBOOK.md) | The ten stages, their gates, and what each failure actually means |
+| [**RUNBOOK.md**](RUNBOOK.md) | The bring-up in order, the gate at each step, and what each failure actually means |
 | [`docs/project/`](docs/README.md) | Capacity arithmetic, per-part depth, the run protocol, the results report |
 | [`docs/cluster/`](docs/cluster/README.md) | The stack file by file — gateway, router, KV bus, observability |
 
@@ -194,7 +201,7 @@ metrics/    scrapes, decision logs, reports
 
 ## Quick start
 
-Needs a ≥40 GiB NVIDIA card you can ssh to, and Python 3.11+ locally.
+Needs an NVIDIA card you can ssh to, and Python 3.11+ locally.
 
 ```bash
 git clone https://github.com/harshuljain13/Dodona.git && cd Dodona
@@ -238,7 +245,7 @@ more time.
 predictions are written down to be checked later **without being edited**.
 
 Stages **3** (a live `/metrics` scrape) and **8** (a hop or a warmup proof) are
-the two that must exist. Stage 3 comes before the gateway deliberately —
+the two that must exist. Observability comes before the gateway deliberately —
 admission is a *function of* engine metrics, so there is nothing to decide on
 until the scrape exists. Progress: [RUNBOOK.md](RUNBOOK.md).
 
@@ -263,7 +270,7 @@ pytest tests/ && python3 -m compileall -q control tests
 ```
 
 `.claude/skills/` holds five skills that load automatically in Claude Code —
-`dodona-stage`, `dodona-capacity`, `dodona-run`, `dodona-docs`, `dodona-review`.
+`dodona-bringup`, `dodona-capacity`, `dodona-run`, `dodona-docs`, `dodona-review`.
 They exist because this project has two characteristic ways of being wrong: a
 number that no longer matches the hardware, and a claim no scrape supports.
 

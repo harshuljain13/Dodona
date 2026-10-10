@@ -84,7 +84,7 @@ In this order, or the documents will disagree:
 2. `SUBMISSION.md` — Part 1, Part 2's config block, Part 8's session counts
 3. `PROJECT.md` — the configuration section and the C4 labels
 4. `README.md` — the config block, the badges and the status table
-5. `cluster/RUNBOOK.md` — stage 0's expected values and stage 2's slice sizes
+5. `RUNBOOK.md` — stage 0's expected values and stage 2's slice sizes
 6. `docs/README.md` — update which deep dives are now stale
 
 **Record the old prediction rather than overwriting it.** A prediction that was wrong by 2×

@@ -1,16 +1,16 @@
 # cluster/ — how the engine comes up
 
-Built stage by stage. **[`../RUNBOOK.md`](../RUNBOOK.md) is the thing you execute** —
+Built in order. **[`../RUNBOOK.md`](../RUNBOOK.md) is the thing you execute** —
 ten stages, each with a gate you check before starting the next.
 
 | | |
 |---|---|
 | [`../COMMANDS.md`](../COMMANDS.md) | **Every command, in order.** Marked `[Mac]` or `[GPU]` |
-| [`../RUNBOOK.md`](../RUNBOOK.md) | The bring-up, stage 0 → 10, with the gate per stage |
+| [`../RUNBOOK.md`](../RUNBOOK.md) | The bring-up in order, with the gate at each step |
 | `k8s/` | Manifests: three HAMi slices, 1 prefill + 2 decode, Mooncake, observability |
 | `setup/` | Lambda bring-up, the SSH tunnel, smoke tests |
 
-**Status: not written.** Stage 0 needs no manifests at all — docker and one
+**Status: not written.** The whole-card engine needs no manifests at all — one
 container — which is deliberate, so the capacity arithmetic is verified before
 any Kubernetes exists.
 
@@ -57,7 +57,7 @@ effect; it is prediction P7.
 Lambda allows only SSH, so everything goes through one tunnel. Open only
 `127.0.0.1` URLs, never the public IP.
 
-| URL | What | After stage |
+| URL | What | Available after |
 |---|---|---|
 | `http://127.0.0.1:8000` | a vLLM worker directly | 0 |
 | `http://127.0.0.1:3000` | Open WebUI | 1 |

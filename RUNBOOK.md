@@ -1,6 +1,6 @@
-# Runbook — bringing Dodona up, stage by stage
+# Runbook — bringing Dodona up, in order
 
-**Each stage ends with something testable, and the next does not start until it
+**Each step ends with something testable, and the next does not start until it
 does.** Nothing here is inherited as a black box; the course lab is the
 reference you port from, piece by piece.
 
@@ -10,13 +10,13 @@ Target: **1 × A100-40GB**, `Qwen2.5-7B-Instruct-AWQ`, three HAMi slices of
 **[`COMMANDS.md`](COMMANDS.md) is the copy-pasteable version of this file.** Use that
 to run; use this to understand what you are checking and why.
 
-Stages 0–1 need no Kubernetes. Stage 3 before stage 4 is deliberate: admission is
+Stages 0–1 need no Kubernetes. "Prometheus + Grafana" before "The gateway, pass-through only" is deliberate: admission is
 a *function of* engine metrics, so the scrape must exist before there is anything
 to decide on.
 
 ---
 
-## Stage 0 — one model, on the bare box
+## One model, on the bare box
 
 No k8s, no slices, no gateway. Docker and one vLLM container with the whole card.
 
@@ -37,12 +37,12 @@ docker run --gpus all -p 8000:8000 \
 
 | | Check | Expect |
 |---|---|---|
-| 0a | `curl localhost:8000/v1/chat/completions -d '{...}'` | 200, text back |
-| 0b | `curl localhost:8000/metrics \| grep kv_cache` | `vllm:kv_cache_usage_perc` present |
-| 0c | **`config.json`: layers, `num_key_value_heads`, `head_dim`** | 28 / 4 / 128 → **56 KiB/token**. This is prediction **P6** |
-| 0d | `nvidia-smi` memory used vs `5.2 GiB` weights estimate | within ~10% |
+| a | `curl localhost:8000/v1/chat/completions -d '{...}'` | 200, text back |
+| b | `curl localhost:8000/metrics \| grep kv_cache` | `vllm:kv_cache_usage_perc` present |
+| c | **`config.json`: layers, `num_key_value_heads`, `head_dim`** | 28 / 4 / 128 → **56 KiB/token**. This is prediction **P6** |
+| d | `nvidia-smi` memory used vs `5.2 GiB` weights estimate | within ~10% |
 
-**0c and 0d are the whole point of this stage.** Every concurrency figure in
+**The KV and budget checks are the whole point of this step.** Every concurrency figure in
 Part 1 is derived from them. If `head_dim` is not 128, or weights are not ~5.2
 GiB, stop and redo the arithmetic before renting more time.
 
@@ -51,7 +51,7 @@ Part 6's recompute-vs-hop comparison has a measured left-hand side.
 
 ---
 
-## Stage 1 — Open WebUI, for hand testing
+## Open WebUI, for hand testing
 
 ```
 docker run -p 3000:8080 \
@@ -68,7 +68,7 @@ has a smaller search space.
 
 ---
 
-## Stage 2 — k3s + HAMi, three slices
+## k3s + HAMi, three slices
 
 ```
 # k3s with the NVIDIA container runtime as default
@@ -110,7 +110,7 @@ the KV token counts differ between the two decode pods, restart rolling.
 
 ---
 
-## Stage 3 — Prometheus + Grafana
+## Prometheus + Grafana
 
 ```
 helm upgrade --install kube-prom prometheus-community/kube-prometheus-stack \
@@ -125,12 +125,12 @@ Grafana) scrape and a hop-or-warmup proof fails."*
 Minimum panels before moving on: KV usage per pod, `num_requests_waiting` per
 pod, `num_requests_running`, `num_preemptions`, `prefix_cache_hit_rate`.
 
-Save the first scrape to `../metrics/stage3/` — it is the baseline everything
+Save the first scrape to `metrics/baseline/` — it is the baseline everything
 later is compared against.
 
 ---
 
-## Stage 4 — the gateway, pass-through only
+## The gateway, pass-through only
 
 A single process on `:8080` that forwards `/v1/chat/completions` to one pod and
 nothing else. No guard, no admission, no placement.
@@ -138,7 +138,7 @@ nothing else. No guard, no admission, no placement.
 Repoint Open WebUI at `:8080`.
 
 **Gate:** traffic flows through our box and still answers. Nothing is decided
-yet, and that is the point — this stage proves the plumbing in isolation.
+yet, and that is the point — this step proves the plumbing in isolation.
 
 Two things to get right here because they are invisible later:
 
@@ -151,7 +151,7 @@ Two things to get right here because they are invisible later:
 
 ---
 
-## Stage 5 — guard and the tenant window
+## Guard and the tenant window
 
 ```
 inspect(payload) → Guard                       # model allowlist, token cap, shape
@@ -167,7 +167,7 @@ overflow provider. "A 429 that overflowed" is on the brief's bad-answer list.
 
 ---
 
-## Stage 6 — admission, as a socket
+## Admission, as a socket
 
 Install AdmitPerf in the request path. Scrape the three pods, hand the metrics
 plus the request to the policy, do what comes back, write one row.
@@ -182,9 +182,9 @@ ADMISSION_LOG=../metrics/<run>/decisions.jsonl
 
 | | Check |
 |---|---|
-| 6a | `decisions.jsonl` has one row per request, each carrying **the signal value the policy read** |
-| 6b | `admitperf_gate_active 1` and `admitperf_gate_recording 1` |
-| 6c | `admitperf report <log>` prints a page with a liveness verdict on line one |
+| a | `decisions.jsonl` has one row per request, each carrying **the signal value the policy read** |
+| b | `admitperf_gate_active 1` and `admitperf_gate_recording 1` |
+| c | `admitperf report <log>` prints a page with a liveness verdict on line one |
 
 Then run `ADMISSION_POLICY=no_admission` and confirm it produces a log of the
 same shape. **That is the baseline** — with the gate switched off entirely there
@@ -197,7 +197,7 @@ policy admit — a failed scrape must not silently switch admission off.
 
 ---
 
-## Stage 7 — placement
+## Placement
 
 ```
 pick(req, workers, *, policy) → Worker | Shed
@@ -219,7 +219,7 @@ refusal with a reason, not a re-pick on another worker.
 
 ---
 
-## Stage 8 — the hop, and warmth
+## The hop, and warmth
 
 ```
 src == dst  ->  nothing to do (cannot happen in this topology)
@@ -234,9 +234,9 @@ bytes, and "NCCL/NIXL in this repo moves KV tensors" is on the bad-answer list.
 
 | | Check |
 |---|---|
-| 8a | A recorded hop at `/hops`: count, tokens, bytes |
-| 8b | Measured transfer time for a 12k prompt (0.656 GiB) — this settles **P8** |
-| 8c | **Cold vs warm TTFT, re-quoted.** Hop onto a freshly started decode replica, measure the first token, warm it, measure again |
+| a | A recorded hop at `/hops`: count, tokens, bytes |
+| b | Measured transfer time for a 12k prompt (0.656 GiB) — this settles **P8** |
+| c | **Cold vs warm TTFT, re-quoted.** Hop onto a freshly started decode replica, measure the first token, warm it, measure again |
 
 8c is the warmth proof. `READY 1/1` appears minutes before the engine can
 actually serve, so a TTFT off a cold replica is meaningless — and in a voice turn
@@ -244,7 +244,7 @@ it is audible as dead air.
 
 ---
 
-## Stage 9 — the agent
+## The agent
 
 Point the Dodona agent at `:8080`. Every completion goes through the serve path;
 completions that skip guard/admit/place/queue do not count.
@@ -254,17 +254,17 @@ sequence localises a break:
 
 | | Check | Passes when |
 |---|---|---|
-| 9a | `curl` the gateway with a `tools` array | response has `tool_calls`, not prose |
-| 9b | agent, one question, one turn | `web_search` fires |
-| 9c | agent, full question | multi-turn, cites a URL it actually fetched |
-| 9d | voice loop end to end | spoken question in, spoken cited answer out |
-| 9e | decision log | one row per completion, gate recording |
+| a | `curl` the gateway with a `tools` array | response has `tool_calls`, not prose |
+| b | agent, one question, one turn | `web_search` fires |
+| c | agent, full question | multi-turn, cites a URL it actually fetched |
+| d | voice loop end to end | spoken question in, spoken cited answer out |
+| e | decision log | one row per completion, gate recording |
 
-9a is the one that fails if the allowlist from stage 4 regressed.
+9a is the one that fails if the allowlist from "The gateway, pass-through only" regressed.
 
 ---
 
-## Stage 10 — measure
+## Measure
 
 | Run | Policy | Sessions | Seeds |
 |---|---|---|---|
@@ -291,9 +291,9 @@ Cut from the top of this list, in this order. Do not reorder it in the moment.
 1. Experiment 2 (prefix-mix comparison) — **whole, not half**
 2. Seeds 2 and 3 at the **low** level — the crossing is at the high level
 3. The Grafana exhibits
-4. Stage 9d, the voice loop — text through the gateway still proves the serve path
+4. The voice loop — text through the gateway still proves the serve path
 
-**Never cut:** stage 2's integrity check, stage 3's scrape, stage 8's hop-or-warm
+**Never cut:** "k3s + HAMi, three slices"'s integrity check, "Prometheus + Grafana"'s scrape, "The hop, and warmth"'s hop-or-warm
 proof, or the baselines. The first two are pass/fail; a run without a baseline
 has a one-sided comparison; and a fleet that was secretly two workers invalidates
 everything silently.

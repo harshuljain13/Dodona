@@ -1,15 +1,15 @@
 ---
-name: dodona-stage
+name: dodona-bringup
 description: >-
   Bring up or debug one stage of the Dodona cluster — which gate has to pass before the
   next stage starts, what each stage's failure looks like, and the checks that are never
-  skipped. Use when working through cluster/RUNBOOK.md, when a pod will not serve, when
+  skipped. Use when working through RUNBOOK.md, when a pod will not serve, when
   the gateway returns the wrong thing, or when asked what to do next on the box.
 ---
 
 # Bringing up a stage
 
-`cluster/RUNBOOK.md` is the source of truth. Ten stages, each with a gate. **The next stage
+`RUNBOOK.md` is the source of truth. Each step has a gate. **The next step
 does not start until the current gate passes** — not because of process, but because every
 stage's failures are diagnosable only while the stage below it is known good.
 
@@ -52,7 +52,7 @@ Each of these looks like something else, which is why they are written down.
 
 ## What to do when a gate fails
 
-1. **Do not advance.** A stage-4 bug debugged on top of a broken stage 2 costs hours.
+1. **Do not advance.** A gateway bug debugged on top of a broken fleet costs hours.
 2. **Log it in `SUBMISSION.md`'s deployment-issues table as it happens.** Reconstructing that
    table from memory at the end is how it ends up with three rows instead of twelve, and it
    is one of the more useful things in the submission.
@@ -61,7 +61,7 @@ Each of these looks like something else, which is why they are written down.
 
 ## Cut order, when time runs out
 
-From `cluster/RUNBOOK.md`, and do not reorder it in the moment: Experiment 2 whole, then
+From `RUNBOOK.md`, and do not reorder it in the moment: Experiment 2 whole, then
 low-level seeds 2 and 3, then the Grafana exhibits, then the voice loop (text through the
 gateway still proves the serve path).
 

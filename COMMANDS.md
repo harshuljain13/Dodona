@@ -1,8 +1,8 @@
 # Commands — every step, in order
 
-Copy-pasteable. **[`RUNBOOK.md`](RUNBOOK.md) explains *why* each stage exists and
+Copy-pasteable. **[`RUNBOOK.md`](RUNBOOK.md) explains *why* each step exists and
 what its gate means; this file is just the commands.** When something fails, go
-back to the runbook — it has a failure-mode table per stage.
+back to the runbook — it has a failure-mode table per step.
 
 Every block is marked **`[Mac]`** or **`[GPU]`**. Getting that wrong is the most
 common way to waste ten minutes.
@@ -70,13 +70,12 @@ Gives you a shell on the box in `~/dodona`, with these ports forwarded back:
 
 | Port | What | Live after |
 |---|---|---|
-| 8000 | vLLM prefill worker | step 4 |
-| 8001, 8002 | vLLM decode workers | stage 2 |
-| 3000 | Open WebUI (docker) | step 7 |
-| 8080 | the gateway | stage 4 |
-| 31495 | Grafana | stage 3 |
-| 50051 | Mooncake | stage 8 |
-| 30030, 30080 | k8s NodePorts | stage 2 |
+| 8000 | vLLM, whole card | `make cluster`, before the fleet |
+| 3000 | Open WebUI (docker) | `make cluster` |
+| 8080 | the gateway | `make cluster` |
+| 30800, 30801 | vLLM prefill / decode NodePorts | `make cluster` |
+| 30030, 30080 | Open WebUI / gateway NodePorts | `make cluster` |
+| 31495 | Grafana | `make observability` |
 
 **Lambda's firewall allows only SSH.** Everything is reached at `127.0.0.1:<port>`
 on the Mac — never the public IP. Open a second terminal and run `tunnel.sh` again if
@@ -84,10 +83,10 @@ you want a shell plus a free prompt.
 
 ---
 
-# Stage 0 — one model on the bare box
+# One model on the bare box
 
-No Kubernetes, no slices. One container with the whole card. **This stage exists
-to verify the arithmetic before any orchestration can confuse it.**
+No Kubernetes, no slices. One process with the whole card. **This exists to
+verify the arithmetic before any orchestration can confuse it.**
 
 ## Step 3 — what is the card? `[GPU]`
 
@@ -127,7 +126,7 @@ bash cluster/setup/engine.sh       # serve, on :8000
 `requirements-load.txt` from the project root, installs `vllm>=0.28`, then
 verifies that torch and vLLM import and can see the device. **If that last check
 fails, stop** — a CUDA/torch mismatch surfaces here as a missing `libcudart.so.*`
-at import time, and it is far cheaper to find now than at stage 2.
+at import time, and it is far cheaper to find now than once the fleet is up.
 
 `engine.sh` serves with these defaults, each overridable from the
 environment:
@@ -137,8 +136,8 @@ environment:
 | `LOCAL_MODEL` | `Qwen/Qwen2.5-7B-Instruct-AWQ` | int4 is forced on sm80 — no fp8 tensor cores |
 | `MAX_MODEL_LEN` | `16384` | The context the capacity figures assume. At 8,192 the decode pool is 22, not 11 |
 | `MAX_NUM_SEQS` | `64` | Deliberately **above** the KV limit of 5.5, so the cache runs out before the scheduler does |
-| `UTIL` | `0.90` | The 0.90 in `12 × 0.90 = 10.80 GiB`. At stage 0 it is 0.90 of the *card*; from stage 2, of the *slice* |
-| `SCHEDULING_POLICY` | `fcfs` | The lab used `priority`, which earns its place once the gateway sets one per request (stage 4+). Nothing sets one yet |
+| `UTIL` | `0.90` | The 0.90 in `12 × 0.90 = 10.80 GiB`. 0.90 of whatever the process can see: the card here, the slice once the fleet is up |
+| `SCHEDULING_POLICY` | `fcfs` | The lab used `priority`, which earns its place once the gateway sets one per request. Nothing does yet |
 
 It also reads `compute_cap` and warns if the card is not sm80 — because on sm89
 or sm90 fp8 becomes available, int4 stops being forced, and
@@ -150,7 +149,7 @@ Pinned CUDA and torch, so it sidesteps the mismatch entirely. The cost is that
 the control plane later runs outside the container and has to reach in.
 
 ```bash
-docker run -d --name vllm-stage0 --gpus all --ipc=host -p 8000:8000 \
+docker run -d --name vllm-engine --gpus all --ipc=host -p 8000:8000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
   --model Qwen/Qwen2.5-7B-Instruct-AWQ \
@@ -167,19 +166,19 @@ mount means a restart does not re-download the ~5.6 GB of weights.
 ```bash
 # scripted: it is in the foreground, watch the log
 # container:
-docker logs -f vllm-stage0
+docker logs -f vllm-engine
 ```
 
 Wait for `Application startup complete`. ⚠ **`READY` is not the same as "can
 serve"** — CUDA-graph capture continues past startup, so the first request is
-slow. That is the warmth problem, and it is why stage 8 re-quotes TTFT.
+slow. That is the warmth problem, and it is why the hop step re-quotes TTFT.
 
 ### Flags deliberately *not* set yet
 
 | Flag | When | Why not now |
 |---|---|---|
-| `--quantization awq_marlin` | never, probably | vLLM reads `quantization_config` from `config.json` and picks a kernel itself. Forcing it only narrows the choice, and turns an unavailable kernel into a hard error instead of a working fallback. Step 5d reads back which it took |
-| `--enable-auto-tool-choice`<br/>`--tool-call-parser hermes` | **stage 9**, with the agent | See below |
+| `--quantization awq_marlin` | never, probably | vLLM reads `quantization_config` from `config.json` and picks a kernel itself. Forcing it only narrows the choice, and turns an unavailable kernel into a hard error instead of a working fallback. The budget check reads back which it took |
+| `--enable-auto-tool-choice`<br/>`--tool-call-parser hermes` | with the agent | See below |
 | `--kv-cache-dtype fp8` | never | sm80 cannot, and it would halve bytes/token — how fast the cache fills is the thing being studied |
 
 ### Why `hermes`, and why it can wait
@@ -201,13 +200,13 @@ no `tool_calls` → AgentShip concludes the model answered in prose → the loop
 after one turn. That looks like a weak model and is nothing of the kind. Same bug
 in its other half as the dropped-`tools` problem in `control/router/pools.py`.
 
-But **stage 0 has no tools and no agent**, and Open WebUI does not use them. The
+But **this step has no tools and no agent**, and Open WebUI does not use them. The
 flags buy nothing here and widen the surface that can fail while we establish
 something much simpler: does the model serve, and is the arithmetic right.
 
-## Step 5 — the gate: four checks `[GPU]`
+## The capacity checks `[GPU]`
 
-### 5a — it answers
+### It answers
 
 ```bash
 curl -s localhost:8000/v1/models | python3 -m json.tool
@@ -219,16 +218,16 @@ curl -s localhost:8000/v1/chat/completions -H 'Content-Type: application/json' -
 }' | python3 -m json.tool
 ```
 
-### 5b — metrics exist
+### The metrics exist
 
 ```bash
 curl -s localhost:8000/metrics | grep -E 'kv_cache_usage_perc|num_requests_(running|waiting)|prefix_cache'
 ```
 
-`vllm:kv_cache_usage_perc` must be present. **Everything from stage 3 onward
+`vllm:kv_cache_usage_perc` must be present. **Everything from observability onward
 reads this**, and admission is a function of it.
 
-### 5c — `kv_bytes_per_token` ⚠ **the one that matters most**
+### `kv_bytes_per_token` ⚠ **the one that matters most**
 
 ```bash
 python3 - <<'PY'
@@ -253,7 +252,7 @@ This is prediction **P6**. If it fails, stop and fix the arithmetic in
 `docs/project/01-capacity.md` before renting more time — every number in the
 project moves with it.
 
-### 5d — weights on the card
+### What the engine actually reserved
 
 ```bash
 nvidia-smi --query-compute-apps=pid,used_memory --format=csv
@@ -264,11 +263,11 @@ Predicted **5.20 GiB** of weights. The process will show more than that, because
 roughly `0.90 × 40 GiB ≈ 36 GiB` reserved. To see the weights/KV split:
 
 ```bash
-docker logs vllm-stage0 2>&1 | grep -iE 'KV cache|model weights|graph capturing|awq|marlin|quantiz'
+docker logs vllm-engine 2>&1 | grep -iE 'KV cache|model weights|graph capturing|awq|marlin|quantiz'
 ```
 
 vLLM prints `# GPU blocks:` and the memory it attributed to weights. **Record
-both numbers** — they go in the as-deployed table, and 5d is what tells you
+both numbers** — they go in the as-deployed table, and the budget check tells you
 whether 0.80 GiB of runtime headroom was a good guess.
 
 ### 5e — time a real prefill (optional, but do it while the card is idle)
@@ -294,7 +293,7 @@ here with the whole card.
 
 ---
 
-# Stage 1 — Open WebUI, for hand testing
+# Open WebUI, for hand testing
 
 ## Step 6 — run it `[GPU]`
 
@@ -319,7 +318,7 @@ docker exec open-webui curl -s http://host.docker.internal:8000/v1/models | head
 
 Open **http://127.0.0.1:3000** — through the tunnel from step 2, not the public IP.
 
-**Gate: you have a conversation with it in a browser.** That is stage 1 done, and
+**Gate: you have a conversation with it in a browser.** That is this step done, and
 it means the engine is good *by hand* before any control plane exists. Every later
 failure then has a much smaller search space.
 
@@ -328,7 +327,7 @@ failure then has a much smaller search space.
 ## Teardown `[GPU]`
 
 ```bash
-docker stop vllm-stage0 open-webui && docker rm vllm-stage0 open-webui
+docker stop vllm-engine open-webui && docker rm vllm-engine open-webui
 ```
 
 The HF cache survives in `~/.cache/huggingface`, so a restart does not
@@ -341,22 +340,22 @@ not anything is running.
 
 # Stages 2–10
 
-Not written as commands yet, because each depends on what the stage before it
+Not written as commands yet, because each depends on what the step before it
 measured. [`RUNBOOK.md`](RUNBOOK.md) has the shape of each:
 
-| Stage | | Needs from the stage before |
-|---|---|---|
-| 2 | k3s + HAMi, three 12 GiB slices | the real weights figure from 5d, to size the slices |
-| 3 | Prometheus + Grafana | three pods to scrape |
-| 4 | gateway, pass-through | a scrape, so admission has state to read |
-| 5 | guardrails + tenant window | traffic flowing through the gateway |
-| 6 | admission as a socket | the live `kv_cache_usage_perc` from stage 3 |
-| 7 | placement | two decode pods to choose between |
-| 8 | KV hop + warm gate | Mooncake up, and `KV_BACKEND` confirmed |
-| 9 | the voice agent | the tool allowlist verified at stage 4 |
+| | Needs from the step before |
+|---|---|
+| k3s + HAMi, three slices | the measured overhead, to size the slices |
+| Prometheus + Grafana | three pods to scrape |
+| gateway, pass-through | a scrape, so admission has state to read |
+| guardrails + tenant window | traffic flowing through the gateway |
+| admission as a socket | the live `kv_cache_usage_perc` |
+| placement | two decode pods to choose between |
+| KV hop + warm gate | a KV connector, and `KV_BACKEND` confirmed |
+| the voice agent | the tool allowlist verified at the gateway |
 | 10 | measure | all of the above, unchanged across runs |
 
-This file gets a section per stage as each one is actually brought up and the
+This file gets a section per step as each one is actually brought up and the
 commands are known to work — rather than guessed in advance and quietly wrong.
 
 ---
@@ -365,6 +364,6 @@ commands are known to work — rather than guessed in advance and quietly wrong.
 
 | | |
 |---|---|
-| [`RUNBOOK.md`](RUNBOOK.md) | The ten stages, their gates, and a failure-mode table per stage |
+| [`RUNBOOK.md`](RUNBOOK.md) | The bring-up in order, the gate at each step, and a failure-mode table |
 | [`docs/cluster/COMMANDS.md`](docs/cluster/COMMANDS.md) | Debugging reference inherited from the course lab — port chains, pod inspection, Grafana queries. Written for that layout, so paths differ |
 | [`docs/project/01-capacity.md`](docs/project/01-capacity.md) | Where every predicted number here comes from |

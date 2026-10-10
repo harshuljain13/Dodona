@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Four capacity checks against a running engine. Run on the GPU box.
 
-Two of them decide whether anything else is worth doing. 5c reads the model's
-own config.json and recomputes kv_bytes_per_token; 5d reads back what vLLM
-actually reserved and checks the two agree. Every concurrency figure in
+Two of them decide whether anything else is worth doing: one recomputes
+kv_bytes_per_token from the model's own config.json, the other reads back what
+vLLM actually reserved and checks the two agree. Every concurrency figure in
 docs/project/01-capacity.md is derived from those, so a failure here means the
 arithmetic is wrong, not the cluster.
 
@@ -68,22 +68,22 @@ def serves(port: int) -> None:
     try:
         body = _get(f"http://localhost:{port}/v1/models")
         name = (json.loads(body).get("data") or [{}])[0].get("id", "?")
-        check(True, "5a  engine serves", name)
+        check(True, "engine serves", name)
     except Exception as exc:
-        check(False, "5a  engine serves", f"{type(exc).__name__}: {exc}")
+        check(False, "engine serves", f"{type(exc).__name__}: {exc}")
 
 
 def metrics(port: int) -> None:
     try:
         m = _get(f"http://localhost:{port}/metrics")
     except Exception as exc:
-        check(False, "5b  gpu_cache_usage_perc present", str(exc))
+        check(False, "KV-usage metric present", str(exc))
         return
     # Admission is a function of this metric. vLLM V1 renamed
     # gpu_cache_usage_perc -> kv_cache_usage_perc, so accept and report either.
     names = [n for n in ("vllm:kv_cache_usage_perc", "vllm:gpu_cache_usage_perc") if n in m]
-    check(bool(names), "5b  KV-usage metric present", names[0] if names else "neither name found")
-    check("vllm:num_requests_waiting" in m, "5b  num_requests_waiting present")
+    check(bool(names), "KV-usage metric present", names[0] if names else "neither name found")
+    check("vllm:num_requests_waiting" in m, "num_requests_waiting present")
 
 
 def kv_bytes_per_token() -> float | None:
@@ -91,7 +91,7 @@ def kv_bytes_per_token() -> float | None:
     hits = glob.glob(os.path.expanduser(
         "~/.cache/huggingface/hub/models--*/snapshots/*/config.json"))
     if not hits:
-        check(False, "5c  KV bytes/token", "no config.json in the HF cache")
+        check(False, "KV bytes/token", "no config.json in the HF cache")
         return None
     cfg = json.load(open(sorted(hits, key=os.path.getmtime)[-1]))
     layers = cfg["num_hidden_layers"]
@@ -105,34 +105,34 @@ def kv_bytes_per_token() -> float | None:
     if EXPECT_KV_KIB:
         expected = float(EXPECT_KV_KIB)
         check(abs(kib - expected) < expected * KV_TOLERANCE,
-              "5c  KV bytes/token", f"{detail} (expected {expected:.0f})")
+              "KV bytes/token", f"{detail} (expected {expected:.0f})")
     else:
-        check(kib > 0, "5c  KV bytes/token", detail)
+        check(kib > 0, "KV bytes/token", detail)
     print(f"           one 16k sequence = {kib * 16384 / 1024 / 1024:.3f} GiB")
     return kib
 
 
 def budget(log: str, card_gib: float | None, util: float, predicted_kib: float | None) -> None:
-    """What the engine reserved, and whether its KiB/token agrees with 5c.
+    """What the engine reserved, and whether its KiB/token agrees.
 
     Budget minus KV is weights + activations + CUDA graphs. Only sanity-checked,
     not predicted: overhead needs the quantised weight size, which config.json
     does not give. The agreement check is the one that carries evidence.
     """
     if not os.path.exists(log):
-        check(False, "5d  memory budget", f"no {log} — started outside up.sh?")
+        check(False, "memory budget", f"no {log} — started outside up.sh?")
         return
     text = open(log, errors="replace").read()
 
     kv = re.search(r"Available KV cache memory:\s*([\d.]+)\s*GiB", text)
     toks = re.search(r"GPU KV cache size:\s*([\d,]+)\s*tokens", text)
     if not kv:
-        check(False, "5d  memory budget", "no 'Available KV cache memory' line yet")
+        check(False, "memory budget", "no 'Available KV cache memory' line yet")
         return
     kv_gib = float(kv.group(1))
 
     if card_gib is None:
-        check(False, "5d  memory budget", "could not read memory.total from nvidia-smi")
+        check(False, "memory budget", "could not read memory.total from nvidia-smi")
         return
 
     overhead_gib = card_gib * util - kv_gib
@@ -142,16 +142,16 @@ def budget(log: str, card_gib: float | None, util: float, predicted_kib: float |
     if EXPECT_OVERHEAD_GIB:
         expected = float(EXPECT_OVERHEAD_GIB)
         check(sane and abs(overhead_gib - expected) < expected * 0.25,
-              "5d  memory budget", f"{detail} (expected {expected:.2f})")
+              "memory budget", f"{detail} (expected {expected:.2f})")
     else:
-        check(sane, "5d  memory budget", detail)
+        check(sane, "memory budget", detail)
 
     # Arrived at independently, so agreement is real evidence.
     if toks:
         reported_kib = kv_gib * 1024**2 / int(toks.group(1).replace(",", ""))
         if predicted_kib:
             check(abs(reported_kib - predicted_kib) < predicted_kib * KV_TOLERANCE,
-                  "5d  engine agrees with 5c",
+                  "engine agrees with config",
                   f"engine {reported_kib:.1f} vs config {predicted_kib:.1f} KiB/token")
         else:
             print(f"           engine reports {reported_kib:.1f} KiB/token")
@@ -176,7 +176,7 @@ def main() -> int:
     failed = _results.count(False)
     if failed:
         print(f"\n    {failed} of {len(_results)} checks failed.")
-        print("    5c or 5d failing means the arithmetic is wrong, not the cluster —")
+        print("    A KV or budget failure means the arithmetic is wrong, not the cluster —")
         print("    fix docs/project/01-capacity.md before renting more time.")
     return 1 if failed else 0
 

@@ -288,7 +288,7 @@ rather than leaving it to be worked out:
 ~5.5 seqs at 16384 tokens (4.80 GiB KV), max_num_seqs=64 -> KV binds — admission can bite
 ```
 
-## Measured — stage 0, 2026-10-10
+## Measured — whole card, 2026-10-10
 
 One worker on the whole card, `--gpu-memory-utilization 0.90`. Card:
 **NVIDIA A100-SXM4-40GB**, sm80, 40 GiB. vLLM **0.31.0**, torch 2.13.0+cu130.
@@ -319,7 +319,7 @@ survives, with less headroom than claimed. Three 13 GiB slices would recover the
 pool to 10.4, but 3 × 13 = 39 GiB exceeds the ~37 GiB allocatable, so 12 GiB
 stands.
 
-## Measured — stage 2, 2026-10-10
+## Measured — sliced fleet, 2026-10-10
 
 Three pods on three 12 GiB HAMi slices. `nvidia-smi` shows three processes on
 index 0 at **10,624 MiB each**, under the 12,288 MiB cap, so HAMi is enforcing.
@@ -328,17 +328,17 @@ All three report **identical** KV, which is the one-at-a-time start working.
 |  | overhead | KV/slice | seq @16k | decode pool |
 |---|---|---|---|---|
 | predicted | 6.00 GiB | 4.80 GiB | 5.5 | 11.0 |
-| extrapolated from stage 0 | 7.17 GiB | 3.63 GiB | 4.15 | 8.3 |
-| **measured, stage 2** | **6.53 GiB** | **4.27 GiB** | **4.88** | **9.8** |
+| extrapolated from the whole card | 7.17 GiB | 3.63 GiB | 4.15 | 8.3 |
+| **measured on the slices** | **6.53 GiB** | **4.27 GiB** | **4.88** | **9.8** |
 
 vLLM states the per-replica figure itself — *"GPU KV cache size: 80,032 tokens,
 Maximum concurrency for 16,384 tokens per request: 4.88x"* — and 80,032 × 56 KiB
 = 4.27 GiB, so P6 is confirmed a third time.
 
-**The stage-0 extrapolation was pessimistic, and the reason is worth keeping.**
+**The whole-card extrapolation was pessimistic, and the reason is worth keeping.**
 Overhead is 7.17 GiB on the whole card but 6.53 GiB on a 12 GiB slice, so it is
 **not a constant**: CUDA-graph capture scales part-way with the memory available
-to it. Treating stage 0's overhead as fixed under-predicted the pool by 18%.
+to it. Treating the whole-card overhead as fixed under-predicted the pool by 18%.
 
 So the truth sits between the paper estimate and the extrapolation. The original
 prediction was closer than the "corrected" one — which is an argument for
@@ -358,7 +358,7 @@ Checked in [Part 8](08-proof.md) and **not edited afterwards**.
 | P5 | Traffic is **prefill-heavy, > 10:1** prompt to completion | mean prompt ÷ mean completion from the decision log |
 | P6 | `kv_bytes_per_token` = **56 KiB ±5%** | ✅ **HELD** — 56.0 KiB, measured 2026-10-10 |
 | P7 | Inter-token p95 on decode **spikes during a large prefill**, because `gpucores` is time-sliced rather than partitioned | per-pod inter-token latency against prefill activity |
-| P8 | Mooncake hop is **far above our 150 ms first-principles estimate**, nearer the 0.5–0.8 s published prior | stage 8b, measured |
+| P8 | Mooncake hop is **far above our 150 ms first-principles estimate**, nearer the 0.5–0.8 s published prior | not measured: no KV connector is configured |
 
 P2 and P3 together are the experiment. P6 comes first in time, because every
 figure on this page moves with it. P8 is a prediction *against* our own

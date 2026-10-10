@@ -19,7 +19,7 @@ description: >-
 | `docs/project/01-capacity.md` | **Every number.** The authority | — |
 | `docs/project/0N-*.md` | Per-part depth | Numbers that disagree with `01-capacity.md` |
 | `docs/cluster/*.md` | How the code works, file by file | This project's decisions |
-| `cluster/RUNBOOK.md` | The stages and their gates | Design rationale |
+| `RUNBOOK.md` | The steps and their gates | Design rationale |
 
 Two splits worth holding onto:
 
