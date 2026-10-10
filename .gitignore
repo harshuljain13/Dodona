@@ -33,4 +33,6 @@ __pycache__/
 .serena/
 
 # Trace output from a run, not source.
-metrics/traces/requests.jsonl
+# Anchored to the repo root because it contains a slash — it has to
+# follow the directory when metrics/ moves.
+infra/metrics/traces/requests.jsonl
