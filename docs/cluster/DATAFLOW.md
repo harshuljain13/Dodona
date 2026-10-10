@@ -20,7 +20,7 @@ step, and answers the questions the file layout does not.
 
 ## 1. Provisioning — how the cluster comes up
 
-One command, `setup/lambda_cluster.sh`, wraps everything. It sources a guard and
+One command, `setup/fleet.sh`, wraps everything. It sources a guard and
 runs two scripts in order.
 
 ```mermaid
@@ -36,13 +36,13 @@ runs two scripts in order.
 }}}%%
 sequenceDiagram
     participant U as You
-    participant C as lambda_cluster.sh
-    participant G as _lambda_only.sh
-    participant K as lambda_k3s_hami.sh
+    participant C as fleet.sh
+    participant G as _require_gpu.sh
+    participant K as k3s.sh
     participant A as lambda_apply_slices.sh
     participant API as Kubernetes
 
-    U->>C: bash setup/lambda_cluster.sh
+    U->>C: bash setup/fleet.sh
     C->>G: source (guard)
     G->>G: refuse on macOS or without nvidia-smi
     C->>K: bash
@@ -62,10 +62,10 @@ sequenceDiagram
 
 | File | Creates |
 |---|---|
-| `setup/_lambda_only.sh` | Nothing — refuses to run off the GPU box |
-| `setup/lambda_k3s_hami.sh` | k3s, HAMi scheduler, KEDA operator |
+| `setup/_require_gpu.sh` | Nothing — refuses to run off the GPU box |
+| `setup/k3s.sh` | k3s, HAMi scheduler, KEDA operator |
 | `setup/lambda_apply_slices.sh` | vllm-prefill, vllm-decode, mooncake, orch-serve, ScaledObjects, Open WebUI |
-| `setup/day2_observability.sh` | Prometheus, Grafana, dashboards, DCGM — **separate, Step 22** |
+| `setup/observability.sh` | Prometheus, Grafana, dashboards, DCGM — **separate, Step 22** |
 
 Observability is deliberately not part of bring-up. That is why `kubectl -n
 monitoring get pods` is empty until Step 22.

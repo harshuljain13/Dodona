@@ -27,7 +27,7 @@ import urllib.request
 G, Y, R, D, B = "\033[32m", "\033[33m", "\033[31m", "\033[2m", "\033[1m"
 X = "\033[0m"
 
-#: From docs/project/01-capacity.md, measured at stage 2.
+#: From docs/project/01-capacity.md, measured on the running fleet.
 KV_PER_TOKEN_KIB = 56.0
 KV_PER_SLICE_GIB = 4.27
 SEQ_PER_REPLICA = 4.88
@@ -162,7 +162,7 @@ def saturation(out: dict) -> None:
                      f"unable to change any outcome")
         note("info", f"roughly {need:.1f}x more concurrent load would be needed, "
                      "or longer holds: more max_tokens, no gap between turns")
-        note("info", "this is a result, not a failure — but it is better known now than at stage 10")
+        note("info", "this is a result, not a failure — but better known now than after the load tests")
 
 
 def dashboards() -> None:
@@ -176,8 +176,8 @@ def dashboards() -> None:
         if n:
             note("ok", f"{pre:<12} {n:>4} metric names")
         else:
-            why = {"orch_": "the gateway is not built yet (stage 4) — it emits every orch_* metric",
-                   "mooncake": "Mooncake is not deployed (stage 8); its image does not exist yet"}
+            why = {"orch_": "the gateway is not deployed — it emits every orch_* metric",
+                   "mooncake": "Mooncake is not deployed; its image does not exist yet"}
             note("warn", f"{pre:<12} {'none':>4}         ← {why.get(pre, 'not installed')}")
     print()
     note("info", "The dodona dashboards are built almost entirely on orch_* — 16 of their")

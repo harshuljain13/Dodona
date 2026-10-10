@@ -27,9 +27,7 @@ torch 2.13.0+cu130 · `Qwen/Qwen2.5-7B-Instruct-AWQ`, Marlin int4 kernels.
 ### Deployment issues
 
 The brief's bad-answer list is about claims nobody can check. This is the
-other half: what actually went wrong, recorded as it happened. The long version
-— what we believed, what happened, and what it changes — is in
-[`LEARNINGS.md`](LEARNINGS.md).
+other half: what actually went wrong, recorded as it happened.
 
 | Symptom | Cause | Fix |
 |---|---|---|

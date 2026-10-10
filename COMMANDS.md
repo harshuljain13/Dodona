@@ -52,7 +52,7 @@ grep -c . .env                       # sanity: non-empty
 ## Step 1 — ship the code to the box `[Mac]`
 
 ```bash
-bash cluster/setup/sync_to_lambda.sh
+bash cluster/setup/sync.sh
 ```
 
 Lands the whole project at `~/dodona` on the box. Excludes `.venv`,
@@ -118,17 +118,17 @@ flags that are in the capacity arithmetic so you cannot forget one.
 
 ```bash
 cd ~/dodona
-bash cluster/setup/lambda_setup.sh      # venv, requirements, vllm, verify
-bash cluster/setup/lambda_vllm.sh       # serve, on :8000
+bash cluster/setup/box_packages.sh      # venv, requirements, vllm, verify
+bash cluster/setup/engine.sh       # serve, on :8000
 ```
 
-`lambda_setup.sh` builds `.venv`, installs `requirements.txt` and
+`box_packages.sh` builds `.venv`, installs `requirements.txt` and
 `requirements-load.txt` from the project root, installs `vllm>=0.28`, then
 verifies that torch and vLLM import and can see the device. **If that last check
 fails, stop** — a CUDA/torch mismatch surfaces here as a missing `libcudart.so.*`
 at import time, and it is far cheaper to find now than at stage 2.
 
-`lambda_vllm.sh` serves with these defaults, each overridable from the
+`engine.sh` serves with these defaults, each overridable from the
 environment:
 
 | | Default | Why |

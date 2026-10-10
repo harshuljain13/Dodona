@@ -5,7 +5,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-source "$ROOT/setup/_lambda_only.sh"
+source "$ROOT/setup/_require_gpu.sh"
 cd "$ROOT"
 
 echo "== GPU =="
@@ -88,5 +88,5 @@ kubectl -n keda get pods
 
 echo
 echo "Cluster is up (k3s + HAMi + KEDA)."
-echo "ScaledObjects are applied next; they start moving replicas on Day 2 when Prometheus is up."
-echo "Next: kubectl apply -f k8s/hami/ (one pod at a time — see cluster/RUNBOOK.md stage 2)"
+echo "ScaledObjects are applied next; they only move replicas once Prometheus is up."
+echo "Next: fleet.sh applies the prefill and decode pods, one at a time."

@@ -31,3 +31,6 @@ __pycache__/
 
 # Serena MCP project state — tool-local
 .serena/
+
+# Trace output from a run, not source.
+metrics/traces/requests.jsonl

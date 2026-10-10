@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from router.overflow import FakeOverflow, send
+from gateway.pipeline import serve_request
+from router.overflow import FakeOverflow
 from router.router import Router
 from gateway.admission import Gateway
 from router.kvbus import KVBus
@@ -40,7 +41,7 @@ def test_429_does_not_call_backup_or_router() -> None:
     router.place = wrapped
     gw = Gateway(router, tokens_per_min=10)
     port = FakeOverflow()
-    resp = send(_req(prompt_tokens=64, max_new_tokens=8), gw, port)
+    resp = serve_request(_req(prompt_tokens=64, max_new_tokens=8), gw, backup=port)
     assert resp.status == 429
     assert resp.via == "local"
     assert called["n"] == 0
@@ -60,7 +61,7 @@ def test_503_backup_called_once_no_cross_pool_hop() -> None:
     gw = Gateway(Router(prefill, decode))
     port = FakeOverflow()
     req = _req()
-    resp = send(req, gw, port)
+    resp = serve_request(req, gw, backup=port)
     assert resp.status == 200
     assert resp.via == "overflow"
     assert resp.local_status == 503
@@ -86,7 +87,7 @@ def test_trace_path_labels_overflow_after_local_503(tmp_path, monkeypatch) -> No
     for w in prefill + decode:
         w.saturating = True
     gw = Gateway(Router(prefill, decode))
-    resp = send(_req(), gw, FakeOverflow())
+    resp = serve_request(_req(), gw, backup=FakeOverflow())
     assert resp.via == "overflow"
     rows = [json.loads(ln) for ln in dest.read_text().splitlines() if ln.strip()]
     assert rows[-1]["via"] == "overflow"

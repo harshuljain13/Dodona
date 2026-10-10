@@ -5,7 +5,8 @@ import os
 import sys
 from pathlib import Path
 
-from router.overflow import FakeOverflow, Overflow
+from gateway.pipeline import serve_request
+from router.overflow import FakeOverflow
 from router.router import Router
 from gateway.admission import Gateway
 from router.kvbus import KVBus
@@ -45,7 +46,7 @@ def hop_local() -> None:
     prefill = [FakeWorker("p0", bus=bus)]
     decode = [FakeWorker("d0", bus=bus)]
     gw = Gateway(Router(prefill, decode), tokens_per_min=10_000_000)
-    resp = Overflow(local=gw, backup=FakeOverflow()).send(_req("local-ping"))
+    resp = serve_request(_req("local-ping"), gw, backup=FakeOverflow())
     _print_event("hop 1 local (fake-gpu)", resp)
     if resp.status != 200 or resp.via != "local":
         raise SystemExit(f"hop 1 expected via=local status=200, got via={resp.via} status={resp.status}")
@@ -59,7 +60,7 @@ def hop_overflow() -> None:
     for w in prefill + decode:
         w.saturating = True
     gw = Gateway(Router(prefill, decode), tokens_per_min=10_000_000)
-    resp = Overflow(local=gw).send(_req("overflow-ping"))
+    resp = serve_request(_req("overflow-ping"), gw)
     _print_event("hop 2 overflow (local 503)", resp)
     if resp.via != "overflow" or resp.local_status not in (503, 529):
         raise SystemExit(
@@ -72,7 +73,10 @@ def main() -> None:
     if not os.environ.get("OVERFLOW_BASE_URL", "").strip():
         print("OVERFLOW_BASE_URL unset — skip")
         raise SystemExit(0)
-    os.environ.setdefault("TRACE_PATH", str(ROOT / "traces" / "requests.jsonl"))
+    # ROOT is cluster/; traces live under metrics/ with the other artefacts.
+    os.environ.setdefault(
+        "TRACE_PATH", str(ROOT.parent / "metrics" / "traces" / "requests.jsonl")
+    )
     print("Overflow: local first. Backup generate catches a fleet 503/529. Traces stamp via + happened + ms.")
     hop_local()
     hop_overflow()

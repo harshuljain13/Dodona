@@ -6,7 +6,8 @@ import sys
 from contextlib import redirect_stdout
 from dataclasses import dataclass, field
 
-from router.overflow import FakeOverflow, Overflow
+from gateway.pipeline import serve_request
+from router.overflow import FakeOverflow
 from router.router import Router, plan
 from gateway.admission import Gateway
 from router.kvbus import KVBus
@@ -52,7 +53,9 @@ class Lab:
     left: list[FakeWorker] = field(default_factory=list)
     right: list[FakeWorker] = field(default_factory=list)
     gw: Gateway | None = None
-    overflow: Overflow | None = None
+    # Whether a shed goes to the in-process FakeOverflow. Off means a real HTTP
+    # burst is attempted instead, which is the only way to spend money here.
+    backup_enabled: bool = True
     force_fake: bool = False
 
     def __post_init__(self) -> None:
@@ -74,7 +77,7 @@ class Lab:
             self.n_a, self.n_b = len(self.left), len(self.right)
             self.gw = Gateway(Router(self.left, self.right), tokens_per_min=self.tokens_per_min)
             self.backup = FakeOverflow()
-            self.overflow = Overflow(local=self.gw, backup=None if overflow else self.backup)
+            self.backup_enabled = not overflow
             METRICS.reset()
             return
         a, b = self.names()
@@ -83,8 +86,19 @@ class Lab:
         self.right = [FakeWorker(f"{b}-{i}", kv_capacity=self.kv_b, bus=self.bus) for i in range(self.n_b)]
         self.gw = Gateway(Router(self.left, self.right), tokens_per_min=self.tokens_per_min)
         self.backup = FakeOverflow()
-        self.overflow = Overflow(local=self.gw, backup=None if overflow and not self.force_fake else self.backup)
+        self.backup_enabled = not (overflow and not self.force_fake)
         METRICS.reset()
+
+    def _run_request(self, req: Request) -> Response:
+        """One request through the cluster, then a backup only if it shed.
+
+        `backup_enabled` off means a real HTTP burst is attempted instead of
+        the in-process fake — that is what `overflow` on the command line asks
+        for, and the only way to exercise a paid endpoint deliberately.
+        """
+        return serve_request(
+            req, self.gw, backup=self.backup if self.backup_enabled else None
+        )
 
     def exec(self, line: str) -> list[str]:
         raw = line.strip()
@@ -293,8 +307,7 @@ class Lab:
         start = len(self.history)
         for _ in range(n):
             req = self._req("text", "text", 64)
-            assert self.overflow is not None
-            resp = self.overflow.send(req)
+            resp = self._run_request(req)
             pods, why = self._explain(req, resp)
             self._record(req, resp, pods=pods, why=why)
         chunk = self.history[start:]
@@ -337,7 +350,7 @@ class Lab:
         else:
             return ["usage: force 429|500|503|529|slice_oom"]
         req = self._req("force", "text", 8)
-        resp = Overflow(local=local, backup=self.backup).send(req)
+        resp = serve_request(req, local, backup=self.backup)
         why = f"injected local {label} → Overflow {'LEAVE' if resp.via == 'overflow' else 'stay'}"
         self._record(req, resp, pods="(forced local)", why=why)
         return self._format(req, resp, pods="(forced local)", why=why)
@@ -433,8 +446,7 @@ class Lab:
             return self._orch_kv(hop=True, evict=False, prompt=prompt)
         req = self._req("hop", "text", 32, prompt=prompt)
         req.force_phase = True
-        assert self.overflow is not None
-        resp = self.overflow.send(req)
+        resp = self._run_request(req)
         pods, why = self._explain(req, resp)
         self._record(req, resp, pods=pods, why=why)
         return self._format(req, resp, pods=pods, why=why)
@@ -512,8 +524,7 @@ class Lab:
         messages: list | None = None,
     ) -> list[str]:
         req = self._req(cap, cap, tokens, prompt=prompt, messages=messages)
-        assert self.overflow is not None
-        resp = self.overflow.send(req)
+        resp = self._run_request(req)
         pods, why = self._explain(req, resp)
         self._record(req, resp, pods=pods, why=why)
         return self._format(req, resp, pods=pods, why=why)

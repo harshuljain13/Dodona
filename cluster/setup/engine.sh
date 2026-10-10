@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Serve one model with vLLM. Stage 0: one worker, the whole card, no slices.
-# Run on: GPU box, inside the venv from lambda_setup.sh.
+# Serve one model with vLLM: a single worker on the whole card, no slices.
+# Run on: GPU box, inside the venv from box_packages.sh.
 #
 # Every default here appears in the capacity arithmetic — see
 # docs/project/01-capacity.md. Override any of them from the environment:
@@ -10,10 +10,10 @@
 #   MAX_NUM_SEQS    64, deliberately ABOVE the KV limit of 5.5, so the cache
 #                   runs out before the scheduler does. Lower it and a
 #                   KV-pressure policy can never fire
-#   UTIL            0.90. At stage 0 this is 0.90 of the card; from stage 2 it
+#   UTIL            0.90. At the whole card this is 0.90 of 40 GiB; on a slice it
 #                   is 0.90 of the HAMi slice, which is a 3x difference
 #   SCHEDULING_POLICY  fcfs. The lab used `priority`, which is worth having once
-#                   the gateway sets a priority per request (stage 4+). At stage
+#                   the gateway sets a priority per request. At
 #                   0 nothing sets one, so fcfs is the honest default
 set -euo pipefail
 

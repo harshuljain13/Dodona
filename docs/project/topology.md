@@ -230,7 +230,8 @@ infrastructure for the timeline.
 **A pays immediately.** `vllm-prefill` currently holds 10.6 GiB and has served
 zero requests — `prompt_tokens_total = 0`. Routing across all three replicas
 takes the decode pool from 9.8 to ~14.6 concurrent sequences, which also helps
-the saturation problem in [`LEARNINGS.md` #8](../../LEARNINGS.md).
+the saturation problem: 32 agent sessions peaked at 0.54 KV usage, well short
+of the 0.90 an admission policy needs to fire.
 
 **B is the one that makes the documents true.** Part 6's recompute-vs-transfer
 comparison is currently a fiction — it compares against a transfer that does not

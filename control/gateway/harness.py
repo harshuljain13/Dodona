@@ -8,7 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from router.overflow import FakeOverflow, send
+from gateway.pipeline import serve_request
+from router.overflow import FakeOverflow
 from router.router import Router, plan
 from gateway.admission import Gateway
 from router.kvbus import KVBus
@@ -55,7 +56,7 @@ def behavior_fleet_soak() -> BehaviorResult:
     backup = FakeOverflow()
     saw_429 = False
     for i in range(20):
-        resp = send(_req(i, timeout_s=1.0, prompt_tokens=32, max_new_tokens=8), gw, backup)
+        resp = serve_request(_req(i, timeout_s=1.0, prompt_tokens=32, max_new_tokens=8), gw, backup=backup)
         if resp.status == 429:
             saw_429 = True
     shed_503 = sum(n for (_reason, code), n in METRICS.shed_total.items() if code == 503)
@@ -106,8 +107,8 @@ def behavior_tenant_429_stays() -> BehaviorResult:
     epp = Router(prefill, decode)
     gw = Gateway(epp, tokens_per_min=40)
     backup = FakeOverflow()
-    noisy = send(_req(0, tenant="noisy", prompt_tokens=64, max_new_tokens=8), gw, backup)
-    quiet = send(_req(1, tenant="quiet", prompt_tokens=16, max_new_tokens=4), gw, backup)
+    noisy = serve_request(_req(0, tenant="noisy", prompt_tokens=64, max_new_tokens=8), gw, backup=backup)
+    quiet = serve_request(_req(1, tenant="quiet", prompt_tokens=16, max_new_tokens=4), gw, backup=backup)
     passed = noisy.status == 429 and quiet.status == 200 and backup.calls == []
     return BehaviorResult(
         "tenant-429-stays",
@@ -246,8 +247,8 @@ def behavior_slice_oom_no_overflow() -> BehaviorResult:
     prefill, decode, _ = _fleet(kv=80)
     gw = Gateway(Router(prefill, decode), tokens_per_min=10_000_000)
     backup = FakeOverflow()
-    small = send(_req(0, prompt_tokens=16, max_new_tokens=4), gw, backup)
-    huge = send(_req(1, prompt_tokens=400, max_new_tokens=40), gw, backup)
+    small = serve_request(_req(0, prompt_tokens=16, max_new_tokens=4), gw, backup=backup)
+    huge = serve_request(_req(1, prompt_tokens=400, max_new_tokens=40), gw, backup=backup)
     buf = io.StringIO()
     with redirect_stdout(buf):
         plan(
@@ -278,7 +279,7 @@ def behavior_overflow_on_503() -> BehaviorResult:
         w.saturating = True
     gw = Gateway(Router(prefill, decode), tokens_per_min=10_000_000)
     backup = FakeOverflow()
-    resp = send(_req(0), gw, backup)
+    resp = serve_request(_req(0), gw, backup=backup)
     shed = sum(METRICS.shed_total.values())
     reasons = {r for (r, _c) in METRICS.shed_total}
     passed = (
@@ -353,7 +354,11 @@ def _record(result: BehaviorResult) -> None:
     INCIDENTS.write_text(text)
 
 def main() -> None:
-    os.environ.setdefault("TRACE_PATH", str(ROOT / "traces" / "requests.jsonl"))
+    # ROOT is control/, so ROOT/"traces" wrote a stray control/traces/ on every
+    # run. Traces belong with the other recorded artefacts, under metrics/.
+    os.environ.setdefault(
+        "TRACE_PATH", str(ROOT.parent / "metrics" / "traces" / "requests.jsonl")
+    )
     parser = argparse.ArgumentParser(description="Gateway harness — admit / bind / place / shed on FakeWorker replicas")
     parser.add_argument(
         "--behavior",

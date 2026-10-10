@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Day 2: install Prometheus and Grafana into the cluster with Helm.
+# Install Prometheus and Grafana into the cluster with Helm.
 # Run on: GPU box, after the fleet is up. Creates the monitoring namespace with
 # persistence and alerting off, so it is disposable lab observability.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-source "$ROOT/setup/_lambda_only.sh"
+source "$ROOT/setup/_require_gpu.sh"
 cd "$ROOT"
 
 export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
@@ -38,7 +38,7 @@ kubectl -n monitoring create configmap dodona-dashboards \
 kubectl -n monitoring label configmap dodona-dashboards grafana_dashboard=1 --overwrite
 
 echo
-echo "Day 2 is up. On the Mac (Step 2 tunnel must stay open) open only 127.0.0.1:"
+echo "Observability is up. With the tunnel open (make ssh), on the Mac:"
 echo "  Open WebUI:  http://127.0.0.1:30030   (no login)"
 echo "  Grafana:     http://127.0.0.1:31495   user admin, password printed below"
 echo "  Locust UI:   http://127.0.0.1:8089    after: locust -f app/locustfile.py --host http://127.0.0.1:8080"

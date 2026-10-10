@@ -54,7 +54,7 @@ else will work until it passes.
 kubectl -n monitoring get pods,svc
 ```
 
-Is the observability stack up. It is installed by `day2_observability.sh`
+Is the observability stack up. It is installed by `observability.sh`
 (Step 22), *not* by the cluster bring-up — missing pods usually means Step 22
 was skipped.
 

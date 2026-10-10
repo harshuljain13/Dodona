@@ -6,7 +6,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from edge.guardrails import inspect
-from router.overflow import Overflow
+from gateway.pipeline import serve_request
+from router.overflow import FakeOverflow, OverflowBudget
 from router.router import Router, infer_capability
 from gateway.admission import Gateway
 from gateway.metrics import METRICS, Metrics
@@ -79,7 +80,8 @@ def build_gateway() -> tuple[Gateway, Metrics]:
     return Gateway(Router(prefill, decode)), METRICS
 
 class Handler(BaseHTTPRequestHandler):
-    overflow: Overflow
+    overflow_budget: OverflowBudget
+    backup: FakeOverflow | None = None
     metrics: Metrics
     gateway: Gateway
 
@@ -137,7 +139,12 @@ class Handler(BaseHTTPRequestHandler):
             return
         req = request_from_openai(payload)
         req.capability = infer_capability(payload) if not req.capability else req.capability
-        resp = self.overflow.send(req)
+        # The order, in one place: our cluster first — admission, placement,
+        # prefill, the KV hop, decode — and a backup endpoint only if the
+        # cluster shed for lack of capacity.
+        resp = serve_request(
+            req, self.gateway, backup=self.backup, budget=self.overflow_budget
+        )
         if payload.get("stream") and resp.status == 200:
             body = sse_from_completion(resp.body, model=str(payload.get("model") or "text"))
             self.send_response(200)
@@ -159,11 +166,16 @@ class Handler(BaseHTTPRequestHandler):
 def main(host: str | None = None, port: int | None = None) -> None:
     host = host or os.environ.get("SERVE_HOST", "0.0.0.0")
     port = int(os.environ.get("SERVE_PORT", port or 8080))
-    os.environ.setdefault("TRACE_PATH", str(ROOT / "traces" / "requests.jsonl"))
+    # ROOT is control/; traces live under metrics/ with the other artefacts.
+    os.environ.setdefault(
+        "TRACE_PATH", str(ROOT.parent / "metrics" / "traces" / "requests.jsonl")
+    )
     gw, metrics = build_gateway()
-    Handler.overflow = Overflow(local=gw)
-    Handler.metrics = metrics
     Handler.gateway = gw
+    Handler.metrics = metrics
+    # One budget for the process: OVERFLOW_MAX_REQS is a lifetime cap, so it
+    # has to outlive the request.
+    Handler.overflow_budget = OverflowBudget()
     server = ThreadingHTTPServer((host, port), Handler)
     print(f"gateway on http://{host}:{port}", flush=True)
     server.serve_forever()

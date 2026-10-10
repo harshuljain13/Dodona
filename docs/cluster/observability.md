@@ -68,7 +68,7 @@ flowchart LR
 
 Dashboards are **generated, not hand-drawn**. `dashboards.py` holds a
 `METRIC_NAMES` map and builds panels from it, so a renamed metric is a one-line
-change rather than ten JSON edits. `day2_observability.sh` regenerates them on
+change rather than ten JSON edits. `observability.sh` regenerates them on
 every run.
 
 ---

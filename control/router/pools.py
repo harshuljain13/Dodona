@@ -306,7 +306,25 @@ def _urls(env_name: str) -> list[str]:
     return [_rewrite_url(u.strip()) for u in raw.split(",") if u.strip()]
 
 def build_pools(n_fake: int = 2, bus: KVBus | None = None) -> tuple[list[Any], list[Any]]:
+    """Build the prefill and decode pools from the environment.
 
+    Three shapes, chosen by PREFILL_URLS / DECODE_URLS / LAB_SPLIT:
+
+      no PREFILL_URLS      FakeWorker, in process. Lets the suite and the
+                           harnesses run with no GPU. Never a measurement.
+      LAB_SPLIT=phase      the real fleet: one prefill pool and one decode
+                           pool, BOTH SERVING THE SAME MODEL. This is what
+                           cluster/k8s/fleet deploys.
+      LAB_SPLIT=capability two different models — text on one pool, vision on
+                           the other. Routing is by what the request needs,
+                           not by phase.
+
+    `phase` is the default, and that matters: this function used to treat any
+    two distinct URL sets as a capability split and hand the decode pool
+    VISION_MODEL. Against our fleet — where every pod serves the same text
+    model — that made vLLM 404 on every decode leg. The two splits are
+    different ideas and conflating them silently broke the whole gateway.
+    """
     prefill_urls = _urls("PREFILL_URLS")
     if not prefill_urls:
         bus = bus or KVBus()
@@ -316,14 +334,37 @@ def build_pools(n_fake: int = 2, bus: KVBus | None = None) -> tuple[list[Any], l
 
     decode_urls = _urls("DECODE_URLS")
     topology = os.environ.get("LAB_TOPOLOGY", "disaggregated")
-    same = (not decode_urls) or decode_urls == prefill_urls or topology == "aggregated"
+    split = os.environ.get("LAB_SPLIT", "phase")
     bus = bus or KVBus()
     text_model = os.environ.get("TEXT_MODEL", os.environ.get("LOCAL_MODEL", "Qwen/Qwen2.5-3B-Instruct"))
     vision_model = os.environ.get("VISION_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct")
-    if same:
-        engines = [VLLMWorker(f"engine-{i}", url, bus=bus, model=text_model) for i, url in enumerate(prefill_urls)]
+
+    # One pool used for both phases: no DECODE_URLS, the same URLs twice, or an
+    # explicitly aggregated topology. queue.py then short-circuits the hop.
+    if (not decode_urls) or decode_urls == prefill_urls or topology == "aggregated":
+        engines = [
+            VLLMWorker(f"engine-{i}", url, bus=bus, model=text_model)
+            for i, url in enumerate(prefill_urls)
+        ]
         return engines, engines
 
-    text = [VLLMWorker(f"text-{i}", url, bus=bus, model=text_model) for i, url in enumerate(prefill_urls)]
-    vision = [VLLMWorker(f"vision-{i}", url, bus=bus, model=vision_model) for i, url in enumerate(decode_urls)]
-    return text, vision
+    if split == "capability":
+        text = [
+            VLLMWorker(f"text-{i}", url, bus=bus, model=text_model)
+            for i, url in enumerate(prefill_urls)
+        ]
+        vision = [
+            VLLMWorker(f"vision-{i}", url, bus=bus, model=vision_model)
+            for i, url in enumerate(decode_urls)
+        ]
+        return text, vision
+
+    prefill = [
+        VLLMWorker(f"prefill-{i}", url, bus=bus, model=text_model)
+        for i, url in enumerate(prefill_urls)
+    ]
+    decode = [
+        VLLMWorker(f"decode-{i}", url, bus=bus, model=text_model)
+        for i, url in enumerate(decode_urls)
+    ]
+    return prefill, decode

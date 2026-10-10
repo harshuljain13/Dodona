@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage 2 — k3s + HAMi, then the three slices.
+# k3s + HAMi + KEDA, then the sliced fleet: one prefill and two decode.
 # Run on: GPU box.
 #
 # Pods are applied ONE AT A TIME and waited on. Three vLLM pods contending for
@@ -7,9 +7,9 @@
 # with unequal caches makes the pool-wide concurrency figure wrong.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-source "$ROOT/setup/_lambda_only.sh"
+source "$ROOT/setup/_require_gpu.sh"
 
-bash "$ROOT/setup/lambda_k3s_hami.sh"
+bash "$ROOT/setup/k3s.sh"
 
 apply_and_wait() {
   local f="$1" dep="$2"
@@ -32,5 +32,5 @@ cat <<'NOTE'
     pods landing on one card, but one pod exceeding its slice and quietly taking
     memory from another. If HAMi is not enforcing the cap, the run is void.
 
-    Next: make observability        (stage 3)
+    Next: make observability
 NOTE

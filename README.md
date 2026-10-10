@@ -177,7 +177,6 @@ left at `min 1 · max 2` so the mechanism is real and visible.
 |---|---|
 | [**PROJECT.md**](PROJECT.md) | The problem in full, the decision behind every choice, the C4 architecture levels, alternatives rejected, risks |
 | [**SUBMISSION.md**](SUBMISSION.md) | The design answered part by part, with a decision tree per part |
-| [**LEARNINGS.md**](LEARNINGS.md) | What went wrong during development and what each thing taught — the long version of the deployment-issues table |
 | [**COMMANDS.md**](COMMANDS.md) | Every command in order, marked `[Mac]` or `[GPU]` |
 | [**RUNBOOK.md**](RUNBOOK.md) | The ten stages, their gates, and what each failure actually means |
 | [`docs/project/`](docs/README.md) | Capacity arithmetic, per-part depth, the run protocol, the results report |

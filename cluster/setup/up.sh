@@ -1,178 +1,215 @@
 #!/usr/bin/env bash
-# One command. Run on: your Mac.
+# Drive the GPU box from your Mac. Normally called by the Makefile.
 #
-# Driven by the Makefile — `make engine`, `make cluster`, `make observability`,
-# `make all`. Run it directly only if you want a flag the Makefile does not map.
+#   up.sh cluster         engine → capacity check → k3s + HAMi + KEDA → fleet
+#   up.sh observability   Prometheus + Grafana + DCGM
+#   up.sh tunnel          forward the box's ports to this Mac
+#   up.sh down            stop the engine and Open WebUI
+#   up.sh logs            tail the engine log
+#   up.sh check           re-run the capacity checks against a running engine
 #
-#   --stage 0|1|2|3   how far to go   (1 = engine + WebUI + tunnel)
-#   --only            just that stage, skip the ones before it
-#   --gate            run the four checks against a box that is already up
-#   --no-tunnel       do the work, give the terminal back
-#   --logs  --down
-#   ./up.sh --no-tunnel  do everything, but do not hold the terminal open
-#   ./up.sh --down       stop the engine and Open WebUI on the box
-#   ./up.sh --logs       tail the engine log
-#
-# Everything it does remotely is one of the scripts in cluster/setup/, run over
-# ssh. Nothing here is a second implementation of those — if a step is wrong,
-# fix the script, not this file.
-# Bash, not sh. This uses arrays and [[ ]]; under dash the array assignment
-# below is a syntax error at line ~40 and the message points nowhere useful.
+# Every remote step is one of the scripts next to this one, run over ssh. This
+# file only sequences them — if a step is wrong, fix that script, not this one.
+
+# Bash, not sh: this uses arrays and [[ ]]. Under dash the array assignment in
+# load_env is a syntax error whose message points nowhere useful.
 if [ -z "${BASH_VERSION:-}" ]; then
-  echo "up.sh needs bash:  bash cluster/setup/up.sh   (or just: make engine)" >&2
+  echo "up.sh needs bash:  bash cluster/setup/up.sh cluster   (or: make cluster)" >&2
   exit 1
 fi
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"   # project root
-cd "$ROOT"
+PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$PROJECT_ROOT"
 
-STAGE=1 TUNNEL=1 ACTION=up ONLY=0
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --stage)     STAGE="$2"; shift 2 ;;
-    --only)      ONLY=1; shift ;;
-    --gate)      ACTION=gate; shift ;;
-    --no-tunnel) TUNNEL=0; shift ;;
-    --down)      ACTION=down; shift ;;
-    --logs)      ACTION=logs; shift ;;
-    -h|--help)   sed -n '2,14p' "$0"; exit 0 ;;
-    *) echo "unknown flag: $1" >&2; exit 2 ;;
-  esac
-done
+REMOTE_DIR="dodona"        # where sync.sh puts the project on the box
+ENGINE_LOG="engine.log"    # inside REMOTE_DIR
+ENGINE_WAIT_TRIES=180      # x5s = 15 minutes, for weights plus CUDA graphs
 
-# ---- .env ---------------------------------------------------------------
-if [[ ! -f .env ]]; then
-  echo "No .env. Copy it and fill in the box:" >&2
-  echo "    cp .env.example .env" >&2
-  exit 1
-fi
-set -a; source .env; set +a
-: "${LAMBDA:?set LAMBDA in .env, e.g. ubuntu@203.0.113.4}"
-: "${LAMBDA_SSH_KEY:?set LAMBDA_SSH_KEY in .env}"
-[[ -f "$LAMBDA_SSH_KEY" ]] || { echo "No such key: $LAMBDA_SSH_KEY" >&2; exit 1; }
+announce() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
+fail()     { printf '\033[1;31m%s\033[0m\n' "$*" >&2; exit 1; }
 
-SSH=(ssh -i "$LAMBDA_SSH_KEY" -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30)
-MODEL="${LOCAL_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}"
-step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
+# ── the box ────────────────────────────────────────────────────────────────
+# BOX and SSH_KEY come from .env. LAMBDA and LAMBDA_SSH_KEY are the older names
+# and still work, so an existing .env needs no edit.
+load_env() {
+  [[ -f .env ]] || fail "No .env. Run:  cp .env.example .env   then set BOX and SSH_KEY"
+  set -a; source .env; set +a
 
-case "$ACTION" in
-  down)
-    step "stopping the engine and Open WebUI"
-    "${SSH[@]}" "$LAMBDA" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; docker rm -f open-webui 2>/dev/null || true; echo stopped'
-    echo "The GPU box is still running and still billing. Stop the instance in Lambda's console."
-    exit 0 ;;
-  logs)
-    exec "${SSH[@]}" "$LAMBDA" 'tail -f ~/dodona/engine.log' ;;
-  gate)
-    # Sync first: --gate runs the copy ON THE BOX, and a stale one silently
-    # checks the wrong thing. Cheap, and it is the whole point of the target.
-    rsync -az -e "ssh -i $LAMBDA_SSH_KEY -o StrictHostKeyChecking=accept-new" \
-      cluster/setup/gate.py "$LAMBDA:~/dodona/cluster/setup/gate.py"
-    exec "${SSH[@]}" "$LAMBDA" 'cd ~/dodona && python3 cluster/setup/gate.py --log ~/dodona/engine.log' ;;
-esac
+  BOX="${BOX:-${LAMBDA:-}}"
+  SSH_KEY="${SSH_KEY:-${LAMBDA_SSH_KEY:-}}"
+  MODEL="${LOCAL_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}"
 
-# ---- 1. ship the code ---------------------------------------------------
-step "sync  —  Mac → $LAMBDA:~/dodona"
-bash cluster/setup/sync_to_lambda.sh
+  [[ -n "$BOX"     ]] || fail "Set BOX in .env, e.g. BOX=ubuntu@203.0.113.4"
+  [[ -n "$SSH_KEY" ]] || fail "Set SSH_KEY in .env to your private key path"
+  [[ -f "$SSH_KEY" ]] || fail "No such key: $SSH_KEY"
 
-# --only runs EXACTLY that stage. `make observability` must not re-run the
-# cluster: it is idempotent but slow, and it would try to stop the fleet it
-# just brought up.
-if [[ "$ONLY" == "1" ]]; then
-  case "$STAGE" in
-    2) step "cluster  —  k3s + HAMi, one prefill + two decode"
-       # Scoped to our own user. The vLLM processes inside the pods run as
-       # root and are not ours to kill — unscoped, this prints three
-       # "Operation not permitted" lines and looks like a failure.
-       "${SSH[@]}" "$LAMBDA" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; sleep 2'
-       "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/lambda_cluster.sh' ;;
-    3) step "observability  —  Prometheus + Grafana + DCGM"
-       "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/day2_observability.sh' ;;
-    *) echo "--only needs --stage 2 or 3" >&2; exit 2 ;;
-  esac
-  step "done"; echo "    make ssh   to open the tunnel"; exit 0
-fi
-
-# ---- 2. what card is it? ------------------------------------------------
-step "card"
-"${SSH[@]}" "$LAMBDA" 'nvidia-smi --query-gpu=name,memory.total,compute_cap --format=csv,noheader' | sed 's/^/    /'
-CAP=$("${SSH[@]}" "$LAMBDA" 'nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -1 | tr -d " "')
-if [[ "$CAP" != "8.0" ]]; then
-  echo "    NOTE: compute capability $CAP is not sm80. fp8 is available on this card, so int4"
-  echo "          is no longer forced — docs/project/01-capacity.md step 4 needs redoing."
-fi
-
-# ---- 3. venv, requirements, vllm ----------------------------------------
-step "setup  —  venv, requirements, vllm, import check"
-"${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/lambda_setup.sh'
-
-# ---- 4. serve, detached so it survives the ssh session ------------------
-step "serve  —  $MODEL on :8000"
-# pkill -f '[v]llm serve' — the bracket stops the pattern matching the command
-# line it is sitting in. Without it pkill kills its own remote shell, the
-# connection drops, and ssh returns 255 with nothing useful in the log.
-"${SSH[@]}" "$LAMBDA" "cd ~/dodona && { pkill -u \"\$(id -u)\" -f '[v]llm serve' || true; }; sleep 2; \
-  source .venv/bin/activate && \
-  LOCAL_MODEL='$MODEL' setsid nohup bash cluster/setup/lambda_vllm.sh </dev/null >engine.log 2>&1 & \
-  sleep 1; echo '    started, logging to ~/dodona/engine.log'"
-
-printf '    waiting for the engine'
-for i in $(seq 1 180); do
-  if "${SSH[@]}" "$LAMBDA" 'curl -sf localhost:8000/v1/models >/dev/null' 2>/dev/null; then
-    printf ' ready (%ss)\n' "$((i*5))"; break
-  fi
-  [[ $i -eq 180 ]] && { printf '\n'; echo "Engine did not answer in 15 min. make logs" >&2; exit 1; }
-  printf '.'; sleep 5
-done
-
-# ---- 5. the gate --------------------------------------------------------
-step "gate  —  the four stage-0 checks"
-"${SSH[@]}" "$LAMBDA" 'cd ~/dodona && python3 cluster/setup/gate.py --log ~/dodona/engine.log' || {
-  echo
-  echo "    The gate failed. 5c or 5d failing means the capacity arithmetic is wrong," >&2
-  echo "    not the cluster — see docs/project/01-capacity.md before going further." >&2
-  exit 1
+  SSH=(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30)
 }
 
-[[ "$STAGE" == "0" ]] && { step "stage 0 done"; echo "    make engine   continue to Open WebUI"; echo "    make logs     engine log"; exit 0; }
+# Run a command on the box, in the project directory.
+on_box() { "${SSH[@]}" "$BOX" "cd ~/$REMOTE_DIR && $1"; }
 
-# ---- 6. Open WebUI ------------------------------------------------------
-step "Open WebUI  —  :3000"
-"${SSH[@]}" "$LAMBDA" "docker rm -f open-webui >/dev/null 2>&1 || true; \
-  docker run -d --name open-webui -p 3000:8080 \
-    -e OPENAI_API_BASE_URL=http://host.docker.internal:8000/v1 \
-    -e OPENAI_API_KEY=dummy -e WEBUI_AUTH=False \
-    --add-host=host.docker.internal:host-gateway \
-    -v open-webui:/app/backend/data \
-    ghcr.io/open-webui/open-webui:main >/dev/null && echo '    started'"
+# Same, with a terminal attached. Anything that reports progress as it goes
+# (helm, kubectl rollout status) needs this or the output arrives in one lump
+# at the very end.
+on_box_tty() { "${SSH[@]}" -t "$BOX" "cd ~/$REMOTE_DIR && $1"; }
 
-# ---- 6b. k3s + HAMi + the three slices (stage 2) ------------------------
-if [[ "$STAGE" -ge 2 ]]; then
-  step "cluster  —  k3s + HAMi, one prefill + two decode, applied one at a time"
-  echo "    The single-worker engine from step 4 is stopped first: it holds the"
-  echo "    whole card, and the three slices need all 36 GiB of it."
-  "${SSH[@]}" "$LAMBDA" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; sleep 3'
-  "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/lambda_cluster.sh'
-fi
+# Only our own vLLM processes. The ones inside pods run as root and are not ours
+# to kill — unscoped, pkill prints "Operation not permitted" once per pod and
+# looks like a failure. The [v] stops the pattern matching pkill's own command
+# line, which would otherwise kill the remote shell and return 255.
+stop_engine() {
+  "${SSH[@]}" "$BOX" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; sleep 2'
+}
 
-# ---- 6c. observability (stage 3) ----------------------------------------
-if [[ "$STAGE" -ge 3 ]]; then
-  step "observability  —  Prometheus + Grafana + DCGM"
-  "${SSH[@]}" -t "$LAMBDA" 'cd ~/dodona && bash cluster/setup/day2_observability.sh'
-fi
+# ── steps ──────────────────────────────────────────────────────────────────
 
-# ---- 7. tunnel ----------------------------------------------------------
-if [[ "$TUNNEL" == "1" ]]; then
-  step "tunnel  —  ports forwarded to this Mac. Leave this open."
+sync_project() {
+  announce "sync  —  Mac → $BOX:~/$REMOTE_DIR"
+  bash cluster/setup/sync.sh
+}
+
+show_card() {
+  announce "card"
+  "${SSH[@]}" "$BOX" \
+    'nvidia-smi --query-gpu=name,memory.total,compute_cap --format=csv,noheader' | sed 's/^/    /'
+  local compute_cap
+  compute_cap=$("${SSH[@]}" "$BOX" \
+    'nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -1 | tr -d " "')
+  if [[ "$compute_cap" != "8.0" ]]; then
+    echo "    NOTE: compute capability $compute_cap is not sm80, so fp8 works on this card"
+    echo "          and int4 is no longer forced. docs/project/01-capacity.md needs redoing."
+  fi
+}
+
+install_packages() {
+  announce "packages  —  venv, requirements, vllm"
+  on_box_tty 'bash cluster/setup/box_packages.sh'
+}
+
+# The engine holds the WHOLE card. It is here to measure the model's real memory
+# footprint before the card is cut into slices; start_fleet stops it again.
+start_engine() {
+  announce "engine  —  $MODEL on :8000, whole card"
+  stop_engine
+  on_box "source .venv/bin/activate && \
+    LOCAL_MODEL='$MODEL' setsid nohup bash cluster/setup/engine.sh \
+    </dev/null >$ENGINE_LOG 2>&1 & \
+    sleep 1; echo '    started, logging to ~/$REMOTE_DIR/$ENGINE_LOG'"
+}
+
+wait_for_engine() {
+  printf '    waiting for the engine'
+  local try
+  for try in $(seq 1 "$ENGINE_WAIT_TRIES"); do
+    if "${SSH[@]}" "$BOX" 'curl -sf localhost:8000/v1/models >/dev/null' 2>/dev/null; then
+      printf ' ready (%ss)\n' "$((try * 5))"
+      return 0
+    fi
+    printf '.'; sleep 5
+  done
+  printf '\n'
+  fail "Engine did not answer in 15 min.  bash cluster/setup/up.sh logs"
+}
+
+check_capacity() {
+  announce "capacity  —  four checks against the running engine"
+  on_box "python3 cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG" || fail \
+"    The capacity check failed, which means the arithmetic is wrong rather than
+    the cluster. Read docs/project/01-capacity.md before going further."
+}
+
+start_webui() {
+  announce "Open WebUI  —  :3000"
+  "${SSH[@]}" "$BOX" "docker rm -f open-webui >/dev/null 2>&1 || true; \
+    docker run -d --name open-webui -p 3000:8080 \
+      -e OPENAI_API_BASE_URL=http://host.docker.internal:8000/v1 \
+      -e OPENAI_API_KEY=dummy -e WEBUI_AUTH=False \
+      --add-host=host.docker.internal:host-gateway \
+      -v open-webui:/app/backend/data \
+      ghcr.io/open-webui/open-webui:main >/dev/null && echo '    started'"
+}
+
+start_fleet() {
+  announce "fleet  —  k3s + HAMi + KEDA, then one prefill and two decode"
+  echo "    The whole-card engine stops first: the slices need all of the card."
+  stop_engine
+  on_box_tty 'bash cluster/setup/fleet.sh'
+}
+
+start_observability() {
+  announce "observability  —  Prometheus + Grafana + DCGM"
+  on_box_tty 'bash cluster/setup/observability.sh'
+}
+
+open_tunnel() {
+  announce "tunnel  —  ports forwarded to this Mac. Leave this window open."
   cat <<'PORTS'
     http://127.0.0.1:3000    Open WebUI   <- talk to it here
-    http://127.0.0.1:8000    vLLM
-    http://127.0.0.1:8080    gateway      (stage 4)
-    http://127.0.0.1:31495   Grafana      (stage 3)
+    http://127.0.0.1:8080    gateway
+    http://127.0.0.1:30800   vLLM prefill
+    http://127.0.0.1:31495   Grafana
 PORTS
-  exec bash cluster/setup/ssh.sh
-else
-  step "up"
-  echo "    make ssh   to open the tunnel"
-fi
+  exec bash cluster/setup/tunnel.sh
+}
+
+# ── commands ───────────────────────────────────────────────────────────────
+
+cmd_cluster() {
+  sync_project
+  show_card
+  install_packages
+  start_engine
+  wait_for_engine
+  check_capacity
+  start_webui
+  start_fleet
+  announce "cluster up"
+  echo "    make observability   Prometheus + Grafana"
+  echo "    make ssh             open the tunnel"
+}
+
+cmd_observability() {
+  sync_project
+  start_observability
+  announce "observability up"
+  echo "    make ssh   then open http://127.0.0.1:31495"
+}
+
+cmd_down() {
+  announce "stopping the engine and Open WebUI"
+  "${SSH[@]}" "$BOX" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; \
+    docker rm -f open-webui 2>/dev/null || true; echo stopped'
+  echo "The box is still running and still billing. Stop the instance in your provider's console."
+}
+
+cmd_logs() { exec "${SSH[@]}" "$BOX" "tail -f ~/$REMOTE_DIR/$ENGINE_LOG"; }
+
+# Sync gate.py first: this runs the copy ON THE BOX, and a stale copy silently
+# checks the wrong thing.
+cmd_check() {
+  rsync -az -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new" \
+    cluster/setup/gate.py "$BOX:~/$REMOTE_DIR/cluster/setup/gate.py"
+  on_box "python3 cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG"
+}
+
+main() {
+  local command="${1:-}"
+  case "$command" in
+    cluster|observability|tunnel|down|logs|check) ;;
+    -h|--help|"") sed -n '2,12p' "$0"; exit 0 ;;
+    *) fail "unknown command: $command   (try: up.sh --help)" ;;
+  esac
+  load_env
+  case "$command" in
+    cluster)       cmd_cluster ;;
+    observability) cmd_observability ;;
+    tunnel)        open_tunnel ;;
+    down)          cmd_down ;;
+    logs)          cmd_logs ;;
+    check)         cmd_check ;;
+  esac
+}
+
+main "$@"

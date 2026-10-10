@@ -28,7 +28,7 @@ import urllib.request
 PREDICTED_KV_KIB = 56.0
 #: weights + activations + CUDA graphs. Predicted 5.20 + 0.80.
 PREDICTED_OVERHEAD_GIB = 6.00
-#: The HAMi slice size stage 2 uses, so the gate can report what it implies.
+#: The HAMi slice size the fleet uses, so the check can report what it implies.
 SLICE_GIB = 12.0
 CARD_GIB, UTIL = 40.0, 0.90
 
@@ -101,7 +101,7 @@ def budget(log: str, card_gib: float, util: float) -> None:
 
     vLLM does not log a 'model weights' line in 0.31, but it does log the KV
     cache it ended up with — and budget minus KV is weights + activations +
-    CUDA graphs, which is the number that sizes the slices in stage 2.
+    CUDA graphs, which is the number that sizes the fleet's slices.
     """
     if not os.path.exists(log):
         check(False, "5d  memory budget", f"no {log} — started outside up.sh?")
@@ -126,7 +126,7 @@ def budget(log: str, card_gib: float, util: float) -> None:
         print(f"           engine reports {n:,} KV tokens "
               f"= {kv_gib * 1024**2 / n:.1f} KiB/token")
 
-    # Deliberately NOT extrapolating to a slice from here. Measured at stage 2,
+    # Deliberately NOT extrapolating to a slice from here. Measured on the pods,
     # overhead was 6.53 GiB on a 12 GiB slice against 7.17 on the whole card —
     # CUDA-graph capture scales part-way with available memory, so treating this
     # figure as constant under-predicted the pool by 18%. Read the per-slice
@@ -134,7 +134,7 @@ def budget(log: str, card_gib: float, util: float) -> None:
     #   kubectl logs <pod> | grep "Maximum concurrency"
     if abs(card_gib - SLICE_GIB) > 1:
         print("           whole-card figure — do NOT extrapolate to a slice;")
-        print("           read it off the pods at stage 2 (see 01-capacity.md)")
+        print("           read it off the running pods (see 01-capacity.md)")
 
 
 def main() -> int:
