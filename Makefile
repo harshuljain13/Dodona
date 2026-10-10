@@ -5,13 +5,14 @@
 #   make ssh            tunnel — Grafana, the app and the fleet in your browser
 #   make test           run the control plane here, no GPU needed
 #   make load           run a load test ON THE BOX, pull the bundle back
-#   make logs           pod logs; prints and exits, so it pipes into grep
+#   make logs           pod logs, scrape noise stripped
+#   make kv             KV connector state and the transfer counters
 #   make clean          wipe the box back to bare metal
 #
 # Anything more specific is a plain python or bash line in docs/COMMANDS.md.
 # Make is the workflow, not a menu.
 .DEFAULT_GOAL := help
-.PHONY: help cluster observability ssh test load logs clean
+.PHONY: help cluster observability ssh test load logs kv clean
 
 SHELL := /usr/bin/env bash
 SETUP := infra/cluster/setup
@@ -31,6 +32,7 @@ help:
 	@echo "   make test           run the control plane here, no GPU needed"
 	@echo "   make load           load test ON THE BOX  (ARGS=\"--sessions 32\")"
 	@echo "   make logs           pod logs  (ARGS=\"decode --follow\")"
+	@echo "   make kv             did the KV hop move bytes? connector + counters"
 	@echo "   make clean          wipe the box: workloads, helm, k3s, engines"
 	@echo ""
 	@echo "  First run:  cp .env.example .env   # set BOX and SSH_KEY"
@@ -64,6 +66,10 @@ load:
 # Prints and exits so it can be piped:  make logs | grep -i hcas
 logs:
 	@bash $(SETUP)/up.sh logs $(ARGS)
+
+# The one diagnostic that is always wanted and always buried in a log.
+kv:
+	@bash $(SETUP)/up.sh kv
 
 clean:
 	@bash $(SETUP)/up.sh clean

@@ -6,9 +6,10 @@
 #   up.sh tunnel          forward the box's ports to this Mac
 #   up.sh engine          ONE worker on the whole card, for comparison only
 #   up.sh down            stop the engine and Open WebUI
-#   up.sh logs [pool] [--follow]  pod logs; prints and exits so it can be piped
+#   up.sh logs [pool] [--follow] [--raw]   pod logs, scrape noise stripped
 #   up.sh check           re-run the capacity checks against the whole-card engine
 #   up.sh load [args]     run a load test ON THE BOX, pull the bundle back
+#   up.sh kv              connector state and the transfer counters
 #   up.sh clean           wipe the box back to bare metal
 #
 # Every remote step is one of the scripts next to this one, run over ssh. This
@@ -191,22 +192,28 @@ cmd_down() {
 #   up.sh logs decode                 the other pool
 #   up.sh logs prefill --follow       tail it
 cmd_logs() {
-  local pool="prefill" follow=0 arg
+  local pool="prefill" follow=0 raw=0 arg
   for arg in "$@"; do
     case "$arg" in
       -f|--follow)    follow=1 ;;
+      --raw)          raw=1 ;;
       prefill|decode) pool="$arg" ;;
     esac
   done
-  local flags="--tail=200"
-  (( follow )) && flags="-f --tail=60"
+  local flags="--tail=400"
+  (( follow )) && flags="-f --tail=120"
+  # Health and metrics scrapes are ~95% of the volume and never the answer.
+  # Unfiltered, 200 lines is 200 scrapes and the startup lines you actually
+  # want have long scrolled away. --raw keeps everything.
+  local strip='grep -vE "(GET /metrics|GET /health|GET /ping) HTTP"'
+  (( raw )) && strip="cat"
   exec "${SSH[@]}" "$BOX" "
     if sudo test -f /etc/rancher/k3s/k3s.yaml && sudo k3s kubectl get deploy vllm-$pool >/dev/null 2>&1; then
-      sudo k3s kubectl logs $flags -l app=vllm-$pool
+      sudo k3s kubectl logs $flags -l app=vllm-$pool | $strip
     elif [ $follow -eq 1 ]; then
-      tail -f ~/$REMOTE_DIR/$ENGINE_LOG
+      tail -f ~/$REMOTE_DIR/$ENGINE_LOG | $strip
     else
-      tail -200 ~/$REMOTE_DIR/$ENGINE_LOG
+      tail -400 ~/$REMOTE_DIR/$ENGINE_LOG | $strip
     fi"
 }
 
@@ -230,6 +237,28 @@ cmd_clean() {
   on_box_tty 'bash infra/cluster/setup/clean.sh'
 }
 
+# Everything about the KV connector, in one place. The init lines are at pod
+# startup and scroll away within minutes; the counters are the live answer.
+cmd_kv() {
+  announce "KV connector"
+  on_box '
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    for pool in prefill decode; do
+      echo "-- $pool --"
+      sudo k3s kubectl logs --tail=-1 -l app=vllm-$pool 2>/dev/null \
+        | grep -iE "mooncake|transfer_id|HCAs|Using .* transport|No RDMA" \
+        | tail -6 || echo "   no connector lines"
+    done
+    echo "-- what the engine counts (decode) --"
+    curl -s localhost:30801/metrics \
+      | grep -E "^vllm:(external_prefix_cache|prompt_tokens_by_source)" \
+      | sed "s/{engine=\"0\",model_name=\"[^\"]*\"/{/"
+  '
+  echo
+  echo "    external_kv_transfer > 0  the hop is real"
+  echo "    = 0 with queries > 0      connector consulted, returning nothing"
+}
+
 # Sync first: this runs the copy on the box, and a stale one checks nothing.
 cmd_check() {
   rsync -az -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new" \
@@ -240,7 +269,7 @@ cmd_check() {
 main() {
   local command="${1:-}"
   case "$command" in
-    cluster|observability|tunnel|engine|down|logs|check|clean|load) ;;
+    cluster|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
     -h|--help|"") sed -n '2,14p' "$0"; exit 0 ;;
     *) fail "unknown command: $command   (try: up.sh --help)" ;;
   esac
@@ -253,6 +282,7 @@ main() {
     down)          cmd_down ;;
     logs)          shift; cmd_logs "$@" ;;
     check)         cmd_check ;;
+    kv)            cmd_kv ;;
     clean)         cmd_clean ;;
     load)          shift; cmd_load "$@" ;;
   esac
