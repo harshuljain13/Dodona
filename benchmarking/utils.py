@@ -31,10 +31,23 @@ from typing import Callable
 
 import sys
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-# slos.py lives in benchmarking/, this file in benchmarking/notebook/.
-sys.path.insert(0, str(REPO_ROOT / "benchmarking"))
-REPORTS = REPO_ROOT / "benchmarking" / "reports"
+BENCHMARKING = Path(__file__).resolve().parent
+REPO_ROOT = BENCHMARKING.parent
+# slos.py sits next to this file; notebooks live one folder deeper.
+sys.path.insert(0, str(BENCHMARKING))
+
+
+def reports_dir() -> Path:
+    """Where this notebook's artefacts go: ./reports/, beside the notebook.
+
+    Each experiment owns its outputs, so a folder is self-contained — the
+    notebook, its report, its screenshots. A shared reports/ at the top makes
+    you cross-reference filenames to work out which run produced what.
+    """
+    return Path.cwd() / "reports"
+
+
+REPORTS = reports_dir()
 
 #: Through the tunnel from a laptop; on the box these are all localhost anyway.
 DEFAULTS = {
