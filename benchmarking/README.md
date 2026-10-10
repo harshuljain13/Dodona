@@ -12,6 +12,19 @@ make load                              # 8 sessions, seed 1, run=baseline
 make load ARGS="--sessions 32 --max-tokens 400 --run high"
 ```
 
+## Layout
+
+One folder per experiment, each self-contained — the notebook, its reports, its
+screenshots. A shared reports/ at the top makes you cross-reference filenames to
+work out which run produced what.
+
+```
+benchmarking/
+  utils.py  slos.py        shared by every notebook
+  load.py  locustfile.py   load generators, run ON THE BOX
+  01-sanity/               notebook.ipynb  reports/  screenshots/
+```
+
 | | |
 |---|---|
 | `load.py` | agent-shaped sessions: 4 sequential turns, a ~1k shared prefix, a growing context. Samples `vllm:kv_cache_usage_perc` throughout and ends with a verdict on whether anything was ever scarce |

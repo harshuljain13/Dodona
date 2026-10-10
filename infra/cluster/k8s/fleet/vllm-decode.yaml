@@ -45,6 +45,9 @@ spec:
       containers:
         - name: vllm
           image: vllm/vllm-openai:latest
+          # kv_load_failure_policy=recompute: a failed transfer falls back to
+          # local compute. The default, `fail`, 500s the request and then kills
+          # the EngineCore on the late completion — it took decode down.
           env:
             - { name: WITH_NVIDIA_PEERMEM, value: "1" }
           # Mooncake consumer. bootstrap_server_address points at the prefill
@@ -63,7 +66,7 @@ spec:
               --enable-auto-tool-choice
               --tool-call-parser=hermes
               --host=0.0.0.0 --port=8000
-              --kv-transfer-config '{"kv_connector":"MooncakeConnector","kv_role":"kv_consumer","kv_connector_extra_config":{"mooncake_protocol":"rdma","device_name":"mlx5_0","bootstrap_server_address":"vllm-prefill:8998"}}'
+              --kv-transfer-config '{"kv_connector":"MooncakeConnector","kv_role":"kv_consumer","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"mooncake_protocol":"rdma","device_name":"mlx5_0","bootstrap_server_address":"vllm-prefill:8998"}}'
           ports: [{ name: http, containerPort: 8000 }]
           volumeMounts:
             - { name: hf-cache, mountPath: /root/.cache/huggingface }

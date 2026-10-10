@@ -48,6 +48,11 @@ spec:
             # the kernel module and Mooncake uses the DMA-BUF path instead.
             - { name: WITH_NVIDIA_PEERMEM, value: "1" }
             - { name: VLLM_MOONCAKE_BOOTSTRAP_PORT, value: "8998" }
+          # kv_load_failure_policy=recompute: when a transfer fails, compute the
+          # prompt locally instead of failing the request. The default, `fail`,
+          # 500s the request AND a late completion for the now-dropped request
+          # trips `assert req_id in self.requests`, killing the EngineCore and
+          # the pod. We watched a 10k-token pull return -1 and take decode down.
           # Mooncake, for real KV transfer. Everything below this line is what
           # turns the hop from a JSON record into bytes crossing between pods.
           #
@@ -67,7 +72,7 @@ spec:
               --enable-auto-tool-choice
               --tool-call-parser=hermes
               --host=0.0.0.0 --port=8000
-              --kv-transfer-config '{"kv_connector":"MooncakeConnector","kv_role":"kv_producer","kv_connector_extra_config":{"mooncake_protocol":"rdma","device_name":"mlx5_0"}}'
+              --kv-transfer-config '{"kv_connector":"MooncakeConnector","kv_role":"kv_producer","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"mooncake_protocol":"rdma","device_name":"mlx5_0"}}'
           ports:
             - { name: http, containerPort: 8000 }
             # The embedded bootstrap server. Prefill ranks register here and

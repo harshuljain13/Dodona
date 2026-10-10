@@ -41,7 +41,7 @@ def _default_report_path() -> str:
     root = Path(__file__).resolve().parents[3]      # repo root
     stamp = subprocess.run(["date", "-u", "+%Y%m%dT%H%M%SZ"],
                            capture_output=True, text=True).stdout.strip()
-    return str(root / "benchmarking" / "reports" / f"cluster-{stamp}.json")
+    return str(root / "benchmarking" / "01-sanity" / "reports" / f"cluster-{stamp}.json")
 
 
 def sh(cmd: str) -> str:
@@ -200,7 +200,7 @@ def main() -> int:
     ap.add_argument("--dashboards", action="store_true", help="only the empty-panel explanation")
     ap.add_argument("--json", nargs="?", const=_default_report_path(),
                     default="", help="also write the numbers here "
-                         "(bare flag writes benchmarking/reports/cluster-<date>.json)")
+                         "(bare flag writes benchmarking/01-sanity/reports/)")
     a = ap.parse_args()
     out: dict = {}
 

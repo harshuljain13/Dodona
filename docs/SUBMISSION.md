@@ -854,7 +854,7 @@ admit → place → our queue → engine waiting / running / preempt
 ```
 
 **The notebook is the deliverable for this part** —
-[`benchmarking/notebook/part5-queue.ipynb`](../benchmarking/notebook/) — because every answer below needs a
+[`benchmarking/01-sanity/notebook.ipynb`](../benchmarking/01-sanity/) — because every answer below needs a
 live scrape, not an assertion. *Status: not written.*
 
 | Question | Answer | Source |

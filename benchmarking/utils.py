@@ -521,8 +521,9 @@ class Report:
         matplotlib.use("Agg")
         from matplotlib.backends.backend_pdf import PdfPages
 
-        REPORTS.mkdir(parents=True, exist_ok=True)
-        out = REPORTS / (name if name.endswith(".pdf") else f"{name}.pdf")
+        target = reports_dir()
+        target.mkdir(parents=True, exist_ok=True)
+        out = target / (name if name.endswith(".pdf") else f"{name}.pdf")
         with PdfPages(out) as pdf:
             self._render_text_pages(pdf)
             self._render_charts(pdf)
