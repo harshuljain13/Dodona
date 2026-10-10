@@ -63,6 +63,14 @@ spec:
               --max-num-seqs=64
               --gpu-memory-utilization=0.90
               --enable-prefix-caching
+              # vLLM's default request_latency buckets start at 0.3s and are
+              # shared by e2e, queue, inference, prefill and decode. Every
+              # request here finishes in under 100ms, so 96-100% of samples land
+              # in the first bucket and histogram_quantile returns the same
+              # p50/p90/p99 for all five — 0.15/0.27/0.297 — while their true
+              # means differ 17x. These boundaries match the latencies we
+              # actually see. TTFT already has its own family starting at 0.001s.
+              --custom-histogram-buckets '{"request_latency":[0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10,30,60,120]}'
               --enable-auto-tool-choice
               --tool-call-parser=hermes
               --host=0.0.0.0 --port=8000

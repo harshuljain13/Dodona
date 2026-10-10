@@ -176,3 +176,28 @@ def test_a_failed_kv_transfer_must_not_kill_the_pod() -> None:
         config = json.loads(match.group(1))
         assert config.get("kv_load_failure_policy") == "recompute", (
             f"{name}: a failed transfer would fail the request and kill the engine")
+
+
+def test_latency_buckets_resolve_the_latencies_we_actually_have() -> None:
+    """vLLM's default request_latency buckets start at 0.3s.
+
+    That family is shared by e2e, queue, inference, prefill and decode. Every
+    request on this cluster finishes in under 100ms, so 96-100% of samples land
+    in the first bucket, histogram_quantile interpolates inside [0, 0.3], and
+    all five report 0.15/0.27/0.297 while their true means differ 17x —
+    decode's mean is 5ms.
+
+    The lowest boundary has to sit below the fastest thing being measured.
+    """
+    import json
+    import re
+
+    for name in ("vllm-prefill", "vllm-decode"):
+        text = (K8S / "fleet" / f"{name}.yaml").read_text()
+        match = re.search(r"--custom-histogram-buckets '(\{.*?\})'", text, re.S)
+        assert match, f"{name}: no custom buckets, so e2e/queue/prefill/decode collide"
+        buckets = json.loads(match.group(1))["request_latency"]
+        assert buckets == sorted(buckets), f"{name}: bucket bounds must increase"
+        assert buckets[0] <= 0.005, (
+            f"{name}: lowest bound {buckets[0]}s is above decode's ~5ms mean")
+        assert max(buckets) >= 30, f"{name}: nothing to catch a slow request"
