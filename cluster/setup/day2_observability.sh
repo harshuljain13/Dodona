@@ -16,7 +16,7 @@ helm repo update prometheus-community >/dev/null
 helm upgrade --install prometheus prometheus-community/prometheus \
   --namespace monitoring \
   --create-namespace \
-  --values "$ROOT/k8s-config/observability/prometheus-values.yaml" \
+  --values "$ROOT/k8s/observability/prometheus-values.yaml" \
   --wait --timeout 10m
 
 echo "== Grafana (helm) =="
@@ -24,16 +24,16 @@ helm repo add grafana https://grafana.github.io/helm-charts >/dev/null
 helm repo update grafana >/dev/null
 helm upgrade --install grafana grafana/grafana \
   --namespace monitoring \
-  --values "$ROOT/k8s-config/observability/grafana-values.yaml" \
+  --values "$ROOT/k8s/observability/grafana-values.yaml" \
   --wait --timeout 10m
 
 echo "== DCGM exporter (cluster GPU) =="
-kubectl apply -f "$ROOT/k8s-config/observability/dcgm-exporter.yaml" || true
+kubectl apply -f "$ROOT/k8s/observability/dcgm-exporter.yaml" || true
 
 echo "== Grafana dashboards (sidecar ConfigMap) =="
 python3 -m observability.dashboards
 kubectl -n monitoring create configmap class10-dashboards \
-  --from-file="$ROOT/k8s-config/observability/dashboards" \
+  --from-file="$ROOT/k8s/observability/dashboards" \
   --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n monitoring label configmap class10-dashboards grafana_dashboard=1 --overwrite
 

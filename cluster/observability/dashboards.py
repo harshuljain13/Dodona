@@ -538,4 +538,4 @@ def write_dashboards(dest: Path) -> list[Path]:
 
 if __name__ == "__main__":
     root = Path(__file__).resolve().parents[1]
-    write_dashboards(root / "k8s-config" / "observability" / "dashboards")
+    write_dashboards(root / "k8s" / "observability" / "dashboards")

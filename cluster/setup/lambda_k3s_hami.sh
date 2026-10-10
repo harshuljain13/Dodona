@@ -89,4 +89,4 @@ kubectl -n keda get pods
 echo
 echo "Cluster is up (k3s + HAMi + KEDA)."
 echo "ScaledObjects are applied next; they start moving replicas on Day 2 when Prometheus is up."
-echo "Next: bash setup/lambda_apply_slices.sh"
+echo "Next: kubectl apply -f k8s/hami/ (one pod at a time — see cluster/RUNBOOK.md stage 2)"

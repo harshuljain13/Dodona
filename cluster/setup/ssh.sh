@@ -5,9 +5,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-if [[ -f "$ROOT/.env" ]]; then
+PROJECT_ROOT="$(cd "$ROOT/.." && pwd)"
+if [[ -f "$PROJECT_ROOT/.env" ]]; then
   set -a
-  source "$ROOT/.env"
+  source "$PROJECT_ROOT/.env"
   set +a
 fi
 exec ssh -i "$LAMBDA_SSH_KEY" \

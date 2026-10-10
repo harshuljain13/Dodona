@@ -5,11 +5,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PROJECT_ROOT="$(cd "$ROOT/.." && pwd)"
 cd "$ROOT"
 
-if [[ -f "$ROOT/.env" ]]; then
+if [[ -f "$PROJECT_ROOT/.env" ]]; then
   set -a
-  source "$ROOT/.env"
+  source "$PROJECT_ROOT/.env"
   set +a
 fi
 

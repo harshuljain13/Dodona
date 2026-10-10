@@ -21,12 +21,12 @@ def test_day1_cluster_has_keda_not_grafana() -> None:
     assert "grafana" in day2.lower()
     assert "prometheus" in day2.lower()
     assert "evict" in day2.lower()
-    prom = (ROOT / "k8s-config" / "observability" / "prometheus-values.yaml").read_text()
+    prom = (ROOT / "k8s" / "observability" / "prometheus-values.yaml").read_text()
     assert "kube-state-metrics" in prom
     assert "prometheus-node-exporter:\n  enabled: true" in prom
     assert "job_name: keda" in prom
     assert "job_name: hami" in prom
-    grafana = (ROOT / "k8s-config" / "observability" / "grafana-values.yaml").read_text()
+    grafana = (ROOT / "k8s" / "observability" / "grafana-values.yaml").read_text()
     assert "sidecar" in grafana
     assert "grafana_dashboard" in grafana
     assert "helm upgrade --install grafana" in day2
