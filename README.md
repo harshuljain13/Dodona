@@ -3,11 +3,20 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/1%C3%97%20A100--40GB-0ea5e9?style=flat-square" alt="1x A100-40GB">
-  <img src="https://img.shields.io/badge/Qwen2.5--7B--AWQ-f59e0b?style=flat-square" alt="Qwen2.5-7B-Instruct-AWQ">
-  <img src="https://img.shields.io/badge/vLLM-7c3aed?style=flat-square" alt="vLLM">
-  <img src="https://img.shields.io/badge/Deepgram-10b981?style=flat-square" alt="Deepgram">
-  <img src="https://img.shields.io/badge/stage%200%20of%2010-64748b?style=flat-square" alt="stage 0 of 10">
+  <a href="https://github.com/vllm-project/vllm"><img src="https://img.shields.io/badge/vLLM-30A2FF?style=flat-square&logoColor=white" alt="vLLM"></a>
+  <a href="https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-AWQ"><img src="https://img.shields.io/badge/Qwen2.5-615CED?style=flat-square" alt="Qwen2.5"></a>
+  <a href="https://github.com/Project-HAMi/HAMi"><img src="https://img.shields.io/badge/HAMi-00B0D7?style=flat-square" alt="HAMi"></a>
+  <a href="https://github.com/kvcache-ai/Mooncake"><img src="https://img.shields.io/badge/Mooncake-F59E0B?style=flat-square" alt="Mooncake"></a>
+  <a href="https://k3s.io"><img src="https://img.shields.io/badge/k3s-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="k3s"></a>
+  <a href="https://prometheus.io"><img src="https://img.shields.io/badge/Prometheus-E6522C?style=flat-square&logo=prometheus&logoColor=white" alt="Prometheus"></a>
+  <a href="https://grafana.com"><img src="https://img.shields.io/badge/Grafana-F46800?style=flat-square&logo=grafana&logoColor=white" alt="Grafana"></a>
+  <a href="https://github.com/harshuljain13/AdmitPerf"><img src="https://img.shields.io/badge/AdmitPerf-F5C518?style=flat-square&labelColor=0B0B0B" alt="AdmitPerf"></a>
+  <a href="https://github.com/Agent-Ship/agent-ship"><img src="https://img.shields.io/badge/AgentShip-0891B2?style=flat-square" alt="AgentShip"></a>
+  <a href="https://github.com/langchain-ai/langgraph"><img src="https://img.shields.io/badge/LangGraph-1C3C3C?style=flat-square" alt="LangGraph"></a>
+  <a href="https://deepgram.com"><img src="https://img.shields.io/badge/Deepgram-13B981?style=flat-square" alt="Deepgram"></a>
+  <a href="https://superlinked.com"><img src="https://img.shields.io/badge/Superlinked-6366F1?style=flat-square" alt="Superlinked"></a>
+  <a href="https://lambdalabs.com"><img src="https://img.shields.io/badge/Lambda-111827?style=flat-square" alt="Lambda"></a>
+  <img src="https://img.shields.io/badge/Python%203.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
 </p>
 
 ---
@@ -32,47 +41,65 @@ Dodona makes it on purpose, and writes down what it saw.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
   'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'14px',
-  'lineColor':'#64748b','clusterBkg':'#fbfdff','clusterBorder':'#93c5fd',
+  'lineColor':'#475569','clusterBkg':'#fcfdff','clusterBorder':'#94a3b8',
   'edgeLabelBackground':'#ffffff'}}}%%
-flowchart LR
-    L(["Listener"])
-    DG["Deepgram<br/>STT · TTS"]
-    AG[["Research agent<br/>search · fetch · cite"]]
+flowchart TD
+    L(["<b>Listener</b><br/>speaks a question"])
+    DG["<b>Deepgram</b><br/>STT · TTS · off-GPU"]
+    AG["<b>AgentShip</b><br/>LangGraph research agent<br/>web_search · scrape_url · cite"]
 
-    subgraph CP["Control plane — what we write"]
-        direction LR
-        GD[/"guard"/] --> AD{"admit<br/>kv_pressure ≥ 0.90?"} --> PL["place"] --> HP["hop"]
+    subgraph CP["<b>control/</b> — what we write"]
+        GD["<b>guard</b><br/>malformed → 400"]
+        AD{"<b>admit</b><br/>kv_pressure ≥ 0.90?"}
+        PL["<b>place</b><br/>least_loaded + queue depth"]
+        HP["<b>hop</b><br/>prefill → decode"]
+        GD --> AD --> PL --> HP
     end
 
-    RF(["503 · kv_free"])
+    AP["<b>AdmitPerf</b><br/>policy + decision log<br/><i>records the value it read</i>"]
+    RF(["<b>503</b> · kv_free<br/>spoken, not dead air"])
 
-    subgraph GPU["1 × A100-40GB — three HAMi slices"]
-        direction LR
-        PF["prefill ×1"] --> MC[("Mooncake")] --> DC["decode ×2<br/>5.5 seq each"]
+    subgraph GPU["<b>1 × A100-40GB</b> · 3 slices"]
+        PF["<b>vLLM prefill ×1</b><br/>12k tok → 0.66 GiB KV<br/>builds, then frees"]
+        MC[("<b>Mooncake</b><br/>KV store")]
+        DC["<b>vLLM decode ×2</b><br/>4.80 GiB KV each<br/>5.5 seq → pool 11"]
+        PF --> MC --> DC
     end
+
+    OB[("<b>Prometheus + Grafana</b>")]
+    RP(["<b>run report</b><br/>SIGNAL LIVENESS: ?"])
 
     L --> DG --> AG --> GD
     HP --> PF
-    DC -->|"tokens"| AG --> DG --> L
+    DC -->|"tokens"| AG
+    AG --> DG
     AD -->|"refused"| RF
-    DC -. "kv_cache_usage_perc" .-> AD
+    AD <--> AP
+    AP --> RP
+    DC -.->|"live engine state"| AD
+    PF --> OB
+    DC --> OB
 
-    class L actor
+    class L,RF actor
     class DG,AG ext
     class GD,PL,HP ours
     class AD gate
     class PF,DC engine
     class MC store
-    class RF dead
+    class AP lib
+    class OB obs
+    class RP out
 
-    classDef actor  fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
-    classDef ext    fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#581c87
-    classDef ours   fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
-    classDef gate   fill:#fffbeb,stroke:#d97706,stroke-width:2.5px,color:#78350f
-    classDef engine fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
-    classDef store  fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
-    classDef dead   fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
-    linkStyle default stroke:#64748b,stroke-width:1.6px
+    classDef actor  fill:#ffe4e6,stroke:#be123c,stroke-width:2px,color:#881337
+    classDef ext    fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#581c87
+    classDef ours   fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px,color:#1e3a8a
+    classDef gate   fill:#fef3c7,stroke:#b45309,stroke-width:3px,color:#78350f
+    classDef engine fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d
+    classDef store  fill:#ffedd5,stroke:#c2410c,stroke-width:2px,color:#7c2d12
+    classDef lib    fill:#e0e7ff,stroke:#4338ca,stroke-width:2px,color:#312e81
+    classDef obs    fill:#f1f5f9,stroke:#475569,stroke-width:2px,color:#1e293b
+    classDef out    fill:#ccfbf1,stroke:#0f766e,stroke-width:2.5px,color:#134e4a
+    linkStyle default stroke:#475569,stroke-width:1.7px
 ```
 
 🔵 what we write · 🟢 the engine, configured not touched · 🟠 KV storage ·
