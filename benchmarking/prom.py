@@ -99,9 +99,30 @@ class Prom:
             expr = (f"histogram_quantile({q}, sum by (le) "
                     f"(rate({metric}_bucket[{window}])))")
             got = self.query(expr)
-            if got:
+            # NaN means the rate() window saw no samples — the metric exists but
+            # nothing happened recently. Printing it as a number reads as a
+            # measurement; dropping it reads as "no data", which is the truth.
+            if got and got[0][1] == got[0][1]:
                 out[q] = got[0][1]
         return out
+
+    def histogram_stats(self, which: str = "e2e") -> dict[str, float]:
+        """count, sum and the true mean from a histogram's _sum and _count.
+
+        The sanity check on a quantile. histogram_quantile interpolates INSIDE
+        a bucket, so when the data is concentrated it returns the bucket edge —
+        and two different metrics sharing bucket boundaries then report
+        identical percentiles while their means differ by 4x. That happened
+        here: e2e and queue both read p50 0.15s, while the means were 0.0896s
+        and 0.0258s.
+        """
+        metric = LATENCY_HISTOGRAMS.get(which, which)
+        total = self.query(f"sum({metric}_sum)")
+        count = self.query(f"sum({metric}_count)")
+        if not total or not count or count[0][1] == 0:
+            return {}
+        return {"count": count[0][1], "sum": total[0][1],
+                "mean": total[0][1] / count[0][1]}
 
     def series_exist(self, prefix: str) -> int:
         """How many series start with this prefix. 0 means nothing scrapes it,
