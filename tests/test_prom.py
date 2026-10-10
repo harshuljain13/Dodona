@@ -65,3 +65,43 @@ def test_no_dashboard_query_uses_rate_of_an_aggregation() -> None:
             for expr in exprs:
                 assert not re.search(r"\b(rate|irate|increase)\s*\(\s*sum", expr), \
                     f"{name} / {title}: {expr}"
+
+
+def test_every_catalogue_entry_resolves_to_a_distinct_metric() -> None:
+    """The table shows the metric name, so two rows sharing one is useless.
+
+    Three entries are prompt_tokens_by_source_total and differ only by the
+    source= label; stripping the selector collapsed them into one.
+    """
+    from prom import CATALOGUE, metric_name
+
+    seen: dict[str, list[str]] = {}
+    for entries in CATALOGUE.values():
+        for label, expr, _, _ in entries:
+            seen.setdefault(metric_name(expr), []).append(label)
+    dupes = {k: v for k, v in seen.items() if len(v) > 1}
+    assert not dupes, f"same metric name for different questions: {dupes}"
+
+
+def test_catalogue_entries_name_a_real_metric_family() -> None:
+    from prom import CATALOGUE, metric_name
+
+    for question, entries in CATALOGUE.items():
+        for label, expr, means, _ in entries:
+            name = metric_name(expr)
+            assert name.startswith(("vllm:", "orch_", "kube_", "keda_", "DCGM_")), \
+                f"{question} / {label}: {name}"
+            assert means, f"{question} / {label} has no explanation"
+
+
+def test_most_metrics_document_what_they_cannot_tell_you() -> None:
+    """The blind-spot column is the point of the catalogue.
+
+    Every wrong result in this project came from reading a metric as the answer
+    to a question it does not answer.
+    """
+    from prom import CATALOGUE
+
+    total = sum(len(v) for v in CATALOGUE.values())
+    with_blind = sum(1 for v in CATALOGUE.values() for row in v if row[3])
+    assert with_blind >= total * 0.8, f"only {with_blind}/{total} name a blind spot"

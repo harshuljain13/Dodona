@@ -341,6 +341,31 @@ COMPONENT_CHECKS: dict[str, list[tuple[str, str, str]]] = {
 }
 
 
+def metric_name(expr: str) -> str:
+    """The metric a PromQL expression is built on.
+
+    Derived rather than stored beside the query, so the two cannot disagree.
+    Strips the aggregation and the label selector, keeps the _bucket suffix off
+    a histogram — `vllm:time_to_first_token_seconds` reads better in a table
+    than the histogram_quantile wrapping it.
+    """
+    import re
+
+    found = re.findall(r"\b((?:vllm:|orch_|kube_|keda_|DCGM_)[A-Za-z0-9_:]+)", expr)
+    if not found:
+        return expr[:40]
+    name = found[0]
+    if name.endswith("_bucket"):
+        name = name[: -len("_bucket")]
+    # Keep the selector when it is what distinguishes one row from another:
+    # three catalogue entries are prompt_tokens_by_source_total and differ only
+    # by source=, so stripping it makes them identical and useless.
+    selector = re.search(re.escape(found[0]) + r"\{([^}]*)\}", expr)
+    if selector and selector.group(1).strip():
+        return f"{name}{{{selector.group(1).strip()}}}"
+    return name
+
+
 def panel_queries(dashboard: str) -> dict[str, list[str]]:
     """{panel title: [PromQL, ...]} from a dashboard we actually deploy.
 
