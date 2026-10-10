@@ -118,3 +118,31 @@ def test_counters_are_plotted_as_rates_not_raw() -> None:
                                                "histogram_quantile")):
                     offenders.append(f"{path.name} / {panel.get('title')}: {expr}")
     assert not offenders, "counters drawn raw:\n  " + "\n  ".join(offenders)
+
+
+def test_every_gateway_query_aggregates() -> None:
+    """orch_* is emitted by a pod that restarts on every `make cluster`.
+
+    A new pod means a new series, so an unaggregated query draws one line per
+    deploy generation — forever. Nine deploys produced nine identical "picks"
+    legends, nine orch_kv_free_ratio lines and nine prefill/decode pairs on one
+    panel.
+
+    `sum by (phase)` and `max by (pod)` are fine: they keep the label that
+    carries meaning and collapse the generations.
+    """
+    import json
+    import re
+
+    offenders = []
+    for path in sorted(DEST.glob("*.json")):
+        for panel in json.loads(path.read_text()).get("panels", []):
+            for target in panel.get("targets", []):
+                expr = target.get("expr", "")
+                if "orch_" not in expr:
+                    continue
+                if not re.match(r"\s*(sum|min|max|avg|count|histogram_quantile)"
+                                r"\s*(by\s*\([^)]*\))?\s*\(", expr):
+                    offenders.append(f"{path.name} / {panel.get('title')}: {expr}")
+    assert not offenders, (
+        "gateway metrics drawn per pod generation:\n  " + "\n  ".join(offenders))

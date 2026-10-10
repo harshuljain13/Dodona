@@ -217,7 +217,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_tokens_in_flight",
+          "expr": "sum by (phase) (orch_tokens_in_flight)",
           "refId": "A",
           "legendFormat": "{{phase}}"
         }
@@ -260,7 +260,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_planner_desired_replicas",
+          "expr": "max by (pool) (orch_planner_desired_replicas)",
           "refId": "A",
           "legendFormat": "{{pool}}"
         }

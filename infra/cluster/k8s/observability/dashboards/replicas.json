@@ -132,7 +132,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_planner_desired_replicas",
+          "expr": "max by (pool) (orch_planner_desired_replicas)",
           "refId": "A",
           "legendFormat": "planner {{pool}}"
         }
@@ -218,7 +218,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_replica_healthy",
+          "expr": "max by (pod) (orch_replica_healthy)",
           "refId": "A",
           "legendFormat": "{{pool}} {{pod}}"
         }
@@ -261,7 +261,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_replica_saturating",
+          "expr": "max by (pod) (orch_replica_saturating)",
           "refId": "A",
           "legendFormat": "{{pool}} {{pod}}"
         }
@@ -347,7 +347,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_replica_kv_free_ratio",
+          "expr": "min by (pod) (orch_replica_kv_free_ratio)",
           "refId": "A",
           "legendFormat": "{{pool}} {{pod}}"
         }
@@ -390,7 +390,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_replica_tokens_in_flight",
+          "expr": "max by (pod) (orch_replica_tokens_in_flight)",
           "refId": "A",
           "legendFormat": "tokens {{pod}}"
         }
@@ -433,7 +433,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_replica_queue_depth",
+          "expr": "max by (pod) (orch_replica_queue_depth)",
           "refId": "A",
           "legendFormat": "{{pod}}"
         }
@@ -476,7 +476,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_replica_waiting",
+          "expr": "max by (pod) (orch_replica_waiting)",
           "refId": "A",
           "legendFormat": "waiting {{pod}}"
         },
@@ -485,7 +485,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_replica_running",
+          "expr": "max by (pod) (orch_replica_running)",
           "refId": "B",
           "legendFormat": "running {{pod}}"
         }

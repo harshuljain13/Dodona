@@ -45,7 +45,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_pick_total",
+          "expr": "sum(increase(orch_pick_total[1h]))",
           "refId": "A"
         }
       ],
@@ -93,7 +93,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_sticky_total",
+          "expr": "sum(increase(orch_sticky_total[1h]))",
           "refId": "A"
         }
       ],
@@ -141,7 +141,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_pick_unknown_snapshot_total",
+          "expr": "sum(increase(orch_pick_unknown_snapshot_total[1h]))",
           "refId": "A"
         }
       ],
@@ -189,7 +189,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_overflow_total",
+          "expr": "sum(increase(orch_overflow_total[1h]))",
           "refId": "A"
         }
       ],
@@ -237,7 +237,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_planner_desired_replicas",
+          "expr": "max by (pool) (orch_planner_desired_replicas)",
           "refId": "A",
           "legendFormat": "{{pool}}"
         }
@@ -280,7 +280,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_tokens_in_flight",
+          "expr": "sum by (phase) (orch_tokens_in_flight)",
           "refId": "A",
           "legendFormat": "{{phase}}"
         }
@@ -323,7 +323,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(orch_kv_transfer_tokens[5m])",
+          "expr": "sum(rate(orch_kv_transfer_tokens[5m]))",
           "refId": "A"
         }
       ],
@@ -365,7 +365,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(orch_kv_transfer_total[5m])",
+          "expr": "sum(rate(orch_kv_transfer_total[5m]))",
           "refId": "A"
         }
       ],
@@ -407,7 +407,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(orch_kv_evict_total[5m])",
+          "expr": "sum(rate(orch_kv_evict_total[5m]))",
           "refId": "A"
         }
       ],

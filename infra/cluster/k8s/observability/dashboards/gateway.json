@@ -93,7 +93,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_completed_total",
+          "expr": "sum(rate(orch_completed_total[5m]))",
           "refId": "A"
         }
       ],

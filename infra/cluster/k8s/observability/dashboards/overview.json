@@ -221,7 +221,7 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "KV free (min replica)",
+      "title": "KV free, tightest replica",
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -238,8 +238,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_kv_free_ratio",
-          "refId": "A"
+          "expr": "min(orch_kv_free_ratio)",
+          "refId": "A",
+          "legendFormat": "min free"
         }
       ],
       "options": {
@@ -263,7 +264,7 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Tokens in flight",
+      "title": "Work by pool",
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -280,9 +281,27 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "orch_tokens_in_flight",
+          "expr": "sum(rate(vllm:prompt_tokens_total{pod=~\"vllm-prefill.*\"}[5m]))",
           "refId": "A",
-          "legendFormat": "{{phase}}"
+          "legendFormat": "prefill: prompt tok/s"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(vllm:prompt_tokens_total{pod=~\"vllm-decode.*\"}[5m]))",
+          "refId": "B",
+          "legendFormat": "decode: prompt tok/s"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(vllm:generation_tokens_total{pod=~\"vllm-decode.*\"}[5m]))",
+          "refId": "C",
+          "legendFormat": "decode: generated tok/s"
         }
       ],
       "options": {
@@ -306,7 +325,7 @@
     {
       "id": 7,
       "type": "timeseries",
-      "title": "Picks vs sheds",
+      "title": "Picks vs sheds (per hour)",
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -323,18 +342,18 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(orch_pick_total[5m]))",
+          "expr": "sum(increase(orch_pick_total[1h]))",
           "refId": "A",
-          "legendFormat": "picks / s"
+          "legendFormat": "picks"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(orch_shed_total[5m]))",
+          "expr": "sum(increase(orch_shed_total[1h]))",
           "refId": "B",
-          "legendFormat": "sheds / s"
+          "legendFormat": "sheds"
         }
       ],
       "options": {
@@ -401,7 +420,7 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "KV transfer vs evict",
+      "title": "KV transfer vs evict (per hour)",
       "gridPos": {
         "h": 9,
         "w": 8,
@@ -418,18 +437,18 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(orch_kv_transfer_total[5m]))",
+          "expr": "sum(increase(orch_kv_transfer_total[1h]))",
           "refId": "A",
-          "legendFormat": "hops recorded / s"
+          "legendFormat": "hops recorded"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(orch_kv_evict_total[5m]))",
+          "expr": "sum(increase(orch_kv_evict_total[1h]))",
           "refId": "B",
-          "legendFormat": "evicts / s"
+          "legendFormat": "evicts"
         }
       ],
       "options": {
@@ -453,7 +472,7 @@
     {
       "id": 10,
       "type": "timeseries",
-      "title": "Blind placements",
+      "title": "Blind placements (per hour)",
       "gridPos": {
         "h": 9,
         "w": 4,
@@ -470,9 +489,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(orch_pick_unknown_snapshot_total[5m]))",
+          "expr": "sum(increase(orch_pick_unknown_snapshot_total[1h]))",
           "refId": "A",
-          "legendFormat": "no snapshot / s"
+          "legendFormat": "no snapshot"
         }
       ],
       "options": {

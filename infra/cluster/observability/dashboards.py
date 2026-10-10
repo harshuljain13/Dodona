@@ -13,10 +13,16 @@ METRIC_NAMES = {
         "orch_overflow_total",
         "orch_pick_total",
         "orch_kv_free_ratio",
-        "orch_tokens_in_flight",
+        # orch_tokens_in_flight is NOT here: it is an instantaneous gauge and a
+        # request lives ~90ms against a 15s scrape, so it reads zero even as a
+        # 5-minute max. The overview shows token throughput by pool instead,
+        # which is a rate over counters and moves whenever traffic does.
+        "vllm:prompt_tokens_total",
+        "vllm:generation_tokens_total",
         "orch_request_duration_seconds",
         "orch_kv_transfer_total",
         "orch_kv_evict_total",
+        "orch_pick_unknown_snapshot_total",
     ),
     "gateway": (
         "orch_requests_total",
@@ -180,6 +186,10 @@ def _dash(uid: str, title: str, panels: list[dict], tags: list[str]) -> dict:
     }
 
 def overview() -> dict:
+    # EVERY query aggregates. orch-serve restarts on each `make cluster`, and a
+    # new pod means a new series — nine deploys left nine orch_kv_free_ratio
+    # lines, nine identical "picks" legends, and nine prefill/decode pairs. An
+    # unaggregated gateway metric draws one line per pod generation, forever.
     return _dash(
         "dodona-overview",
         "Dodona / Overview (metrics.py)",
@@ -188,33 +198,44 @@ def overview() -> dict:
             _panel(2, "Completed / s", "sum(rate(orch_completed_total[5m]))", x=6, y=0, w=6, h=5, kind="stat"),
             _panel(3, "Shed / s", "sum(rate(orch_shed_total[5m]))", x=12, y=0, w=6, h=5, kind="stat"),
             _panel(4, "Overflow / s", "sum(rate(orch_overflow_total[5m]))", x=18, y=0, w=6, h=5, kind="stat"),
-            _panel(5, "KV free (min replica)", "orch_kv_free_ratio", x=0, y=5, w=8, h=8),
-            _panel(6, "Tokens in flight", "orch_tokens_in_flight", legend="{{phase}}", x=8, y=5, w=8, h=8),
-            # Both series, because the title promises both. It plotted only picks,
-            # and as a raw counter — which climbs forever and says nothing about
-            # what is happening now. Everything here is a rate for that reason.
-            _panel(7, "Picks vs sheds", "sum(rate(orch_pick_total[5m]))", legend="picks / s",
-                   x=16, y=5, w=8, h=8,
-                   extra=[("sum(rate(orch_shed_total[5m]))", "sheds / s")]),
-            _panel(
-                8,
-                "p95 latency by stage",
-                'histogram_quantile(0.95, sum by (le, stage) (rate(orch_request_duration_seconds_bucket[5m])))',
-                legend="{{stage}}",
-                x=0,
-                y=13,
-                w=12,
-                h=9,
-            ),
-            _panel(9, "KV transfer vs evict", "sum(rate(orch_kv_transfer_total[5m]))",
-                   legend="hops recorded / s", x=12, y=13, w=8, h=9,
-                   extra=[("sum(rate(orch_kv_evict_total[5m]))", "evicts / s")]),
-            # Evicts had their own panel while panel 9's title also claimed them,
-            # so "evict" appeared twice and was plotted once. The freed slot goes
-            # to the placement signal nothing else on this dashboard shows:
-            # picks made with no usable snapshot are effectively random.
-            _panel(10, "Blind placements", "sum(rate(orch_pick_unknown_snapshot_total[5m]))",
-                   legend="no snapshot / s", x=20, y=13, w=4, h=9),
+
+            _panel(5, "KV free, tightest replica", "min(orch_kv_free_ratio)",
+                   legend="min free", x=0, y=5, w=8, h=8),
+
+            # orch_tokens_in_flight is an instantaneous gauge, and a request lives
+            # ~90ms against a 15s scrape — it reads zero even as a 5-minute max.
+            # Token throughput is a rate over counters, so it is non-zero whenever
+            # traffic flows, and it shows the two pools doing different jobs.
+            _panel(6, "Work by pool",
+                   'sum(rate(vllm:prompt_tokens_total{pod=~"vllm-prefill.*"}[5m]))',
+                   legend="prefill: prompt tok/s", x=8, y=5, w=8, h=8,
+                   extra=[('sum(rate(vllm:prompt_tokens_total{pod=~"vllm-decode.*"}[5m]))',
+                           "decode: prompt tok/s"),
+                          ('sum(rate(vllm:generation_tokens_total{pod=~"vllm-decode.*"}[5m]))',
+                           "decode: generated tok/s")]),
+
+            # Per hour, not per second: on a quiet cluster a rate rounds to zero
+            # and both lines sit on the axis, which is how "picks vs sheds" came
+            # to look like it had no sheds in it.
+            _panel(7, "Picks vs sheds (per hour)", "sum(increase(orch_pick_total[1h]))",
+                   legend="picks", x=16, y=5, w=8, h=8,
+                   extra=[("sum(increase(orch_shed_total[1h]))", "sheds")]),
+
+            _panel(8, "p95 latency by stage",
+                   'histogram_quantile(0.95, sum by (le, stage) '
+                   '(rate(orch_request_duration_seconds_bucket[5m])))',
+                   legend="{{stage}}", x=0, y=13, w=12, h=9),
+
+            _panel(9, "KV transfer vs evict (per hour)",
+                   "sum(increase(orch_kv_transfer_total[1h]))", legend="hops recorded",
+                   x=12, y=13, w=8, h=9,
+                   extra=[("sum(increase(orch_kv_evict_total[1h]))", "evicts")]),
+
+            # Placements made with no usable snapshot are effectively random,
+            # whatever the routing policy claims. Nothing else here shows it.
+            _panel(10, "Blind placements (per hour)",
+                   "sum(increase(orch_pick_unknown_snapshot_total[1h]))",
+                   legend="no snapshot", x=20, y=13, w=4, h=9),
         ],
         ["dodona", "metrics.py", "overview"],
     )
@@ -225,7 +246,7 @@ def gateway() -> dict:
         "Dodona / Gateway + admission",
         [
             _panel(1, "Admit rate", "sum(rate(orch_requests_total[5m]))", x=0, y=0, w=8, h=6, kind="stat"),
-            _panel(2, "Completed", "orch_completed_total", x=8, y=0, w=8, h=6, kind="stat"),
+            _panel(2, "Completed", "sum(rate(orch_completed_total[5m]))", x=8, y=0, w=8, h=6, kind="stat"),
             _panel(3, "Sheds by reason", "sum by (reason, code) (rate(orch_shed_total[5m]))",
                    legend="{{reason}} {{code}}", x=16, y=0, w=8, h=6),
             _panel(4, "Place by capability", "sum by (capability) (rate(orch_place_total[5m]))",
@@ -259,15 +280,15 @@ def router() -> dict:
         "dodona-router",
         "Dodona / Router",
         [
-            _panel(1, "Picks", "orch_pick_total", x=0, y=0, w=6, h=5, kind="stat"),
-            _panel(2, "Sticky hits", "orch_sticky_total", x=6, y=0, w=6, h=5, kind="stat"),
-            _panel(3, "Unknown snapshots", "orch_pick_unknown_snapshot_total", x=12, y=0, w=6, h=5, kind="stat"),
-            _panel(4, "Overflow", "orch_overflow_total", x=18, y=0, w=6, h=5, kind="stat"),
-            _panel(5, "Planner desired replicas", "orch_planner_desired_replicas", legend="{{pool}}", x=0, y=5, w=12, h=8),
-            _panel(6, "Tokens in flight by phase", "orch_tokens_in_flight", legend="{{phase}}", x=12, y=5, w=12, h=8),
-            _panel(7, "KV transfer tokens", "rate(orch_kv_transfer_tokens[5m])", x=0, y=13, w=8, h=8),
-            _panel(8, "KV transfers", "rate(orch_kv_transfer_total[5m])", x=8, y=13, w=8, h=8),
-            _panel(9, "KV evicts", "rate(orch_kv_evict_total[5m])", x=16, y=13, w=8, h=8),
+            _panel(1, "Picks", "sum(increase(orch_pick_total[1h]))", x=0, y=0, w=6, h=5, kind="stat"),
+            _panel(2, "Sticky hits", "sum(increase(orch_sticky_total[1h]))", x=6, y=0, w=6, h=5, kind="stat"),
+            _panel(3, "Unknown snapshots", "sum(increase(orch_pick_unknown_snapshot_total[1h]))", x=12, y=0, w=6, h=5, kind="stat"),
+            _panel(4, "Overflow", "sum(increase(orch_overflow_total[1h]))", x=18, y=0, w=6, h=5, kind="stat"),
+            _panel(5, "Planner desired replicas", "max by (pool) (orch_planner_desired_replicas)", legend="{{pool}}", x=0, y=5, w=12, h=8),
+            _panel(6, "Tokens in flight by phase", "sum by (phase) (orch_tokens_in_flight)", legend="{{phase}}", x=12, y=5, w=12, h=8),
+            _panel(7, "KV transfer tokens", "sum(rate(orch_kv_transfer_tokens[5m]))", x=0, y=13, w=8, h=8),
+            _panel(8, "KV transfers", "sum(rate(orch_kv_transfer_total[5m]))", x=8, y=13, w=8, h=8),
+            _panel(9, "KV evicts", "sum(rate(orch_kv_evict_total[5m]))", x=16, y=13, w=8, h=8),
             _panel(
                 10,
                 "Pick latency p95",
@@ -300,19 +321,19 @@ def replicas() -> dict:
         [
             _panel(1, "Desired replicas (kube)", f"kube_deployment_spec_replicas{{{lab}}}", legend="{{deployment}} spec", x=0, y=0, w=12, h=8),
             _panel(2, "Ready replicas (kube)", f"kube_deployment_status_replicas{{{lab}}}", legend="{{deployment}} ready", x=12, y=0, w=12, h=8),
-            _panel(3, "Planner desired", "orch_planner_desired_replicas", legend="planner {{pool}}", x=0, y=8, w=12, h=8),
+            _panel(3, "Planner desired", "max by (pool) (orch_planner_desired_replicas)", legend="planner {{pool}}", x=0, y=8, w=12, h=8),
             _panel(4, "Pod phase", f"kube_pod_status_phase{{{pod}}}", legend="{{pod}} {{phase}}", x=12, y=8, w=12, h=8),
-            _panel(5, "Replica healthy", "orch_replica_healthy", legend="{{pool}} {{pod}}", x=0, y=16, w=8, h=8),
-            _panel(6, "Replica saturating", "orch_replica_saturating", legend="{{pool}} {{pod}}", x=8, y=16, w=8, h=8),
+            _panel(5, "Replica healthy", "max by (pod) (orch_replica_healthy)", legend="{{pool}} {{pod}}", x=0, y=16, w=8, h=8),
+            _panel(6, "Replica saturating", "max by (pod) (orch_replica_saturating)", legend="{{pool}} {{pod}}", x=8, y=16, w=8, h=8),
             _panel(7, "Restarts (last hour)",
                    f"increase(kube_pod_container_status_restarts_total{{{pod}}}[1h])",
                    legend="{{pod}}", x=16, y=16, w=8, h=8),
-            _panel(8, "KV free by pod", "orch_replica_kv_free_ratio", legend="{{pool}} {{pod}}", x=0, y=24, w=12, h=8),
-            _panel(9, "Tokens / waiting / running", "orch_replica_tokens_in_flight", legend="tokens {{pod}}", x=12, y=24, w=12, h=8),
-            _panel(10, "Queue depth by pod", "orch_replica_queue_depth", legend="{{pod}}", x=0, y=32, w=12, h=8),
-            _panel(11, "Waiting vs running", "orch_replica_waiting", legend="waiting {{pod}}",
+            _panel(8, "KV free by pod", "min by (pod) (orch_replica_kv_free_ratio)", legend="{{pool}} {{pod}}", x=0, y=24, w=12, h=8),
+            _panel(9, "Tokens / waiting / running", "max by (pod) (orch_replica_tokens_in_flight)", legend="tokens {{pod}}", x=12, y=24, w=12, h=8),
+            _panel(10, "Queue depth by pod", "max by (pod) (orch_replica_queue_depth)", legend="{{pod}}", x=0, y=32, w=12, h=8),
+            _panel(11, "Waiting vs running", "max by (pod) (orch_replica_waiting)", legend="waiting {{pod}}",
                    x=12, y=32, w=12, h=8,
-                   extra=[("orch_replica_running", "running {{pod}}")]),
+                   extra=[("max by (pod) (orch_replica_running)", "running {{pod}}")]),
         ],
         ["dodona", "replicas", "pods"],
     )
@@ -371,8 +392,8 @@ def keda() -> dict:
             _panel(2, "Scaler active", "keda_scaler_active", legend="{{scaledObject}} {{scaler}}", x=12, y=0, w=12, h=8),
             _panel(3, "Spec replicas", f"kube_deployment_spec_replicas{{{vllm}}}", legend="{{deployment}} spec", x=0, y=8, w=12, h=8),
             _panel(4, "Status replicas", f"kube_deployment_status_replicas{{{vllm}}}", legend="{{deployment}} ready", x=12, y=8, w=12, h=8),
-            _panel(5, "Trigger: tokens in flight", "orch_tokens_in_flight", legend="{{phase}}", x=0, y=16, w=12, h=8),
-            _panel(6, "Planner desired", "orch_planner_desired_replicas", legend="{{pool}}", x=12, y=16, w=12, h=8),
+            _panel(5, "Trigger: tokens in flight", "sum by (phase) (orch_tokens_in_flight)", legend="{{phase}}", x=0, y=16, w=12, h=8),
+            _panel(6, "Planner desired", "max by (pool) (orch_planner_desired_replicas)", legend="{{pool}}", x=12, y=16, w=12, h=8),
         ],
         ["dodona", "keda"],
     )
