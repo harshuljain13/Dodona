@@ -135,3 +135,30 @@ def test_fleet_restarts_the_gateway_so_mounted_code_takes_effect() -> None:
     assert "rollout restart deploy/orch-serve" in fleet
     manifest = (ROOT / "infra" / "cluster" / "k8s" / "gateway" / "orch-serve.yaml").read_text()
     assert "hostPath" in manifest, "if the gateway stops mounting code, drop the restart"
+
+
+@pytest.mark.parametrize("script", SHELL_SCRIPTS, ids=lambda p: p.name)
+def test_grep_in_a_substitution_cannot_abort_the_script(script: Path) -> None:
+    """`x=$(... | grep ...)` under `set -euo pipefail` exits on no match.
+
+    grep returns 1 when it finds nothing, pipefail propagates that out of the
+    pipeline, and set -e kills the script. The failure looks like the step after
+    it never ran — exactly how it presented: the KV connector block aborted
+    `make cluster` before the capacity checks, and the only symptom was `Error 1`
+    printed after a heading.
+
+    Backslash continuations are joined first; the real bug spanned two lines,
+    and the first version of this test missed it for that reason.
+    """
+    text = script.read_text()
+    if "pipefail" not in text:
+        return
+    joined = re.sub(r"\\\s*\n\s*", " ", text)
+    offenders = [
+        line.strip()
+        for line in joined.splitlines()
+        if re.search(r"=\$\(.*\|.*grep", line) and "|| true" not in line
+    ]
+    assert not offenders, (
+        f"{script.name}: grep can abort the script, add `|| true`:\n  "
+        + "\n  ".join(offenders))

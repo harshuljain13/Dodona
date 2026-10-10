@@ -50,8 +50,11 @@ echo "== KV connector =="
 # The single fact that decides whether the hop moves bytes. Buried in a startup
 # log otherwise, and "No RDMA devices found" is a silent downgrade to TCP.
 for pool in prefill decode; do
+  # `|| true` is load-bearing: grep exits 1 on no match, and under
+  # `set -euo pipefail` that fails the substitution and kills the script. This
+  # block aborted the whole bring-up before the capacity checks could run.
   found=$(kubectl logs -l "app=vllm-$pool" --tail=400 2>/dev/null \
-          | grep -iE "HCAs|Using .* transport|No RDMA devices" | tail -2)
+          | grep -iE "HCAs|Using .* transport|No RDMA devices" | tail -2 || true)
   printf '  %-8s %s\n' "$pool" "${found:-no Mooncake lines — connector did not initialise}"
 done
 cat <<'NOTE'
