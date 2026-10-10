@@ -1,4 +1,4 @@
-# Debugging commands — module 10
+# Debugging commands — the upstream lab
 
 10 shares its cluster with module 9, so
 **[module 9's COMMANDS.md](COMMANDS.md)** still applies for
@@ -16,7 +16,7 @@ export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 | Browser chat | `open-webui`, NodePort `30030` | `default` |
 | Metrics | `prometheus-server` | `monitoring` |
 | Dashboards | `grafana`, NodePort `31495` | `monitoring` |
-| Dashboard source | ConfigMap `class10-dashboards` | `monitoring` |
+| Dashboard source | ConfigMap `dodona-dashboards` | `monitoring` |
 | GPU telemetry | `dcgm-exporter` (DaemonSet) | `monitoring` |
 
 ---
@@ -65,7 +65,7 @@ kubectl -n monitoring get secret grafana -o jsonpath='{.data.admin-password}' | 
 The admin password. Regenerated on every install; user is always `admin`.
 
 ```
-kubectl -n monitoring get configmap class10-dashboards -o jsonpath='{.metadata.labels}{"\n"}'
+kubectl -n monitoring get configmap dodona-dashboards -o jsonpath='{.metadata.labels}{"\n"}'
 ```
 
 **Must include `grafana_dashboard=1`.** The Grafana sidecar only imports
@@ -73,7 +73,7 @@ ConfigMaps carrying that label — a missing label is the usual reason dashboard
 do not appear.
 
 ```
-kubectl -n monitoring get configmap class10-dashboards -o jsonpath='{.data}' | jq -r 'keys[]'
+kubectl -n monitoring get configmap dodona-dashboards -o jsonpath='{.data}' | jq -r 'keys[]'
 ```
 
 Which of the ten dashboards actually loaded.

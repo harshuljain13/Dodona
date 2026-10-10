@@ -78,7 +78,7 @@ flowchart TB
 lets us compare runs fairly with the same trace each time. **AdmitPerf** supplies
 the policies and produces the report. The gateway and the AdmitPerf integration
 are the only things being written; everything in the third group is inherited
-from module 10 and configured.
+from the upstream lab and configured.
 
 ## Level 3 — Inside the gateway
 
@@ -140,7 +140,7 @@ behaviour. Two things in that file are worth knowing before reading any report:
 The vendored manifests are the single biggest piece of work in Part 2, and the
 reason is in [Part 1 step 5](01-capacity.md#5--parallelism-tp1).
 
-| | Vendored (module 10) | Module 11 |
+| | Vendored (the upstream lab) | Module 11 |
 |---|---|---|
 | Physical GPUs | 1 | 4 |
 | Pods | 1 prefill + 1 decode | 2 prefill + 2 decode |

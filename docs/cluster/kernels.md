@@ -1,9 +1,9 @@
 # Engine tuning — kernels, eviction, warmup, transports
 
-The layer below the cluster. Four things module 10 adds that answer "where do the
+The layer below the cluster. Four things the upstream lab adds that answer "where do the
 bytes and the milliseconds actually go", all runnable on a laptop with no GPU.
 
-Part of the [module 10 docs](README.md). Overview: [ARCHITECTURE.md](ARCHITECTURE.md) · Request path: [DATAFLOW.md](DATAFLOW.md)
+Part of the [the upstream lab docs](README.md). Overview: [ARCHITECTURE.md](ARCHITECTURE.md) · Request path: [DATAFLOW.md](DATAFLOW.md)
 
 | Topic | Module | REPL command |
 |---|---|---|
@@ -179,7 +179,7 @@ This is the arithmetic behind what you saw on the cluster: pods sitting at
 
 ## KV transports — Mooncake, NCCL, NIXL
 
-Module 10 makes the hop backend pluggable. `KVBus.transfer` no longer calls
+The upstream lab makes the hop backend pluggable. `KVBus.transfer` no longer calls
 Mooncake directly; it dispatches on the `backend` field of the hop
 (`router/kvbus.py:70`):
 

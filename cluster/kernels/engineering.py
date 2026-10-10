@@ -95,7 +95,7 @@ def report(shape: KernelShape) -> list[str]:
     ]
 
 def main(argv: list[str] | None = None) -> None:
-    p = argparse.ArgumentParser(description="Class 10 attention kernel cost model")
+    p = argparse.ArgumentParser(description="Dodona attention kernel cost model")
     p.add_argument("--q", type=int, default=128)
     p.add_argument("--kv", type=int, default=2048)
     p.add_argument("--heads", type=int, default=32)

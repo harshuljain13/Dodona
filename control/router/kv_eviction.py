@@ -151,7 +151,7 @@ def demo(policy: str, need: int) -> list[str]:
     return report(cache, victims, policy)
 
 def main(argv: list[str] | None = None) -> None:
-    p = argparse.ArgumentParser(description="Class 10 KV cache eviction")
+    p = argparse.ArgumentParser(description="Dodona KV cache eviction")
     p.add_argument("--policy", default="prefix_protect", choices=("lru", "lfu", "priority", "prefix_protect"))
     p.add_argument("--need", type=int, default=1024)
     args = p.parse_args(argv)

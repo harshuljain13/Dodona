@@ -273,7 +273,7 @@ class Lab:
             prompt = {
                 "text": "Write one sentence about a GPU.",
                 "vision": "What do you see? One sentence.",
-                "audio": "Transcribe this: hello from class 10.",
+                "audio": "Transcribe this: hello from the course lab.",
             }.get(cap, "hello")
         messages = None
         if cap == "vision":

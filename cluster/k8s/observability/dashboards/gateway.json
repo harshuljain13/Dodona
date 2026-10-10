@@ -1,8 +1,8 @@
 {
-  "uid": "class10-gateway",
-  "title": "Class 10 / Gateway + admission",
+  "uid": "dodona-gateway",
+  "title": "Dodona / Gateway + admission",
   "tags": [
-    "class10",
+    "dodona",
     "gateway"
   ],
   "schemaVersion": 39,

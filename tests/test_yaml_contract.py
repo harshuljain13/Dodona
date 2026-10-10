@@ -4,27 +4,26 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-K8S = ROOT / "k8s"
+K8S = ROOT / "cluster" / "k8s"
 
 def _read_all() -> str:
     files = sorted(K8S.glob("*/*.yaml"))
     return "\n".join(p.read_text() for p in files)
 
 def test_yaml_lives_with_the_owner() -> None:
-    assert {p.name for p in (K8S / "gateway").glob("*.yaml")} == {
-        "orch-serve.yaml",
-        "httproute.yaml",
-    }
+    # Our inventory, not the lab's. httproute.yaml and inferencepool.yaml were
+    # llm-d's Gateway API Inference Extension and are rejected; the hami/*
+    # skeletons had no --model and were replaced by fleet/*.
+    assert {p.name for p in (K8S / "gateway").glob("*.yaml")} == {"orch-serve.yaml"}
     assert {p.name for p in (K8S / "router").glob("*.yaml")} == {
         "keda-prefill.yaml",
         "keda-decode.yaml",
-        "inferencepool.yaml",
     }
-    assert {p.name for p in (K8S / "hami").glob("*.yaml")} == {
-        "hami-lambda.yaml",
-        "hami-prefill.yaml",
-        "hami-decode.yaml",
+    assert {p.name for p in (K8S / "fleet").glob("*.yaml")} == {
+        "vllm-prefill.yaml",
+        "vllm-decode.yaml",
     }
+    assert not (K8S / "hami").exists() or not list((K8S / "hami").glob("*.yaml"))
     assert {p.name for p in (K8S / "mooncake").glob("*.yaml")} == {"mooncake.yaml"}
     assert {p.name for p in (K8S / "ui").glob("*.yaml")} == {
         "open-webui.yaml",
@@ -63,7 +62,7 @@ def test_two_scaled_objects_two_targets_two_queries() -> None:
     assert len(set(queries)) == 2
     joined = "\n".join(queries)
     assert 'orch_tokens_in_flight{phase="prefill"}' in joined
-    assert "vllm:gpu_cache_usage_perc" in joined or 'orch_tokens_in_flight{phase="decode"}' in joined
+    assert "vllm:kv_cache_usage_perc" in joined or 'orch_tokens_in_flight{phase="decode"}' in joined
 
 def test_hami_and_keda_fields() -> None:
     text = _read_all()
@@ -72,16 +71,28 @@ def test_hami_and_keda_fields() -> None:
     assert "nvidia.com/gpucores" in text
     assert "metricType: AverageValue" in text
     assert re.search(r"minReplicaCount:\s*1", text)
-    assert "inference.networking.k8s.io/v1" in text
-    assert "endpointPickerRef:" in text
-    assert "extensionRef:" not in text
+    # InferencePool + endpointPickerRef were llm-d's placement half. We removed
+    # them deliberately — see PROJECT.md "Alternatives considered and rejected" —
+    # so asserting their presence would lock in infrastructure we chose not to
+    # run. What replaces them: our own fleet manifests, one prefill and two
+    # decode, each pinned to a HAMi slice.
+    assert "inference.networking.k8s.io" not in text, "EPP was rejected; see PROJECT.md"
     assert "mooncake" in text.lower()
-    assert "--model" in (K8S / "hami" / "hami-lambda.yaml").read_text()
+    prefill = (K8S / "fleet" / "vllm-prefill.yaml").read_text()
+    decode = (K8S / "fleet" / "vllm-decode.yaml").read_text()
+    for name, y in (("prefill", prefill), ("decode", decode)):
+        assert "--model=" in y, f"{name} must name a model, or the pod crash-loops"
+        assert "type: Recreate" in y, f"{name} cannot RollingUpdate on a full GPU"
+        assert "--tool-call-parser=hermes" in y, f"{name} needs the tool parser"
+    assert "replicas: 1" in prefill and "replicas: 2" in decode
     assert "SERVE_HOST" in (K8S / "gateway" / "orch-serve.yaml").read_text()
-    hami = (K8S / "hami" / "hami-lambda.yaml").read_text()
-    assert "Qwen/Qwen2.5-VL-3B-Instruct" in hami
-    assert "VLLM_USE_V1" not in hami
-    assert hami.count("--tensor-parallel-size") == 2
-    assert hami.count("--pipeline-parallel-size") == 2
-    assert hami.count("--data-parallel-size") == 2
-    assert "--speculative-config" not in hami
+    # Ours, from docs/project/01-capacity.md. The lab's VL-3B and its
+    # tensor/pipeline/data-parallel flags are gone: TP=1 because 5.2 GiB of
+    # weights fits one slice and HAMi slices are not independent HBM pools.
+    assert "Qwen/Qwen2.5-7B-Instruct-AWQ" in prefill
+    assert "--tensor-parallel-size" not in prefill, "TP=1; nothing to shard"
+    assert "--max-model-len=16384" in prefill
+    assert 'nvidia.com/gpumem: "12288"' in prefill
+    # max_num_seqs must stay ABOVE the KV limit of ~4.9, or the scheduler binds
+    # first and a KV-pressure policy can never fire.
+    assert "--max-num-seqs=64" in prefill

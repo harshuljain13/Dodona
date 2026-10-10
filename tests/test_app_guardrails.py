@@ -70,12 +70,12 @@ def test_orch_serve_applies_edge_before_admit() -> None:
 
 def test_app_edge_has_no_openai_account_or_litellm() -> None:
     for name in ("guardrails.py", "harness.py", "crew_flood.py"):
-        text = (ROOT / "app" / name).read_text().lower()
+        text = (ROOT / "control" / "edge" / name).read_text().lower()
         assert "litellm" not in text
         assert "sk-lab" not in text
         assert "force 503" not in text
-    guard = (ROOT / "app" / "guardrails.py").read_text()
-    harness = (ROOT / "app" / "harness.py").read_text()
+    guard = (ROOT / "control" / "edge" / "guardrails.py").read_text()
+    harness = (ROOT / "control" / "edge" / "harness.py").read_text()
     for src in (guard, harness):
         assert "from gateway" not in src
         assert "import gateway" not in src

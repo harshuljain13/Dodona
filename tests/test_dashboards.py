@@ -6,7 +6,7 @@ from pathlib import Path
 from observability.dashboards import DASHBOARDS, METRIC_NAMES, write_dashboards
 
 ROOT = Path(__file__).resolve().parents[1]
-DEST = ROOT / "k8s" / "observability" / "dashboards"
+DEST = ROOT / "cluster" / "k8s" / "observability" / "dashboards"
 
 def test_dashboards_cover_each_layer() -> None:
     assert set(DASHBOARDS) == {
@@ -25,7 +25,7 @@ def test_dashboards_cover_each_layer() -> None:
     for name, builder in DASHBOARDS.items():
         path = DEST / f"{name}.json"
         payload = json.loads(path.read_text())
-        assert payload["uid"].startswith("class10-")
+        assert payload["uid"].startswith("dodona-")
         assert payload == builder()
         blob = json.dumps(payload)
         for metric in METRIC_NAMES[name]:

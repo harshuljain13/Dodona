@@ -103,7 +103,7 @@ def report(plan: WarmupPlan, *, request_ms: int = 40) -> list[str]:
     ]
 
 def main(argv: list[str] | None = None) -> None:
-    p = argparse.ArgumentParser(description="Class 10 replica warmup")
+    p = argparse.ArgumentParser(description="Dodona replica warmup")
     p.add_argument("--budget", type=int, default=1500)
     p.add_argument("--prefix", type=int, default=256)
     p.add_argument("--naive", action="store_true")

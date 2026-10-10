@@ -3,7 +3,7 @@
 What the seven files in `router/` do, which of them are on the request path, and
 how a pod is chosen.
 
-Part of the [module 10 docs](README.md). Overview: [ARCHITECTURE.md](ARCHITECTURE.md) · Request path: [DATAFLOW.md](DATAFLOW.md)
+Part of the [the upstream lab docs](README.md). Overview: [ARCHITECTURE.md](ARCHITECTURE.md) · Request path: [DATAFLOW.md](DATAFLOW.md)
 
 ---
 

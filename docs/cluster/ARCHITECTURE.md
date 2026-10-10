@@ -1,8 +1,8 @@
-# Architecture — Module 10, cluster profiling
+# Architecture — The upstream lab, cluster profiling
 
 Overview only. Each component has its own deep dive; this page is the map.
 
-Described with the [C4 model](https://c4model.com). Module 10 is the **complete
+Described with the [C4 model](https://c4model.com). The upstream lab is the **complete
 stack**: the disaggregated cluster, the observability layer, and the engine-tuning
 tools, in one module.
 
@@ -43,7 +43,7 @@ flowchart LR
     OPERATOR["Lab operator<br/>[Person]"]
     CHATTER["Chat user<br/>[Person]"]
 
-    SYS["Module 10 cluster<br/>[Software System]"]
+    SYS["The upstream lab cluster<br/>[Software System]"]
 
     BURST["Burst capacity<br/>[External System]"]
     HF["Hugging Face Hub<br/>[External System]"]

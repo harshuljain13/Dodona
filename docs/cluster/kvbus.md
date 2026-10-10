@@ -2,7 +2,7 @@
 
 How prefix bookkeeping works, why it steers placement indirectly, and why it is inert against real vLLM.
 
-Part of the [module 10 docs](README.md). Overview: [ARCHITECTURE.md](ARCHITECTURE.md) · Request path: [DATAFLOW.md](DATAFLOW.md)
+Part of the [the upstream lab docs](README.md). Overview: [ARCHITECTURE.md](ARCHITECTURE.md) · Request path: [DATAFLOW.md](DATAFLOW.md)
 
 ---
 

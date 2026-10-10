@@ -5,8 +5,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 def test_locust_and_crew_hit_orch_serve() -> None:
-    locust = (ROOT / "app" / "locustfile.py").read_text()
-    crew = (ROOT / "app" / "crew_flood.py").read_text()
+    locust = (ROOT / "control" / "edge" / "locustfile.py").read_text()
+    crew = (ROOT / "control" / "edge" / "crew_flood.py").read_text()
     assert "HttpUser" in locust
     assert "/v1/chat/completions" in locust
     assert "127.0.0.1:8080" in locust
@@ -20,25 +20,25 @@ def test_locust_and_crew_hit_orch_serve() -> None:
     assert "TEXT_MODEL" not in locust and "TEXT_MODEL" not in crew
     assert "crewai" not in crew.lower() and "OPENAI" not in crew
     assert "LOCAL_BASE_URL" not in crew
-    assert "LOCAL_BASE_URL" not in (ROOT / "app" / "harness.py").read_text()
-    serve = (ROOT / "gateway" / "serve.py").read_text()
+    assert "LOCAL_BASE_URL" not in (ROOT / "control" / "edge" / "harness.py").read_text()
+    serve = (ROOT / "control" / "gateway" / "serve.py").read_text()
     assert "from edge.guardrails import inspect" in serve
     assert "prepare_chat" in serve
 
 def test_two_folders_two_entrypoints() -> None:
-    assert (ROOT / "gateway" / "harness.py").is_file()
-    assert (ROOT / "gateway" / "repl.py").is_file()
-    assert (ROOT / "app" / "locustfile.py").is_file()
-    assert (ROOT / "app" / "crew_flood.py").is_file()
-    assert (ROOT / "app" / "guardrails.py").is_file()
-    assert (ROOT / "app" / "harness.py").is_file()
+    assert (ROOT / "control" / "gateway" / "harness.py").is_file()
+    assert (ROOT / "control" / "gateway" / "repl.py").is_file()
+    assert (ROOT / "control" / "edge" / "locustfile.py").is_file()
+    assert (ROOT / "control" / "edge" / "crew_flood.py").is_file()
+    assert (ROOT / "control" / "edge" / "guardrails.py").is_file()
+    assert (ROOT / "control" / "edge" / "harness.py").is_file()
     assert not (ROOT / "app.py").exists()
     assert not (ROOT / "fakeworker").exists()
     assert not (ROOT / "load").exists()
 
 def test_gateway_tools_do_not_import_the_app_front_door() -> None:
-    repl = (ROOT / "gateway" / "repl.py").read_text()
-    harness = (ROOT / "gateway" / "harness.py").read_text()
+    repl = (ROOT / "control" / "gateway" / "repl.py").read_text()
+    harness = (ROOT / "control" / "gateway" / "harness.py").read_text()
     for src in (repl, harness):
         assert "locust" not in src.lower()
         assert "crewai" not in src.lower()

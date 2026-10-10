@@ -32,10 +32,10 @@ kubectl apply -f "$ROOT/k8s/observability/dcgm-exporter.yaml" || true
 
 echo "== Grafana dashboards (sidecar ConfigMap) =="
 python3 -m observability.dashboards
-kubectl -n monitoring create configmap class10-dashboards \
+kubectl -n monitoring create configmap dodona-dashboards \
   --from-file="$ROOT/k8s/observability/dashboards" \
   --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n monitoring label configmap class10-dashboards grafana_dashboard=1 --overwrite
+kubectl -n monitoring label configmap dodona-dashboards grafana_dashboard=1 --overwrite
 
 echo
 echo "Day 2 is up. On the Mac (Step 2 tunnel must stay open) open only 127.0.0.1:"

@@ -143,7 +143,7 @@ full request, so the prefill worker generates a complete answer which is then
 **discarded** (`completion = out_d`). That is not a hop; it is the whole request
 done twice.
 
-This is identical in module 9b, module 10 and Dodona — the files are byte-for-byte
+This is identical in the upstream lab modules and here — the files are byte-for-byte
 the same. **No module has ever run this path against real vLLM**, which is
 consistent with `kvbus.md` calling it inert.
 

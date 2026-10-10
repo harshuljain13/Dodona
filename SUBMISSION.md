@@ -102,7 +102,7 @@ support that claim.
 |---|---|---|
 | [AgentShip](https://github.com/Agent-Ship/agent-ship) | The app — a research agent, plus `agentship-voice` for the speech loop | Point its `api_base` at our gateway |
 | [AdmitPerf](https://github.com/harshuljain13/AdmitPerf) | The policy registry, the per-decision log, the report generator | Install it in the request path as the admission socket |
-| The cluster | Three vLLM workers, the KV hop, the dashboards | Built stage by stage, in the shape of the class-10 lab |
+| The cluster | Three vLLM workers, the KV hop, the dashboards | Built stage by stage, in the shape of the course lab |
 
 ### High level
 
@@ -758,6 +758,13 @@ Three details that each prevent a report that looks fine and is wrong:
 
 ## Part 4 — Place
 
+> **Prefix-aware prefill placement is inert against real vLLM.**
+> `VLLMWorker.snapshot()` leaves `prefix_tokens=None`, so `score_prefix_cache`
+> returns `None` and contributes nothing — prefill falls back to load and KV
+> headroom. It works in simulation because `FakeWorker` populates the field,
+> which is why the tests pass over a dead path. See
+> [`docs/project/real-vs-simulated.md`](docs/project/real-vs-simulated.md).
+
 ```
 pick(req, workers, *, policy) → Worker | Shed
 ```
@@ -1138,5 +1145,5 @@ Dodona is built **stage by stage** — nothing is inherited wholesale. Runbook:
 | Any measured number | **None.** All `TBM` |
 
 Reference implementations we port from, piece by piece, rather than run as a
-black box: the class-10 lab (gateway, router, Mooncake, HAMi, dashboards) and
+black box: the course lab (gateway, router, Mooncake, HAMi, dashboards) and
 AdmitPerf (policy registry, decision log, report).

@@ -2,7 +2,7 @@
 
 Everything that happens to a request before the router sees it.
 
-Part of the [module 10 docs](README.md). Overview: [ARCHITECTURE.md](ARCHITECTURE.md) · Request path: [DATAFLOW.md](DATAFLOW.md)
+Part of the [the upstream lab docs](README.md). Overview: [ARCHITECTURE.md](ARCHITECTURE.md) · Request path: [DATAFLOW.md](DATAFLOW.md)
 
 ---
 

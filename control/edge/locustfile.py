@@ -10,7 +10,7 @@ TEXT_PROMPTS = (
     "Name three things KV cache is used for.",
     "Explain prefix caching in one sentence.",
     "What is a decode replica for?",
-    "Say hello from class 10 load.",
+    "Say hello from the course lab load.",
 )
 
 TINY_PNG = (

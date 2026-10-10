@@ -2,7 +2,7 @@
 
 The histograms 10 adds, and how the ten Grafana dashboards are generated.
 
-Part of the [module 10 docs](README.md). Overview: [ARCHITECTURE.md](ARCHITECTURE.md) · Request path: [DATAFLOW.md](DATAFLOW.md)
+Part of the [the upstream lab docs](README.md). Overview: [ARCHITECTURE.md](ARCHITECTURE.md) · Request path: [DATAFLOW.md](DATAFLOW.md)
 
 ---
 
@@ -58,7 +58,7 @@ into one gauge per pod.
 flowchart LR
     PY["observability/dashboards.py<br/>panels as Python"]
     JSON["ten .json files<br/>k8s-config/observability/dashboards/"]
-    CM["ConfigMap class10-dashboards<br/>label grafana_dashboard=1"]
+    CM["ConfigMap dodona-dashboards<br/>label grafana_dashboard=1"]
     SIDECAR["Grafana sidecar"]
 
     PY -->|"python -m observability.dashboards"| JSON

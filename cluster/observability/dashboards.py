@@ -181,8 +181,8 @@ def _dash(uid: str, title: str, panels: list[dict], tags: list[str]) -> dict:
 
 def overview() -> dict:
     return _dash(
-        "class10-overview",
-        "Class 10 / Overview (metrics.py)",
+        "dodona-overview",
+        "Dodona / Overview (metrics.py)",
         [
             _panel(1, "Requests / s", "sum(rate(orch_requests_total[5m]))", x=0, y=0, w=6, h=5, kind="stat"),
             _panel(2, "Completed / s", "sum(rate(orch_completed_total[5m]))", x=6, y=0, w=6, h=5, kind="stat"),
@@ -204,13 +204,13 @@ def overview() -> dict:
             _panel(9, "KV transfer + evict", "orch_kv_transfer_total", legend="transfer", x=12, y=13, w=8, h=9),
             _panel(10, "KV evicts", "orch_kv_evict_total", legend="evict", x=20, y=13, w=4, h=9),
         ],
-        ["class10", "metrics.py", "overview"],
+        ["dodona", "metrics.py", "overview"],
     )
 
 def gateway() -> dict:
     return _dash(
-        "class10-gateway",
-        "Class 10 / Gateway + admission",
+        "dodona-gateway",
+        "Dodona / Gateway + admission",
         [
             _panel(1, "Admit rate", "sum(rate(orch_requests_total[5m]))", x=0, y=0, w=8, h=6, kind="stat"),
             _panel(2, "Completed", "orch_completed_total", x=8, y=0, w=8, h=6, kind="stat"),
@@ -237,13 +237,13 @@ def gateway() -> dict:
                 h=8,
             ),
         ],
-        ["class10", "gateway"],
+        ["dodona", "gateway"],
     )
 
 def router() -> dict:
     return _dash(
-        "class10-router",
-        "Class 10 / Router",
+        "dodona-router",
+        "Dodona / Router",
         [
             _panel(1, "Picks", "orch_pick_total", x=0, y=0, w=6, h=5, kind="stat"),
             _panel(2, "Sticky hits", "orch_sticky_total", x=6, y=0, w=6, h=5, kind="stat"),
@@ -274,15 +274,15 @@ def router() -> dict:
                 h=8,
             ),
         ],
-        ["class10", "router"],
+        ["dodona", "router"],
     )
 
 def replicas() -> dict:
     lab = 'deployment=~"vllm-.*|orch-serve|mooncake-store"'
     pod = 'pod=~"vllm-.*|orch-serve.*|mooncake-store.*"'
     return _dash(
-        "class10-replicas",
-        "Class 10 / Pods and replicas",
+        "dodona-replicas",
+        "Dodona / Pods and replicas",
         [
             _panel(1, "Desired replicas (kube)", f"kube_deployment_spec_replicas{{{lab}}}", legend="{{deployment}} spec", x=0, y=0, w=12, h=8),
             _panel(2, "Ready replicas (kube)", f"kube_deployment_status_replicas{{{lab}}}", legend="{{deployment}} ready", x=12, y=0, w=12, h=8),
@@ -296,13 +296,13 @@ def replicas() -> dict:
             _panel(10, "Queue depth by pod", "orch_replica_queue_depth", legend="{{pod}}", x=0, y=32, w=12, h=8),
             _panel(11, "Waiting vs running", "orch_replica_waiting or orch_replica_running", legend="{{pod}}", x=12, y=32, w=12, h=8),
         ],
-        ["class10", "replicas", "pods"],
+        ["dodona", "replicas", "pods"],
     )
 
 def vllm() -> dict:
     return _dash(
-        "class10-vllm",
-        "Class 10 / vLLM",
+        "dodona-vllm",
+        "Dodona / vLLM",
         [
             _panel(1, "GPU KV cache %", "vllm:kv_cache_usage_perc or vllm:gpu_cache_usage_perc", legend="{{instance}}", x=0, y=0, w=12, h=8),
             _panel(2, "Running / waiting", "vllm:num_requests_running", legend="running", x=12, y=0, w=12, h=8),
@@ -340,14 +340,14 @@ def vllm() -> dict:
             _panel(10, "Prompt tokens / s", "rate(vllm:prompt_tokens_total[5m])", x=0, y=32, w=12, h=8),
             _panel(11, "Generation tokens / s", "rate(vllm:generation_tokens_total[5m])", x=12, y=32, w=12, h=8),
         ],
-        ["class10", "vllm"],
+        ["dodona", "vllm"],
     )
 
 def keda() -> dict:
     vllm = 'deployment=~"vllm-prefill|vllm-decode"'
     return _dash(
-        "class10-keda",
-        "Class 10 / KEDA",
+        "dodona-keda",
+        "Dodona / KEDA",
         [
             _panel(1, "Scaler value", "keda_scaler_metrics_value or keda_scaler_metric_value", legend="{{scaledObject}} {{metric}} {{scaler}}", x=0, y=0, w=12, h=8),
             _panel(2, "Scaler active", "keda_scaler_active", legend="{{scaledObject}} {{scaler}}", x=12, y=0, w=12, h=8),
@@ -356,13 +356,13 @@ def keda() -> dict:
             _panel(5, "Trigger: tokens in flight", "orch_tokens_in_flight", legend="{{phase}}", x=0, y=16, w=12, h=8),
             _panel(6, "Planner desired", "orch_planner_desired_replicas", legend="{{pool}}", x=12, y=16, w=12, h=8),
         ],
-        ["class10", "keda"],
+        ["dodona", "keda"],
     )
 
 def hami() -> dict:
     return _dash(
-        "class10-hami",
-        "Class 10 / HAMi slices",
+        "dodona-hami",
+        "Dodona / HAMi slices",
         [
             _panel(1, "Device memory allocated", "GPUDeviceMemoryAllocated or hami_gpu_memory_allocated_bytes or hami_vgpu_memory_allocated_bytes", legend="{{instance}} {{nodeid}}", x=0, y=0, w=12, h=8),
             _panel(2, "Device cores allocated", "GPUDeviceCoreAllocated or hami_gpu_core_allocated_ratio or hami_vgpu_core_allocated_ratio", legend="{{instance}}", x=12, y=0, w=12, h=8),
@@ -379,13 +379,13 @@ def hami() -> dict:
             ),
             _panel(5, "Slice YAML reminder", "kube_pod_container_resource_limits", legend="compare nvidia.com/gpumem nvidia.com/gpucores vs nvidia-smi", x=0, y=16, w=24, h=6, kind="stat"),
         ],
-        ["class10", "hami"],
+        ["dodona", "hami"],
     )
 
 def mooncake() -> dict:
     return _dash(
-        "class10-mooncake",
-        "Class 10 / Mooncake KV",
+        "dodona-mooncake",
+        "Dodona / Mooncake KV",
         [
             _panel(1, "Hops", "mooncake_hops_total", x=0, y=0, w=8, h=6, kind="stat"),
             _panel(2, "Blocks in store", "mooncake_blocks", x=8, y=0, w=8, h=6, kind="stat"),
@@ -394,14 +394,14 @@ def mooncake() -> dict:
             _panel(5, "Router KV tokens / s", "sum(rate(orch_kv_transfer_tokens[5m]))", legend="tokens / s", x=12, y=6, w=12, h=8),
             _panel(6, "Evicts", "sum(rate(orch_kv_evict_total[5m]))", legend="evicts / s", x=0, y=14, w=24, h=8),
         ],
-        ["class10", "mooncake"],
+        ["dodona", "mooncake"],
     )
 
 def cluster() -> dict:
     pod = 'pod=~"vllm-.*|orch-serve.*|mooncake-store.*|open-webui.*"'
     return _dash(
-        "class10-cluster",
-        "Class 10 / Cluster",
+        "dodona-cluster",
+        "Dodona / Cluster",
         [
             _panel(1, "Node Ready", 'kube_node_status_condition{condition="Ready",status="true"}', legend="{{node}}", x=0, y=0, w=8, h=6, kind="stat"),
             _panel(2, "CPU (node-exporter)", '1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))', x=8, y=0, w=8, h=6, kind="stat", unit="percentunit"),
@@ -433,13 +433,13 @@ def cluster() -> dict:
             _panel(9, "DCGM framebuffer used", "DCGM_FI_DEV_FB_USED * 1024 * 1024", legend="H100 FB used", x=8, y=22, w=8, h=8, unit="decbytes"),
             _panel(10, "DCGM power", "DCGM_FI_DEV_POWER_USAGE", legend="H100 power", x=16, y=22, w=8, h=8, unit="watt"),
         ],
-        ["class10", "cluster", "dcgm"],
+        ["dodona", "cluster", "dcgm"],
     )
 
 def errors() -> dict:
     return _dash(
-        "class10-errors",
-        "Class 10 / Success and failures",
+        "dodona-errors",
+        "Dodona / Success and failures",
         [
             _panel(1, "Requests / s", "sum(rate(orch_requests_total[5m]))", x=0, y=0, w=4, h=5, kind="stat"),
             _panel(2, "Success / s", "sum(rate(orch_completed_total[5m]))", x=4, y=0, w=4, h=5, kind="stat"),
@@ -511,7 +511,7 @@ def errors() -> dict:
                 h=8,
             ),
         ],
-        ["class10", "errors", "admission"],
+        ["dodona", "errors", "admission"],
     )
 
 DASHBOARDS = {

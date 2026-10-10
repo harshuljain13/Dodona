@@ -1,8 +1,8 @@
 {
-  "uid": "class10-vllm",
-  "title": "Class 10 / vLLM",
+  "uid": "dodona-vllm",
+  "title": "Dodona / vLLM",
   "tags": [
-    "class10",
+    "dodona",
     "vllm"
   ],
   "schemaVersion": 39,

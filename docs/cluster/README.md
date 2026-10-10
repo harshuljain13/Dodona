@@ -1,7 +1,7 @@
 # Cluster documentation — how the serving stack works
 
 **These docs describe the code in [`../`](../README.md), file by file.** They are
-inherited from module 10 and carried into module 11 with the stack, so they stay
+inherited from the upstream lab and carried into module 11 with the stack, so they stay
 accurate as the code does.
 
 For *this project's* decisions — why 4 × A100, why int4, why disaggregated, what
@@ -33,7 +33,7 @@ moved.
 
 | Page | What changed | Authority |
 |---|---|---|
-| [infrastructure.md](infrastructure.md) | **HAMi GPU slicing is gone.** Module 10 sliced one physical card into two 16 GiB shares for a 3B model. Module 11 runs one worker per physical card — `nvidia.com/gpu: "1"` and nothing else — because a 16 GiB slice cannot hold 19.4 GiB of weights | [`../project/02-cluster.md`](../project/02-cluster.md#what-has-to-change-for-four-physical-gpus) |
+| [infrastructure.md](infrastructure.md) | **HAMi GPU slicing is gone.** The upstream lab sliced one physical card into two 16 GiB shares for a 3B model. Module 11 runs one worker per physical card — `nvidia.com/gpu: "1"` and nothing else — because a 16 GiB slice cannot hold 19.4 GiB of weights | [`../project/02-cluster.md`](../project/02-cluster.md#what-has-to-change-for-four-physical-gpus) |
 | [DATAFLOW.md](DATAFLOW.md) | **The worker payload gains a forward allowlist.** `router/pools.py` forwarded `{model, messages, max_tokens}` only, which drops tool schemas and makes a tool-calling agent impossible | [`../project/07-wiring.md`](../project/07-wiring.md#the-blocker-confirmed) |
 
 Everything else — the gateway path, placement scoring, the KV bus, the metrics

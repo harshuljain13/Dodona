@@ -365,5 +365,5 @@ commands are known to work — rather than guessed in advance and quietly wrong.
 | | |
 |---|---|
 | [`RUNBOOK.md`](RUNBOOK.md) | The ten stages, their gates, and a failure-mode table per stage |
-| [`docs/cluster/COMMANDS.md`](docs/cluster/COMMANDS.md) | Debugging reference inherited from the class-10 lab — port chains, pod inspection, Grafana queries. Written for that layout, so paths differ |
+| [`docs/cluster/COMMANDS.md`](docs/cluster/COMMANDS.md) | Debugging reference inherited from the course lab — port chains, pod inspection, Grafana queries. Written for that layout, so paths differ |
 | [`docs/project/01-capacity.md`](docs/project/01-capacity.md) | Where every predicted number here comes from |

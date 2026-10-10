@@ -1,5 +1,8 @@
 # Open WebUI — hand testing, stage 1.
-# Points at the decode Service, so it exercises the same path the agent will.
+# Points at the GATEWAY, not at a pool. The brief: "Completions that skip
+# guardrails / admit / place / queue do not count." So hand testing goes
+# through the same serve path the agent will — which means this is unusable
+# until orch-serve is deployed at stage 4, and that is the correct order.
 apiVersion: apps/v1
 kind: Deployment
 metadata: { name: open-webui }
@@ -13,7 +16,7 @@ spec:
         - name: open-webui
           image: ghcr.io/open-webui/open-webui:main
           env:
-            - { name: OPENAI_API_BASE_URL, value: "http://vllm-decode:8000/v1" }
+            - { name: OPENAI_API_BASE_URL, value: "http://orch-serve:8080/v1" }
             - { name: OPENAI_API_KEY,      value: "dummy" }
             - { name: WEBUI_AUTH,          value: "False" }
           ports: [{ containerPort: 8080 }]

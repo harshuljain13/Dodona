@@ -188,13 +188,41 @@ class VLLMWorker:
         self.kv_capacity = 0
 
     def enqueue(self, req: Request, phase: str = "both") -> dict | None:
+        """Send one leg of the request to a real vLLM worker.
+
+        `phase` was previously accepted and ignored, so both legs of a split
+        sent the full request: the prefill worker generated a complete answer
+        that `queue.py` then discarded, and the whole request was done twice.
+
+        What each leg is for:
+
+          prefill   one forward pass. max_tokens=1 builds the prompt's KV on
+                    this worker and populates its prefix cache, which is what
+                    makes the NEXT request sharing that prefix cheap here.
+          decode    the real generation.
+          both      src == dst, no split, one call.
+
+        **The decode worker still recomputes the prompt.** vLLM owns the block
+        table and nothing in this process can hand blocks to another engine —
+        moving them needs --kv-transfer-config on both pods, which we do not
+        set. The brief anticipates exactly this: "The KV that A just built has
+        to be where B will decode, *or B recomputes the prompt*." We record the
+        hop; we do not perform it. See docs/project/topology.md.
+        """
         import json
 
         payload = {
             "model": self.model,
             "messages": request_messages(req),
-            "max_tokens": max(1, int(req.max_new_tokens)),
+            "max_tokens": 1 if phase == "prefill" else max(1, int(req.max_new_tokens)),
         }
+        # Sampling and tool keys the caller sent. An allowlist, not a
+        # pass-through: our control keys (kv_hop, prefix_hash, tenant) mean
+        # nothing to the engine and an unknown key is a 400. `tools` is the one
+        # that matters — without it a tool-calling agent gets no schemas,
+        # answers in prose, and its loop ends after one turn.
+        if req.extra:
+            payload.update(req.extra)
         raw = self._post("/v1/chat/completions", payload)
         try:
             data = json.loads(raw)

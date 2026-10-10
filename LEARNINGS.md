@@ -113,7 +113,7 @@ stack. It was not:
 | `orch_` | **0** | the gateway does not exist yet |
 | `mooncake` | **0** | never deployed |
 
-The class-10 dashboards are built almost entirely on `orch_*` — 16 of their top
+The dodona dashboards are built almost entirely on `orch_*` — 16 of their top
 20 queried metrics — and the gateway that emits them is stage 4. **The panels
 were accurately reporting a half-built system.**
 
@@ -240,4 +240,4 @@ Recorded here so it is not rediscovered.
 | **Mooncake has no image** | `cluster/k8s/mooncake/mooncake.yaml` names `mooncake-transfer-engine:lab`, a local tag that exists nowhere |
 | **`vllm-prefill` is idle** | Holding 10.6 GiB and serving nothing. If we stay colocated, routing to all three raises the pool from 9.8 to ~14.6 |
 | **Saturation curve unmeasured** | We know 32 sessions reaches 0.54. We do not know what reaches 0.90, and Part 8 needs it |
-| **2 pytest collection errors** | From the module-10 port. Not on the critical path, not yet diagnosed |
+| **2 pytest collection errors** | From the upstream-lab port. Not on the critical path, not yet diagnosed |

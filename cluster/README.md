@@ -66,7 +66,7 @@ Lambda allows only SSH, so everything goes through one tunnel. Open only
 
 ## Reference, not inheritance
 
-The class-10 lab (gateway, router, Mooncake, HAMi, ten dashboards) is where this
+The course lab (gateway, router, Mooncake, HAMi, ten dashboards) is where this
 cluster's shape comes from, and we port from it piece by piece rather than
 running it as a black box. Component-level docs for that stack:
 [`../docs/cluster/`](../docs/cluster/README.md).

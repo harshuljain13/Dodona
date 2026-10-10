@@ -180,7 +180,7 @@ def dashboards() -> None:
                    "mooncake": "Mooncake is not deployed (stage 8); its image does not exist yet"}
             note("warn", f"{pre:<12} {'none':>4}         ← {why.get(pre, 'not installed')}")
     print()
-    note("info", "The class-10 dashboards are built almost entirely on orch_* — 16 of their")
+    note("info", "The dodona dashboards are built almost entirely on orch_* — 16 of their")
     note("info", "top 20 queried metrics. Those panels are CORRECTLY empty: they measure a")
     note("info", "gateway that does not exist. Nothing is misconfigured.")
     note("info", "What works today: the vLLM panels, DCGM GPU, and the kube/node/cAdvisor ones.")

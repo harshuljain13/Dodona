@@ -1,7 +1,7 @@
 # Runbook — bringing Dodona up, stage by stage
 
 **Each stage ends with something testable, and the next does not start until it
-does.** Nothing here is inherited as a black box; the class-10 lab is the
+does.** Nothing here is inherited as a black box; the course lab is the
 reference you port from, piece by piece.
 
 Target: **1 × A100-40GB**, `Qwen2.5-7B-Instruct-AWQ`, three HAMi slices of

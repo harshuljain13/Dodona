@@ -48,7 +48,7 @@ def _run_threads(rounds: int, workers: int) -> list[str]:
     return texts
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Crew-style flood for class10 dashboards")
+    parser = argparse.ArgumentParser(description="Crew-style flood for dodona dashboards")
     parser.add_argument("--rounds", type=int, default=24)
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args(argv)

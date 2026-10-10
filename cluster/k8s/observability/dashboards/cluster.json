@@ -1,8 +1,8 @@
 {
-  "uid": "class10-cluster",
-  "title": "Class 10 / Cluster",
+  "uid": "dodona-cluster",
+  "title": "Dodona / Cluster",
   "tags": [
-    "class10",
+    "dodona",
     "cluster",
     "dcgm"
   ],
