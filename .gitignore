@@ -1,0 +1,33 @@
+# Local env and secrets — never commit tokens
+.env
+.env.local
+.env.*.local
+**/secrets/*.env
+!**/secrets/*.env.example
+
+# Personal deployment endpoints
+**/.modal_url
+**/.lambda_ip
+
+# Downloaded models — fetch from Hugging Face
+*.gguf
+*.safetensors
+*.bin
+
+# Generated artifacts — regenerate, don't commit
+**/results.json
+**/results.html
+
+# Python / tooling
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+
+# Serena MCP project state — tool-local
+.serena/
