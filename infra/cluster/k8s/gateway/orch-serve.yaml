@@ -53,6 +53,17 @@ spec:
               value: Qwen/Qwen2.5-7B-Instruct-AWQ
             - name: TRACE_PATH
               value: /lab/infra/metrics/traces/requests.jsonl
+            # A fetched source is ~12,000 tokens, which is ~48,000 characters.
+            # The 8,000 default turns every real request into 400
+            # prompt_too_long — a guardrail refusal that reads, in a report,
+            # exactly like a policy refusal. 60,000 sits just under
+            # max_model_len (16,384 tokens) minus max_new_tokens, so a genuine
+            # overrun is reported by the engine rather than guessed at here.
+            - { name: MAX_PROMPT_CHARS, value: "60000" }
+            # 10,000/min is under TWO requests at that prompt length, so the
+            # second arrival 429s and the run measures the quota instead of the
+            # GPU. High here on purpose: the tenant window gets its own arm.
+            - { name: TENANT_TOKENS_PER_MIN, value: "2000000" }
             # MOONCAKE_URL is deliberately unset. kvbus skips the POST when it
             # is empty; pointing it at a service that does not exist costs a
             # 2-second timeout on every hop.

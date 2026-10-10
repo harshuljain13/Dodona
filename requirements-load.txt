@@ -6,3 +6,4 @@ openai>=1.40
 matplotlib>=3.8
 jupyterlab>=4.0
 ipykernel>=6.29
+plotly>=5.20

@@ -41,6 +41,37 @@ DEFAULTS = {
 }
 
 
+GRAFANA = "http://127.0.0.1:31495"
+
+#: Dashboards installed by `make observability`, by their Grafana uid slug.
+DASHBOARDS = {
+    "overview": "dodona-overview", "gateway": "dodona-gateway",
+    "router": "dodona-router", "vllm": "dodona-vllm",
+    "keda": "dodona-keda", "hami": "dodona-hami",
+    "mooncake": "dodona-mooncake", "cluster": "dodona-cluster",
+    "errors": "dodona-errors", "replicas": "dodona-replicas",
+}
+
+
+def grafana_explore(promql: str, *, minutes: int = 30, base: str = GRAFANA) -> str:
+    """A Grafana Explore URL for one PromQL expression.
+
+    So a report can say "here is the number, and here is it moving over time"
+    rather than leaving the reader to reconstruct the query.
+    """
+    state = {
+        "datasource": "Prometheus",
+        "queries": [{"refId": "A", "expr": promql}],
+        "range": {"from": f"now-{minutes}m", "to": "now"},
+    }
+    return f"{base}/explore?left={urllib.parse.quote(json.dumps(state))}"
+
+
+def grafana_dashboard(name: str, *, minutes: int = 30, base: str = GRAFANA) -> str:
+    uid = DASHBOARDS.get(name, name)
+    return f"{base}/d/{uid}?from=now-{minutes}m&to=now"
+
+
 def _get(url: str, timeout: float = 5.0) -> str | None:
     try:
         with urllib.request.urlopen(url, timeout=timeout) as r:
@@ -68,6 +99,25 @@ def parse_prometheus(text: str) -> dict[str, float]:
     return out
 
 
+#: Roughly four characters per token for English prose — within a few percent,
+#: which is all a prompt-length sweep needs.
+CHARS_PER_TOKEN = 4
+
+
+def filler(tokens: int) -> str:
+    """A prompt of approximately `tokens` tokens, for a length sweep."""
+    body = ("The cluster serves one model on one card split into slices. "
+            "Each slice holds its own KV cache. ")
+    return (body * (1 + tokens * CHARS_PER_TOKEN // len(body)))[:tokens * CHARS_PER_TOKEN]
+
+
+def percentile(xs: list[float], p: float) -> float:
+    if not xs:
+        return 0.0
+    s = sorted(xs)
+    return s[min(len(s) - 1, int(len(s) * p))]
+
+
 def sum_by_name(metrics: dict[str, float], name: str) -> float:
     """Total a metric across its label sets."""
     return sum(v for k, v in metrics.items() if k == name or k.startswith(name + "{"))
@@ -82,6 +132,8 @@ class Cluster:
     gateway: str = DEFAULTS["gateway"]
     prefill: str = DEFAULTS["prefill"]
     decode: str = DEFAULTS["decode"]
+    #: Why the most recent sample() call lost requests, if it did.
+    last_error: str | None = None
 
     def endpoints(self) -> dict[str, bool]:
         """What answers. Run this first — everything below depends on it."""
@@ -138,6 +190,27 @@ class Cluster:
             body = {"_error": f"{type(exc).__name__}: {exc}"}
         body["_latency_s"] = round(time.perf_counter() - started, 3)
         return body
+
+    def sample(self, prompt: str, n: int = 10, *, max_tokens: int = 16,
+               warmup: int = 1) -> list[float]:
+        """Latency of n sequential completions, in seconds.
+
+        `warmup` calls are discarded: the first request through a cold prefix
+        cache pays for the whole prompt and would dominate a p95 taken over ten.
+        Sequential, not concurrent — this measures latency, not throughput.
+        """
+        for _ in range(warmup):
+            self.chat(prompt, max_tokens=max_tokens)
+        out = []
+        for _ in range(n):
+            r = self.chat(prompt, max_tokens=max_tokens)
+            if "_error" in r:
+                # Surfaced, not dropped. A sweep that silently skips the lengths
+                # that failed draws a flat line and calls it a result.
+                self.last_error = f"{r['_error']}: {str(r.get('_body', ''))[:160]}"
+                continue
+            out.append(r["_latency_s"])
+        return out
 
     def kv_usage(self) -> dict[str, float]:
         """kv_cache_usage_perc per pool. The signal admission reads."""
@@ -233,8 +306,45 @@ class Report:
         return self
 
     def chart(self, draw: Callable, note: str = "") -> "Report":
-        """`draw(ax)` gets a matplotlib Axes to plot into."""
+        """Escape hatch: `draw(ax)` gets a matplotlib Axes. Prefer bar/line."""
         self.blocks.append(_Block("chart", draw, note)); return self
+
+    # Declarative charts. One definition renders twice — plotly inline so it is
+    # interactive in the notebook, matplotlib into the PDF. Writing each chart
+    # twice is how the two drift apart.
+
+    def bar(self, title: str, labels: list[str], series: dict[str, list[float]],
+            *, ylabel: str = "", log: bool = False, hline: float | None = None,
+            note: str = "", show: bool = True) -> "Report":
+        spec = {"kind": "bar", "title": title, "labels": labels, "series": series,
+                "ylabel": ylabel, "log": log, "hline": hline}
+        self.blocks.append(_Block("spec", spec, note))
+        if show:
+            _show_interactive(spec, note)
+        return self
+
+    def line(self, title: str, x: list[float], series: dict[str, list[float]],
+             *, xlabel: str = "", ylabel: str = "", hlines: dict[str, float] | None = None,
+             note: str = "", show: bool = True) -> "Report":
+        spec = {"kind": "line", "title": title, "x": x, "series": series,
+                "xlabel": xlabel, "ylabel": ylabel, "hlines": hlines or {}}
+        self.blocks.append(_Block("spec", spec, note))
+        if show:
+            _show_interactive(spec, note)
+        return self
+
+    def links(self, rows: list[tuple[str, str]], note: str = "",
+              *, show: bool = True) -> "Report":
+        """Grafana (or any) URLs. Clickable inline, listed as text in the PDF."""
+        self.blocks.append(_Block("links", rows, note))
+        if show:
+            try:
+                from IPython.display import display, Markdown
+                display(Markdown("\n".join(f"- [{n}]({u})" for n, u in rows)))
+            except ImportError:
+                for n, u in rows:
+                    print(f"  {n}: {u}")
+        return self
 
     # -- rendering ----------------------------------------------------------
 
@@ -250,6 +360,13 @@ class Report:
             elif b.kind == "verdict":
                 ok, msg = b.payload
                 lines.append(("pass" if ok else "fail", f"{'PASS' if ok else 'FAIL'}  {msg}"))
+            elif b.kind == "links":
+                for name, url in b.payload:
+                    lines.append(("text", f"  {name}"))
+                    lines.append(("mono", f"    {url[:150]}"))
+                if b.note:
+                    lines.append(("text", b.note))
+                lines.append(("text", ""))
             elif b.kind == "table":
                 headers, rows = b.payload
                 lines.extend(("mono", ln) for ln in format_table(headers, rows).splitlines())
@@ -286,9 +403,12 @@ class Report:
     def _render_charts(self, pdf) -> None:
         import matplotlib.pyplot as plt
 
-        for b in (x for x in self.blocks if x.kind == "chart"):
+        for b in (x for x in self.blocks if x.kind in ("chart", "spec")):
             fig, ax = plt.subplots(figsize=(8.27, 4.5))
-            b.payload(ax)
+            if b.kind == "spec":
+                _draw_spec_mpl(ax, b.payload)
+            else:
+                b.payload(ax)
             if b.note:
                 fig.text(0.07, 0.02, b.note, size=8, color="#555")
             fig.tight_layout()
@@ -311,3 +431,75 @@ class Report:
     def failures(self) -> list[str]:
         return [msg for b in self.blocks if b.kind == "verdict"
                 for ok, msg in [b.payload] if not ok]
+
+
+# ── chart rendering, from one spec ─────────────────────────────────────────
+
+def _draw_spec_mpl(ax, spec: dict) -> None:
+    """Render a chart spec into a matplotlib Axes, for the PDF."""
+    if spec["kind"] == "bar":
+        labels, series = spec["labels"], spec["series"]
+        width = 0.8 / max(len(series), 1)
+        for i, (name, values) in enumerate(series.items()):
+            offset = (i - (len(series) - 1) / 2) * width
+            ax.bar([j + offset for j in range(len(labels))], values, width, label=name)
+        ax.set_xticks(range(len(labels))); ax.set_xticklabels(labels)
+        if spec["log"]:
+            ax.set_yscale("log")
+        else:
+            ax.set_ylim(bottom=0)
+        if len(series) > 1:
+            ax.legend(fontsize=8)
+    else:
+        for name, values in spec["series"].items():
+            ax.plot(spec["x"], values, "o-", label=name)
+        ax.set_xlabel(spec.get("xlabel", ""))
+        ax.set_ylim(bottom=0)
+        for name, y in spec.get("hlines", {}).items():
+            ax.axhline(y, ls="--", color="#c0392b", label=name)
+        if len(spec["series"]) > 1 or spec.get("hlines"):
+            ax.legend(fontsize=8)
+    if spec.get("hline") is not None:
+        ax.axhline(spec["hline"], ls="--", color="#c0392b")
+    ax.set_ylabel(spec.get("ylabel", ""))
+    ax.set_title(spec["title"])
+
+
+def _show_interactive(spec: dict, note: str = "") -> None:
+    """Interactive in the notebook via plotly; static matplotlib if absent.
+
+    Falling back rather than requiring plotly keeps the notebook runnable on a
+    machine that only has matplotlib — which is the one the PDF needs anyway.
+    """
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(8, 3.6))
+        _draw_spec_mpl(ax, spec)
+        if note:
+            fig.text(0.02, -0.04, note, size=8, color="#555")
+        plt.show()
+        return
+
+    fig = go.Figure()
+    if spec["kind"] == "bar":
+        for name, values in spec["series"].items():
+            fig.add_bar(x=spec["labels"], y=values, name=name)
+    else:
+        for name, values in spec["series"].items():
+            fig.add_scatter(x=spec["x"], y=values, mode="lines+markers", name=name)
+        for name, y in spec.get("hlines", {}).items():
+            fig.add_hline(y=y, line_dash="dash", line_color="#c0392b",
+                          annotation_text=name)
+    if spec.get("hline") is not None:
+        fig.add_hline(y=spec["hline"], line_dash="dash", line_color="#c0392b")
+    fig.update_layout(title=spec["title"], yaxis_title=spec.get("ylabel", ""),
+                      xaxis_title=spec.get("xlabel", ""),
+                      height=380, margin=dict(l=60, r=20, t=50, b=40),
+                      template="plotly_white")
+    if spec.get("log"):
+        fig.update_yaxes(type="log")
+    fig.show()
+    if note:
+        print(f"  -- {note}")
