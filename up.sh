@@ -85,37 +85,13 @@ for i in $(seq 1 180); do
 done
 
 # ---- 5. the gate --------------------------------------------------------
-step "gate  —  the four checks from COMMANDS.md step 5"
-"${SSH[@]}" "$LAMBDA" "cd ~/dodona && python3 - <<'PY'
-import json, glob, os, urllib.request
-
-def ok(c, label, detail=''):
-    print(f\"    [{'PASS' if c else 'FAIL'}] {label}\" + (f'  {detail}' if detail else ''))
-    return c
-
-try:
-    urllib.request.urlopen('http://localhost:8000/v1/models', timeout=10).read()
-    ok(True, '5a  serves')
-except Exception as e:
-    ok(False, '5a  serves', str(e))
-
-m = urllib.request.urlopen('http://localhost:8000/metrics', timeout=10).read().decode()
-ok('gpu_cache_usage_perc' in m, '5b  gpu_cache_usage_perc present')
-
-g = glob.glob(os.path.expanduser('~/.cache/huggingface/hub/models--*AWQ*/snapshots/*/config.json')) \\
-  + glob.glob(os.path.expanduser('~/.cache/huggingface/hub/models--*/snapshots/*/config.json'))
-if g:
-    c = json.load(open(g[0]))
-    L, KV = c['num_hidden_layers'], c['num_key_value_heads']
-    HD = c.get('head_dim') or c['hidden_size'] // c['num_attention_heads']
-    kib = 2 * L * KV * HD * 2 / 1024
-    ok(abs(kib - 56) < 2.8, '5c  kv_bytes_per_token (P6)',
-       f'layers={L} kv_heads={KV} head_dim={HD} -> {kib:.0f} KiB/token (predicted 56)')
-else:
-    ok(False, '5c  kv_bytes_per_token (P6)', 'config.json not found in the HF cache')
-PY"
-echo "    5d  weights / KV split:"
-"${SSH[@]}" "$LAMBDA" "grep -iE 'KV cache|model weights|GPU blocks|Marlin|awq' ~/dodona/engine.log | tail -6" | sed 's/^/        /' || true
+step "gate  —  the four stage-0 checks"
+"${SSH[@]}" "$LAMBDA" 'cd ~/dodona && python3 cluster/setup/gate.py --log ~/dodona/engine.log' || {
+  echo
+  echo "    The gate failed. 5c or 5d failing means the capacity arithmetic is wrong," >&2
+  echo "    not the cluster — see docs/project/01-capacity.md before going further." >&2
+  exit 1
+}
 
 [[ "$STAGE" == "0" ]] && { step "stage 0 done"; echo "    ./up.sh          continue to Open WebUI"; echo "    ./up.sh --logs   engine log"; exit 0; }
 

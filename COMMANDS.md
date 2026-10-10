@@ -16,10 +16,10 @@ common way to waste ten minutes.
 
 ```bash
 cp .env.example .env     # set LAMBDA and LAMBDA_SSH_KEY
-./up.sh
+make up
 ```
 
-`up.sh` runs steps 1 through 7 below over ssh — it is not a second
+`make` lists every target. `make up` runs steps 1 through 7 below over ssh — it is not a second
 implementation, it calls the same scripts in `cluster/setup/`. **If a step is
 wrong, fix the script, not `up.sh`.**
 

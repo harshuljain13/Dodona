@@ -199,19 +199,27 @@ Needs a ≥40 GiB NVIDIA card you can ssh to, and Python 3.11+ locally.
 ```bash
 git clone https://github.com/harshuljain13/Dodona.git && cd Dodona
 cp .env.example .env     # set LAMBDA and LAMBDA_SSH_KEY
-./up.sh
+make up
 ```
 
-That is the whole thing. `up.sh` syncs the project to the box, builds the venv,
+That is the whole thing. `make up` syncs the project to the box, builds the venv,
 installs vLLM, starts the engine detached so it survives the ssh session, waits
 for it to answer, **runs the four gate checks**, brings up Open WebUI, and leaves
 you holding the tunnel. Then open **http://127.0.0.1:3000** and talk to it.
 
-```bash
-./up.sh --stage 0     # stop once the engine serves and the gate has run
-./up.sh --logs        # tail the engine log
-./up.sh --down        # stop the engine and Open WebUI
-```
+`make` on its own lists every target, split by where it runs.
+
+| On your Mac | | On the GPU box (`make ssh` first) | |
+|---|---|---|---|
+| `make up` | the lot | `make setup` | venv, requirements, vLLM |
+| `make sync` | rsync to the box | `make serve` | the engine on :8000 |
+| `make ssh` | tunnel + a shell | `make gate` | **the four stage-0 checks** |
+| `make logs` | tail the engine log | `make setup-cluster` | k3s + HAMi + three slices |
+| `make down` | stop engine and WebUI | `make observability` | Prometheus + Grafana |
+| `make test` · `make lint` | pytest · links | `make webui` · `make smoke` | :3000 · smoke tests |
+
+GPU-side targets refuse to run on a machine with no NVIDIA device rather than
+failing halfway, and tell you to `make ssh` first.
 
 The gate is the part worth watching. Two of its four checks decide whether
 anything else is worth doing — `config.json` must read 28 layers / 4 KV heads /
