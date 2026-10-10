@@ -40,54 +40,72 @@ Dodona makes it on purpose, and writes down what it saw.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'14px',
+  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
   'lineColor':'#475569','clusterBkg':'#fcfdff','clusterBorder':'#94a3b8',
   'edgeLabelBackground':'#ffffff'}}}%%
 flowchart TD
-    L(["<b>Listener</b><br/>speaks a question"])
-    DG["<b>Deepgram</b><br/>STT · TTS · off-GPU"]
-    AG["<b>AgentShip</b><br/>LangGraph research agent<br/>web_search · scrape_url · cite"]
-
-    subgraph CP["<b>control/</b> — what we write"]
-        GD["<b>guard</b><br/>malformed → 400"]
-        AD{"<b>admit</b><br/>kv_pressure ≥ 0.90?"}
-        PL["<b>place</b><br/>least_loaded + queue depth"]
-        HP["<b>hop</b><br/>prefill → decode"]
-        GD --> AD --> PL --> HP
+    subgraph CL["Clients"]
+      L(["<b>Listener</b><br/>speaks"])
+      DG["<b>Deepgram</b><br/>STT · TTS · off-GPU"]
+      AG["<b>AgentShip</b> + LangGraph<br/>web_search · scrape_url · cite"]
+      UI["<b>Open WebUI</b><br/>hand testing"]
+      L --> DG
+      DG <--> AG
     end
 
-    AP["<b>AdmitPerf</b><br/>policy + decision log<br/><i>records the value it read</i>"]
-    RF(["<b>503</b> · kv_free<br/>spoken, not dead air"])
-
-    subgraph GPU["<b>1 × A100-40GB</b> · 3 slices"]
-        PF["<b>vLLM prefill ×1</b><br/>12k tok → 0.66 GiB KV<br/>builds, then frees"]
-        MC[("<b>Mooncake</b><br/>KV store")]
-        DC["<b>vLLM decode ×2</b><br/>4.80 GiB KV each<br/>5.5 seq → pool 11"]
-        PF --> MC --> DC
+    subgraph GW["Control plane · <b>orch-serve</b>"]
+      GD["<b>guard</b><br/>malformed → 400"]
+      AD{"<b>admit</b><br/>kv_pressure ≥ 0.90?"}
+      PL["<b>place</b><br/>least_loaded + queue depth"]
+      HP["<b>hop</b><br/>src ≠ dst → transfer"]
+      GD --> AD --> PL --> HP
+      AP["<b>AdmitPerf</b><br/>policy · decision log"]
+      RF(["<b>503</b> · kv_free"])
+      RP["<b>run report</b><br/>liveness verdict"]
     end
 
-    OB[("<b>Prometheus + Grafana</b>")]
-    RP(["<b>run report</b><br/>SIGNAL LIVENESS: ?"])
 
-    L --> DG --> AG --> GD
+    subgraph K8S["<b>k3s</b> + <b>HAMi</b> · 1 × A100-40GB"]
+      PF["<b>vLLM prefill-0</b><br/>slice 0 · 40% cores<br/>12k tok → 0.66 GiB KV"]
+      MC[("<b>Mooncake</b><br/>KV store")]
+      D0["<b>vLLM decode-0</b><br/>slice 1 · 28% cores<br/>4.80 GiB KV · 5.5 seq"]
+      D1["<b>vLLM decode-1</b><br/>slice 2 · 28% cores<br/>4.80 GiB KV · 5.5 seq"]
+      PF --> MC
+      MC --> D0
+      MC --> D1
+      D0 ~~~ D1
+    end
+
+    subgraph OPS["Observability + autoscale"]
+      PM[("<b>Prometheus</b><br/>+ DCGM exporter")]
+      GF["<b>Grafana</b><br/>8 dashboards"]
+      KD["<b>KEDA</b><br/>prefill-scaler on tokens-in-flight<br/>decode-scaler on kv_cache_usage"]
+      PM --> GF
+      PM --> KD
+    end
+
+    AG --> GD
+    UI --> GD
     HP --> PF
-    DC -->|"tokens"| AG
-    AG --> DG
+    D0 --> AG
+    D1 --> AG
     AD -->|"refused"| RF
     AD <--> AP
     AP --> RP
-    DC -.->|"live engine state"| AD
-    PF --> OB
-    DC --> OB
+    D0 -.->|"kv_cache_usage_perc"| AD
+    PF --> PM
+    D0 --> PM
+    D1 --> PM
+    KD -.->|"scales"| D0
 
     class L,RF actor
-    class DG,AG ext
+    class DG,AG,UI ext
     class GD,PL,HP ours
     class AD gate
-    class PF,DC engine
+    class PF,D0,D1 engine
     class MC store
     class AP lib
-    class OB obs
+    class PM,GF,KD obs
     class RP out
 
     classDef actor  fill:#ffe4e6,stroke:#be123c,stroke-width:2px,color:#881337
@@ -102,12 +120,18 @@ flowchart TD
     linkStyle default stroke:#475569,stroke-width:1.7px
 ```
 
-🔵 what we write · 🟢 the engine, configured not touched · 🟠 KV storage ·
-🟡 the decision · 🟣 off-GPU · 🔴 a refusal
+🔵 what we write · 🟢 vLLM, configured not touched · 🟠 KV storage ·
+🟡 the decision · 🟣 clients, off-GPU · ⚪ observability · 🔴 a refusal
 
-The dashed edge is the one that matters: `admit` reads live KV pressure off the
-decode pool, so its verdict depends on what the workers are actually doing — and
-the value it read is stored next to the verdict.
+**Two control loops, both dashed.** `admit` reads `kv_cache_usage_perc` straight
+off decode and refuses when it crosses 0.90 — and the value it read is stored
+next to the verdict, which is the whole point. **KEDA** reads the same metric
+through Prometheus and scales the deployment instead. One sheds load, the other
+adds capacity; they watch the same number and answer differently.
+
+The fleet stays at three pods for any measured run — a fleet that resizes
+mid-comparison means the deployment moved, not the policy. KEDA is wired and
+left at `min 1 · max 2` so the mechanism is real and visible.
 
 ```
 1 × A100-40GB · Qwen2.5-7B-Instruct-AWQ (int4) · TP=1
