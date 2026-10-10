@@ -12,9 +12,22 @@ if [[ -f "$PROJECT_ROOT/.env" ]]; then
   source "$PROJECT_ROOT/.env"
   set +a
 fi
+# Close any tunnel we already hold to this box. Two tunnels cannot bind the
+# same local ports, and the second one fails with nine "Address already in
+# use" lines and no forwards — which looks like a broken tunnel when it is
+# really a duplicate. One command, always works, is worth more than the
+# second shell.
+STALE="$(pgrep -f "ssh .*-L 8000:127.0.0.1:8000 .*${LAMBDA##*@}" 2>/dev/null | grep -v "^$$\$" || true)"
+if [[ -n "$STALE" ]]; then
+  echo "  closing $(echo "$STALE" | wc -l | tr -d ' ') existing tunnel(s) to ${LAMBDA##*@}"
+  # shellcheck disable=SC2086
+  kill $STALE 2>/dev/null || true
+  sleep 1
+fi
+
 exec ssh -i "$LAMBDA_SSH_KEY" \
   -o StrictHostKeyChecking=accept-new \
-  -o ExitOnForwardFailure=no \
+  -o ExitOnForwardFailure=yes \
   -o ServerAliveInterval=30 \
   -o ServerAliveCountMax=6 \
   -L 8000:127.0.0.1:8000 \
