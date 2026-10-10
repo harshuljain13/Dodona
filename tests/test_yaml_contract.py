@@ -121,3 +121,31 @@ def test_mooncake_moves_real_kv_blocks() -> None:
     # figure (~73.5) is NOT the one that applies to a 12 GiB slice.
     assert "--max-num-seqs=64" in prefill
     assert "--max-num-seqs=64" in decode
+
+
+def test_deployments_holding_a_singleton_use_recreate() -> None:
+    """A Deployment competing for a once-per-node resource cannot RollingUpdate.
+
+    The default surges a replacement before retiring the old pod. When the pod
+    holds something there is only one of — the GPU, or a hostPort — the
+    replacement can never be scheduled, and the rollout does not fail fast: it
+    sits at "1 old replicas are pending termination" until the progress
+    deadline, minutes later.
+
+    Both failures happened here: the fleet on nvidia.com/gpu, then orch-serve on
+    hostPort 8080.
+
+    DaemonSets are exempt — their rolling update terminates before it creates.
+    """
+    for path in sorted(K8S.glob("*/*.yaml")):
+        text = path.read_text()
+        if "kind: Deployment" not in text:
+            continue
+        singletons = [name for name, needle in
+                      (("hostPort", "hostPort:"), ("nvidia.com/gpu", "nvidia.com/gpu:"))
+                      if needle in text]
+        if not singletons:
+            continue
+        assert "type: Recreate" in text, (
+            f"{path.name} holds {', '.join(singletons)} but does not set "
+            "strategy: Recreate — its rollout will deadlock")

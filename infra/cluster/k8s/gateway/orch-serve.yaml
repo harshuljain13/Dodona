@@ -10,6 +10,11 @@ metadata:
   labels: { app: orch-serve }
 spec:
   replicas: 1
+  # Recreate, not RollingUpdate. This pod binds hostPort 8080, which is a
+  # singleton on the node: the default surges a replacement first, the new pod
+  # can never bind a port the old one still holds, and the rollout sits at
+  # "1 old replicas are pending termination" until it hits its deadline.
+  strategy: { type: Recreate }
   selector:
     matchLabels: { app: orch-serve }
   template:
