@@ -216,7 +216,7 @@ ssh — there is no separate login step.
 
 | | |
 |---|---|
-| `make cluster` | syncs the project, builds the venv, installs vLLM, starts the engine on the whole card, **runs the four capacity checks**, then k3s + HAMi + KEDA and **1 prefill + 2 decode** across three slices |
+| `make cluster` | syncs the project, then k3s + HAMi + KEDA, **1 prefill + 2 decode** across three slices, the gateway in front of them, and **the capacity checks against a running pod** |
 | `make observability` | Prometheus + Grafana + DCGM |
 | `make ssh` | the tunnel. Leave it open — every URL below is `127.0.0.1` |
 | `make test` | the control plane, locally, **with no GPU** |

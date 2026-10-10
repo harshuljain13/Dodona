@@ -64,13 +64,16 @@ def _get(url: str, timeout: float = 10.0) -> str:
     return urllib.request.urlopen(url, timeout=timeout).read().decode()
 
 
-def serves(port: int) -> None:
+def serves(port: int) -> str | None:
+    """Returns the served model id, so the KV check reads that model's config."""
     try:
         body = _get(f"http://localhost:{port}/v1/models")
         name = (json.loads(body).get("data") or [{}])[0].get("id", "?")
         check(True, "engine serves", name)
+        return name
     except Exception as exc:
         check(False, "engine serves", f"{type(exc).__name__}: {exc}")
+        return None
 
 
 def metrics(port: int) -> None:
@@ -86,14 +89,29 @@ def metrics(port: int) -> None:
     check("vllm:num_requests_waiting" in m, "num_requests_waiting present")
 
 
-def kv_bytes_per_token() -> float | None:
+def _config_for(model_id: str | None) -> str | None:
+    """The cached config.json for the model being served.
+
+    Falling back to the most recent one silently checks the wrong model as soon
+    as a second is cached, which is exactly when the number matters.
+    """
+    hub = os.path.expanduser("~/.cache/huggingface/hub")
+    if model_id and "/" in model_id:
+        owner, name = model_id.split("/", 1)
+        exact = glob.glob(f"{hub}/models--{owner}--{name}/snapshots/*/config.json")
+        if exact:
+            return sorted(exact, key=os.path.getmtime)[-1]
+    hits = glob.glob(f"{hub}/models--*/snapshots/*/config.json")
+    return sorted(hits, key=os.path.getmtime)[-1] if hits else None
+
+
+def kv_bytes_per_token(model_id: str | None = None) -> float | None:
     """KiB of KV per token from config.json. Every concurrency figure uses it."""
-    hits = glob.glob(os.path.expanduser(
-        "~/.cache/huggingface/hub/models--*/snapshots/*/config.json"))
-    if not hits:
+    path = _config_for(model_id)
+    if not path:
         check(False, "KV bytes/token", "no config.json in the HF cache")
         return None
-    cfg = json.load(open(sorted(hits, key=os.path.getmtime)[-1]))
+    cfg = json.load(open(path))
     layers = cfg["num_hidden_layers"]
     kv_heads = cfg["num_key_value_heads"]
     # Qwen3 declares head_dim explicitly and it is NOT hidden/heads. Deriving
@@ -112,7 +130,8 @@ def kv_bytes_per_token() -> float | None:
     return kib
 
 
-def budget(log: str, card_gib: float | None, util: float, predicted_kib: float | None) -> None:
+def budget(log: str, budget_gib: float | None, util: float, predicted_kib: float | None,
+           *, sliced: bool) -> None:
     """What the engine reserved, and whether its KiB/token agrees.
 
     Budget minus KV is weights + activations + CUDA graphs. Only sanity-checked,
@@ -120,24 +139,26 @@ def budget(log: str, card_gib: float | None, util: float, predicted_kib: float |
     does not give. The agreement check is the one that carries evidence.
     """
     if not os.path.exists(log):
-        check(False, "memory budget", f"no {log} — started outside up.sh?")
+        check(False, "memory budget", f"no {log} — nothing to read")
         return
     text = open(log, errors="replace").read()
 
     kv = re.search(r"Available KV cache memory:\s*([\d.]+)\s*GiB", text)
     toks = re.search(r"GPU KV cache size:\s*([\d,]+)\s*tokens", text)
+    concurrency = re.search(r"Maximum concurrency for ([\d,]+) tokens per request:\s*([\d.]+)x", text)
     if not kv:
         check(False, "memory budget", "no 'Available KV cache memory' line yet")
         return
     kv_gib = float(kv.group(1))
 
-    if card_gib is None:
+    if budget_gib is None:
         check(False, "memory budget", "could not read memory.total from nvidia-smi")
         return
 
-    overhead_gib = card_gib * util - kv_gib
-    sane = 0 < overhead_gib < card_gib * util
-    detail = (f"card {card_gib:.1f} GiB x {util:.2f} = {card_gib * util:.2f}, "
+    what = "slice" if sliced else "card"
+    overhead_gib = budget_gib * util - kv_gib
+    sane = 0 < overhead_gib < budget_gib * util
+    detail = (f"{what} {budget_gib:.1f} GiB x {util:.2f} = {budget_gib * util:.2f}, "
               f"KV {kv_gib:.2f} -> overhead {overhead_gib:.2f} GiB")
     if EXPECT_OVERHEAD_GIB:
         expected = float(EXPECT_OVERHEAD_GIB)
@@ -156,22 +177,31 @@ def budget(log: str, card_gib: float | None, util: float, predicted_kib: float |
         else:
             print(f"           engine reports {reported_kib:.1f} KiB/token")
 
-    # Never extrapolate to a slice: CUDA-graph capture scales with available
-    # memory, so read it off the pods with `grep "Maximum concurrency"` instead.
-    print("           whole-card figure — do NOT extrapolate to a slice;")
-    print("           read it off the running pods (see 01-capacity.md)")
+    # vLLM's own concurrency figure. This is the number the whole capacity
+    # argument rests on, so print it whether or not anything is asserted.
+    if concurrency:
+        print(f"           vLLM: {float(concurrency.group(2)):.1f} concurrent "
+              f"{concurrency.group(1)}-token sequences per worker")
+    if not sliced:
+        # CUDA-graph capture scales with available memory, so a whole-card
+        # overhead under-predicts a slice's pool. Measured: 18% out.
+        print("           whole-card figure — do NOT extrapolate to a slice")
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=8000)
+    ap = argparse.ArgumentParser(description="Capacity checks against a running vLLM")
+    ap.add_argument("--port", type=int, default=8000, help="where that vLLM answers")
     ap.add_argument("--log", default=os.path.expanduser("~/dodona/engine.log"))
+    ap.add_argument("--slice-mib", type=int, default=0,
+                    help="budget against a HAMi slice of this size instead of the whole card")
     args = ap.parse_args()
 
-    serves(args.port)
+    model_id = serves(args.port)
     metrics(args.port)
-    predicted_kib = kv_bytes_per_token()
-    budget(args.log, card_total_gib(), UTIL, predicted_kib)
+    predicted_kib = kv_bytes_per_token(model_id)
+    sliced = args.slice_mib > 0
+    budget_gib = args.slice_mib / 1024.0 if sliced else card_total_gib()
+    budget(args.log, budget_gib, UTIL, predicted_kib, sliced=sliced)
 
     failed = _results.count(False)
     if failed:

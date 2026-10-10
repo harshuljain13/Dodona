@@ -30,6 +30,19 @@ echo "== the integrity check =="
 kubectl get pods -o wide
 nvidia-smi --query-compute-apps=pid,used_memory --format=csv
 
+# The capacity checks, against a decode pod rather than a whole-card engine.
+# Overhead does not extrapolate between the two — CUDA-graph capture scales
+# with available memory — so the per-slice figure is the only usable one.
+echo
+echo "== capacity, measured on a slice =="
+slice_mib=$(sed -n 's/.*nvidia\.com\/gpumem: *"\([0-9]*\)".*/\1/p' \
+  "$ROOT/k8s/fleet/vllm-decode.yaml" | head -1)
+pod_log=$(mktemp)
+kubectl logs deploy/vllm-decode --tail=-1 >"$pod_log" 2>/dev/null
+python3 "$ROOT/setup/gate.py" --port 30801 --log "$pod_log" --slice-mib "$slice_mib" \
+  || echo "    capacity check failed — the arithmetic is wrong, not the cluster"
+rm -f "$pod_log"
+
 # A request that reached a pod without passing the gateway leaves orch_* at
 # zero, which is the only way to tell the two apart from outside.
 echo

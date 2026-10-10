@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Drive the GPU box from your Mac. Normally called by the Makefile.
 #
-#   up.sh cluster         engine → capacity check → k3s + HAMi + KEDA → fleet
+#   up.sh cluster         k3s + HAMi + KEDA → fleet → gateway → capacity check
 #   up.sh observability   Prometheus + Grafana + DCGM
 #   up.sh tunnel          forward the box's ports to this Mac
+#   up.sh engine          ONE worker on the whole card, for comparison only
 #   up.sh down            stop the engine and Open WebUI
 #   up.sh logs            tail the engine log
-#   up.sh check           re-run the capacity checks against a running engine
+#   up.sh check           re-run the capacity checks against the whole-card engine
 #
 # Every remote step is one of the scripts next to this one, run over ssh. This
 # file only sequences them — if a step is wrong, fix that script, not this one.
@@ -129,7 +130,8 @@ start_webui() {
 
 start_fleet() {
   announce "fleet  —  k3s + HAMi + KEDA, then one prefill and two decode"
-  echo "    The whole-card engine stops first: the slices need all of the card."
+  # Harmless if nothing is running: the slices need every byte of the card, so
+  # any whole-card engine from `up.sh engine` has to go first.
   stop_engine
   on_box_tty 'bash cluster/setup/fleet.sh'
 }
@@ -152,20 +154,31 @@ PORTS
 
 # ── commands ───────────────────────────────────────────────────────────────
 
+# No venv and no whole-card engine. The pods bring their own vLLM in the
+# container image, and the capacity checks run against a pod inside fleet.sh
+# because a whole-card measurement cannot be extrapolated to a slice anyway.
 cmd_cluster() {
+  sync_project
+  show_card
+  start_fleet
+  start_webui 8080
+  announce "cluster up"
+  echo "    make observability   Prometheus + Grafana"
+  echo "    make ssh             open the tunnel"
+}
+
+# One worker on the whole card, for the comparison measurement only. Needs the
+# box venv, which is why it is not part of `make cluster`.
+cmd_engine() {
   sync_project
   show_card
   install_packages
   start_engine
   wait_for_engine
   check_capacity
-  start_fleet
-  # After the fleet, so the WebUI points at the gateway rather than at the
-  # whole-card engine that start_fleet has just stopped.
-  start_webui 8080
-  announce "cluster up"
-  echo "    make observability   Prometheus + Grafana"
-  echo "    make ssh             open the tunnel"
+  start_webui 8000
+  announce "engine up"
+  echo "    This holds the whole card. Run 'make cluster' to replace it with the fleet."
 }
 
 cmd_observability() {
@@ -194,14 +207,15 @@ cmd_check() {
 main() {
   local command="${1:-}"
   case "$command" in
-    cluster|observability|tunnel|down|logs|check) ;;
-    -h|--help|"") sed -n '2,12p' "$0"; exit 0 ;;
+    cluster|observability|tunnel|engine|down|logs|check) ;;
+    -h|--help|"") sed -n '2,13p' "$0"; exit 0 ;;
     *) fail "unknown command: $command   (try: up.sh --help)" ;;
   esac
   load_env
   case "$command" in
     cluster)       cmd_cluster ;;
     observability) cmd_observability ;;
+    engine)        cmd_engine ;;
     tunnel)        open_tunnel ;;
     down)          cmd_down ;;
     logs)          cmd_logs ;;

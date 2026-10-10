@@ -24,6 +24,12 @@ There are four targets and no more: `cluster`, `observability`, `ssh`, `test`.
 implementation, it calls the same scripts in `cluster/setup/`. **If a step is
 wrong, fix the script, not `cluster/setup/up.sh`.**
 
+It needs **no venv and no vLLM on the box**: the pods bring their own vLLM in
+the container image, and `gate.py` is stdlib-only. The whole-card engine below
+is a separate, optional measurement — `bash cluster/setup/up.sh engine` — kept
+because comparing it against a slice is what shows that CUDA-graph overhead
+does not extrapolate. `make cluster` does not need it.
+
 Everything after this point is that sequence broken out, which is what you want
 when something fails and you need to run one piece at a time.
 

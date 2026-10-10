@@ -86,8 +86,8 @@ def test_up_sh_rejects_an_unknown_command_without_needing_env() -> None:
 def test_up_sh_help_lists_exactly_the_commands_it_dispatches() -> None:
     """Help text drifting from the `case` is how a command becomes undiscoverable."""
     source = (SETUP / "up.sh").read_text()
-    dispatched = set(re.findall(r"^\s{4}(\w+)\)\s+cmd_|\)\s+open_tunnel", source, re.M))
-    dispatched = {d for d in dispatched if d}
+    dispatched = set(re.findall(r"^\s{4}(\w+)\)\s+\w+ ;;", source, re.M))
+    assert len(dispatched) >= 6, f"dispatch table looks wrong: {dispatched}"
     done = subprocess.run(["bash", str(SETUP / "up.sh"), "--help"], capture_output=True, text=True)
     assert done.returncode == 0
     for command in dispatched:
