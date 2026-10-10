@@ -35,6 +35,9 @@ def test_yaml_lives_with_the_owner() -> None:
         "grafana-values.yaml",
         "prometheus-values.yaml",
         "dcgm-exporter.yaml",
+        # Server-side panel rendering. Without it Grafana's /render returns 500
+        # and a notebook can only link to a dashboard, not embed the panel.
+        "renderer.yaml",
     }
     assert {p.stem for p in (K8S / "observability" / "dashboards").glob("*.json")} == {
         "overview",

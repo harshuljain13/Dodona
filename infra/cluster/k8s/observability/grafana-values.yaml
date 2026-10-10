@@ -23,3 +23,10 @@ datasources:
         access: proxy
         isDefault: true
         editable: true
+
+# Server-side rendering, for /render/d-solo/<uid>?panelId=N -> PNG.
+# renderer.yaml provides the service; without both, /render returns 500.
+env:
+  GF_RENDERING_SERVER_URL: http://grafana-renderer.monitoring.svc.cluster.local:8081/render
+  GF_RENDERING_CALLBACK_URL: http://grafana.monitoring.svc.cluster.local/
+  GF_LOG_FILTERS: rendering:debug

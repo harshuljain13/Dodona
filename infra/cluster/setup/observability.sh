@@ -29,6 +29,7 @@ helm upgrade --install grafana grafana/grafana \
 
 echo "== DCGM exporter (cluster GPU) =="
 kubectl apply -f "$ROOT/k8s/observability/dcgm-exporter.yaml" || true
+kubectl apply -f "$ROOT/k8s/observability/renderer.yaml"
 
 # The ScaledObjects go here, not in fleet.sh: they query Prometheus, so KEDA
 # reports them as unready until it exists. KEDA the operator is installed by

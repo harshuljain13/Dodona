@@ -1,6 +1,13 @@
 server:
   persistentVolume:
     enabled: false
+  # NodePort so notebooks can run PromQL directly. Scraping pod /metrics gives
+  # you one instantaneous sample; Prometheus has the series, and PromQL
+  # computes quantiles over histograms properly rather than sorting ten numbers
+  # in Python.
+  service:
+    type: NodePort
+    nodePort: 31490
   global:
     scrape_interval: 15s
     scrape_timeout: 10s
