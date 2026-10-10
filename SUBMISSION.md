@@ -10,6 +10,36 @@ and links out.
 | [`docs/project/`](docs/README.md) | Per-part deep dives: the full arithmetic, the run protocol, the results report |
 | [`docs/cluster/`](docs/cluster/README.md) | The serving stack, file by file — gateway, router, KV bus, observability |
 
+## Progress
+
+| Stage | | Measured |
+|---|---|---|
+| 0 | engine on the whole card | ✅ **2026-10-10** — all five gate checks pass |
+| 1 | Open WebUI | ✅ |
+| 2 | k3s + HAMi, 1 prefill + 2 decode | not started |
+| 3 | Prometheus + Grafana | not started |
+| 4–8 | gateway · guard · admit · place · hop | not started |
+| 9–10 | the agent, then the runs | not started |
+
+**As deployed:** NVIDIA A100-SXM4-40GB (sm80, 40 GiB) · vLLM **0.31.0** ·
+torch 2.13.0+cu130 · `Qwen/Qwen2.5-7B-Instruct-AWQ`, Marlin int4 kernels.
+
+### Deployment issues
+
+The brief's bad-answer list is about claims nobody can check. This is the
+other half: what actually went wrong, recorded as it happened.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Gate `5b` failed — no `gpu_cache_usage_perc` | **vLLM V1 renamed the metric to `kv_cache_usage_perc`.** The old name does not exist | Renamed in eight documents. `control/router/pools.py` already accepted both, so the control plane was never broken — but every doc asserted a metric that is gone |
+| Gate `5d` failed — "no `model weights` line" | vLLM 0.31 does not log one | Parse `Available KV cache memory` instead and derive overhead, which is the number that sizes the slices |
+| Overhead 20% higher than predicted | CUDA-graph reservation was not in the estimate | Recorded, not edited. See Part 1 |
+| `make engine` died: `Error 255` after setup succeeded | `pkill -f 'vllm serve'` over ssh **matched its own command line**, killed the remote shell, dropped the connection | `pkill -f '[v]llm serve'` |
+| `up.sh: line 101: syntax error near '('` | Invoked under `sh`, which cannot do the `SSH=(...)` array | Guard that refuses to run outside bash |
+| `make gate` checked the wrong thing after a fix | `--gate` runs the copy **on the box**, and it was stale | `--gate` rsyncs `gate.py` first |
+
+---
+
 **Numbers are marked predicted or measured.** Predictions are written down
 before the run and checked afterwards. They do not get edited to match.
 `TBM` means to-be-measured — a `TBM` left here is a hole we are disclosing.
@@ -168,7 +198,7 @@ so the contention we measure is purely LLM-side.
 | Constrained by | Where it shows up |
 |---|---|
 | **decode slots** | `max_num_seqs` 64 per pod — never the binding limit here |
-| **KV blocks** | 4.80 GiB per decode worker → **the limiter.** [Part 1](#part-1--capacity-on-paper) |
+| **KV blocks** | 3.63 GiB per decode worker (measured) → **the limiter.** [Part 1](#part-1--capacity-on-paper) |
 | **hop bandwidth** | prefill → Mooncake → decode, inside one card. [Part 6](#part-6--hop-when-do-you-move-kv-is-the-replica-warm) |
 | **warmup time** | `READY` precedes serving by minutes. [Part 6](#part-6--hop-when-do-you-move-kv-is-the-replica-warm) |
 
@@ -190,12 +220,15 @@ a smaller model on Superlinked, hard-capped.**
 ```
 one A100-40GB  ·  40.0 GiB reported  ·  ~37 GiB allocatable across 3 pods
 
-slice  pod         gpumem   gpucores   weights   KV        seq @16k
-  0    prefill-0   12 GiB     40%      5.2 GiB  4.80 GiB    5.5
-  1    decode-0    12 GiB     28%      5.2 GiB  4.80 GiB    5.5   <- placement
-  2    decode-1    12 GiB     28%      5.2 GiB  4.80 GiB    5.5   <- placement
+slice  pod         gpumem   gpucores   overhead   KV        seq @16k
+  0    prefill-0   12 GiB     40%      7.17 GiB  3.63 GiB    4.1
+  1    decode-0    12 GiB     28%      7.17 GiB  3.63 GiB    4.1   <- placement
+  2    decode-1    12 GiB     28%      7.17 GiB  3.63 GiB    4.1   <- placement
                    -------    ----
-                   36 GiB      96%        decode pool = 11.0 concurrent
+                   36 GiB      96%        decode pool = 8.3 concurrent
+
+  predicted 6.00 GiB overhead -> 4.80 GiB KV -> 5.5 seq -> pool 11.0
+  measured  7.17 GiB overhead at stage 0. The prediction stands as written.
 ```
 
 One A100-40 is also what a cohort mate or a workshop attendee can actually rent,
@@ -345,14 +378,14 @@ gives the pod a hard `gpumem` cap that it sees as its entire device. Reading the
 
 ```
 any worker:  12 GiB x 0.90  =  10.80 GiB budget
-             - weights       =   5.20 GiB   <- 48% of the slice is weights
-             - activations    =   0.80 GiB
-                                ----------
-             KV              =   4.80 GiB
+             - overhead      =   7.17 GiB   <- MEASURED at stage 0
+                                ----------      (predicted 6.00: 5.20 weights
+             KV              =   3.63 GiB        + 0.80 runtime. The gap is
+                                                 CUDA-graph reservation.)
 
-one 16k sequence = 56 KiB x 16,384 = 0.875 GiB
-concurrency      = 4.80 / 0.875   = 5.5 seq/replica
-decode pool (x2)                  = 11.0 concurrent
+one 16k sequence = 56 KiB x 16,384 = 0.875 GiB    <- P6, measured, held
+concurrency      = 3.63 / 0.875   = 4.1 seq/replica
+decode pool (x2)                  = 8.3 concurrent
 ```
 
 ### At `max_len` and at the length the app actually sends
@@ -361,13 +394,13 @@ The brief asks for both. They differ by 16×, which is the point.
 
 | Length | Why this length | GiB/seq | % of a cache | seq/replica | **decode pool** |
 |---|---|---|---|---|---|
-| 16,384 (`max_len`) | engine ceiling | 0.875 | 18% | 5.5 | **11.0** |
-| ~15,400 (turn 4, worst real request) | 1k prefix + 12k source + ~2.4k history | 0.822 | 17% | 5.8 | 11.7 |
-| ~8,100 (mean across a session) | turns 1–4 averaged | 0.433 | 9% | 11.1 | 22.2 |
-| ~1,040 (turn 1) | prefix + question only | 0.056 | 1% | 86.4 | 172.8 |
+| 16,384 (`max_len`) | engine ceiling | 0.875 | 24% | 4.1 | **8.3** |
+| ~15,400 (turn 4, worst real request) | 1k prefix + 12k source + ~2.4k history | 0.822 | 23% | 4.4 | 8.8 |
+| ~8,100 (mean across a session) | turns 1–4 averaged | 0.433 | 12% | 8.4 | 16.8 |
+| ~1,040 (turn 1) | prefix + question only | 0.056 | 2% | 64.8 | 129.6 |
 
-The fleet serves **11 concurrent sessions in the worst case and ~22 at the
-average request size.** Admission matters in the first regime and not the second
+The fleet serves **8.3 concurrent sessions in the worst case and ~17 at the
+average request size** (measured; predicted 11.0 and 22.2). Admission matters in the first regime and not the second
 — which is why load level is the x-axis of the experiment in Part 8.
 
 ### The decision chain
@@ -390,7 +423,7 @@ flowchart TD
     F{"3 · FITS bf16?<br/>14.19 GiB weights"}
     FX["12 GiB slice → 10.80 budget → will not load<br/>two 18 GiB slices → 0.81 GiB KV → 0.93 seq"]
 
-    Q["4 · QUANTIZE — AWQ int4<br/>5.2 GiB weights · 4.80 GiB KV"]
+    Q["4 · QUANTIZE — AWQ int4<br/>3.63 GiB KV measured"]
     QX["forced, not chosen. fp8 needs sm89+<br/>and the A100 has no fp8 tensor cores,"]
 
     P["5 · PARALLELISM — TP=1<br/>a worker fits one slice"]
@@ -463,11 +496,11 @@ nothing for admission to bind on. Here it is the price of entry.
 
 | Candidate | Why not |
 |---|---|
-| weights | 5.20 GiB fits the 10.80 GiB budget comfortably |
-| **KV** | **4.80 GiB / 0.875 GiB = 5.5 sequences. This binds** |
+| weights | 5.20 GiB of a 7.17 GiB measured overhead, in a 10.80 GiB budget |
+| **KV** | **3.63 GiB / 0.875 GiB = 4.1 sequences. This binds** |
 | compute | 5 concurrent sequences is a small batch |
 | interconnect | TP=1, so no all-reduce. The hop stays inside one card |
-| scheduler | `max_num_seqs` 64 is ~12× what KV allows |
+| scheduler | `max_num_seqs` 64 is ~16× what KV allows |
 
 Why KV binds is worth stating plainly: **48% of each slice is model weights.**
 Replicating three times costs 15.6 GiB of the 36 GiB allocated, leaving 14.4 GiB
@@ -515,7 +548,7 @@ flowchart TD
     S{"Topology on one 40 GiB card<br/>≥2 workers · want hop AND placement"}
 
     A["A · 3 colocated replicas<br/>3 × 12 GiB · pool 16.5"]
-    B["B · 1 prefill + 2 decode<br/>3 × 12 GiB · pool 11.0"]
+    B["B · 1 prefill + 2 decode<br/>3 × 12 GiB · pool 8.3"]
     C["C · 2 prefill + 2 decode<br/>4 × 9 GiB · pool 4.8"]
     D["D · 1 prefill + 1 decode<br/>2 × 18 GiB · pool 11.4"]
 
@@ -996,7 +1029,7 @@ the **same** trace across runs so two runs are comparable.
 | Run | Policy | Concurrent sessions | Why |
 |---|---|---|---|
 | `low-baseline` | `no_admission` | 2 | the other side of the comparison |
-| `low` | `kv_threshold` 0.90 | 2 | ~18% of the 11.0 pool; pressure should stay under 0.90 |
+| `low` | `kv_threshold` 0.90 | 2 | ~24% of the 8.3 pool; pressure should stay under 0.90 |
 | `high-baseline` | `no_admission` | 14 | the other side |
 | `high` | `kv_threshold` 0.90 | 14 | past the pool; pressure should reach 0.90 |
 
@@ -1028,7 +1061,7 @@ Three seeds each. All results *TBM*.
 | Where do I hop, and what is **not** copied? | prefill-0 → decode-{0,1} over Mooncake. **Not copied:** the final token's KV (recomputed), anything past the 256-token chunk boundary, and any block already in the destination's prefix cache |
 | Where do I evict, and what becomes a ghost if I skip it? | `control/kv_eviction.py`. Skip it and a hopped prefix stays pinned in Mooncake after its session ended — a ghost holding store capacity nothing will read |
 | Where does the engine scheduler sit vs our admit/place/queue? | [Part 2](#gateway-and-engine-are-two-different-boxes) |
-| What limited concurrency on this GPU for this app? | **KV** — predicted. 4.80 GiB per decode worker ÷ 0.875 GiB = 5.5 sequences |
+| What limited concurrency on this GPU for this app? | **KV.** 3.63 GiB per decode worker ÷ 0.875 GiB = **4.1 sequences**, pool 8.3 — measured at stage 0, where 7.17 GiB of the 10.80 GiB slice budget goes to weights, activations and CUDA graphs |
 | Four production alerts? | (1) `admitperf_gate_recording == 0` — deciding but not logging; (2) `vllm:num_preemptions > 0` — the gate admitted more than the fleet holds; (3) hop count flat while prefill tokens rise — the transport silently stopped; (4) p99 time-to-first-audio > 1.5 s — the only SLO the listener can hear |
 | If I scale, which pool? | [Part 2](#if-we-scale-which-pool) — prefill tokens → prefill, decode slots → decode |
 | At 10× traffic, and three wrong knobs? | **Right:** a bigger card so int4 is no longer forced, then a second prefill pod, then shard sessions by tenant. **Wrong:** raising `max_num_seqs` (the scheduler is not the limit), adding an identical replica (costs 5.2 GiB of weights out of fleet KV), raising the admission threshold (defers the wall, does not move it) |
@@ -1038,7 +1071,7 @@ Three seeds each. All results *TBM*.
 | # | Prediction | Measured | Held? |
 |---|---|---|---|
 | P1 | KV binds, not the scheduler | *TBM* | *TBM* |
-| P2 | Signal reaches 0.90 at 14 sessions | *TBM* | *TBM* |
+| P2 | Signal reaches 0.90 at 14 sessions (vs a pool of 8.3) | *TBM* | *TBM* |
 | P3 | Signal does not reach 0.90 at 2 sessions | *TBM* | *TBM* |
 | P4 | Prefix-cache hit rate > 70% | *TBM* | *TBM* |
 | P5 | Prompt:completion ratio > 10:1 | *TBM* | *TBM* |
