@@ -18,6 +18,7 @@ touching the others, and so the unfinished ones are visibly unfinished.
 | Part | File | State | Cluster-side counterpart |
 |---|---|---|---|
 | 0 — The application and the workload | [`project/00-use-case.md`](project/00-use-case.md) | ported, numbers pending | — |
+| — | [`project/topology.md`](project/topology.md) | **What a prefill/decode split actually requires**, what our code does, and the options | — |
 | 1 — Capacity on paper | [`project/01-capacity.md`](project/01-capacity.md) | **rewritten for 1×A100 / 7B-AWQ** | — |
 | 2 — Design the cluster | [`project/02-cluster.md`](project/02-cluster.md) | ported, numbers pending | [`infrastructure.md`](cluster/infrastructure.md), [`ARCHITECTURE.md`](cluster/ARCHITECTURE.md) |
 | 3 — Guardrails, admit, stay vs leave | [`project/03-admission.md`](project/03-admission.md) | ported | [`gateway.md`](cluster/gateway.md) |

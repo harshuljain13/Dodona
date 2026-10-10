@@ -868,6 +868,14 @@ live scrape, not an assertion. *Status: not written.*
 
 ## Part 6 — Hop: when do you move KV? Is the replica warm?
 
+> **Under review.** Reading the code showed `kvbus.transfer()` records a hop and
+> re-registers the prefix; it does not move KV blocks — vLLM owns those. The
+> economics below compare against a transfer that does not currently happen, and
+> the claim that Mooncake "moves bytes" is wrong: it is a 78-line hop recorder,
+> identical in modules 9b, 10 and here. See
+> [`docs/project/topology.md`](docs/project/topology.md) for what a real split
+> requires and the three options. This section is rewritten once that is decided.
+
 With topology B, **`src != dst` always** — prefill is pod 0, decode is pod 1 or 2
 — so the hop is never a no-op and there is always a transfer to record.
 
