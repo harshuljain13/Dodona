@@ -268,8 +268,11 @@ def test_the_tenant_quota_cannot_bind_at_the_loads_we_measure() -> None:
     assert match, "the quota is not set, so the gateway falls back to 10,000"
     quota = int(match.group(1))
 
-    # 24 sessions x 4 turns, the heaviest step, delivered in roughly 20s.
-    heaviest_per_min = 2_580_840
+    # The heaviest step in 03-capacity: 48 sessions x --repeat 8 (32 turns each),
+    # ~13.76M tokens held over a ~90s window. Recomputed when --repeat was added
+    # to make each step span several 15s Prometheus scrapes; the old figure
+    # assumed a single 4-turn pass and understated demand eightfold.
+    heaviest_per_min = 9_176_320
     assert quota == 0 or quota > heaviest_per_min * 2, (
         f"quota {quota:,}/min is not clear of the {heaviest_per_min:,}/min the "
         f"sweep demands — capacity results will contain 429s")
