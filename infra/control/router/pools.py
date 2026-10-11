@@ -8,7 +8,8 @@ import urllib.request
 from typing import Any
 
 from router.kvbus import KVBus
-from gateway.types import KV_SATURATION, Request, SliceOOM, Snapshot, request_messages
+from gateway.types import (KV_HARD_CEILING, KV_SATURATION, Request, SliceOOM,
+                           Snapshot, request_messages)
 
 PREFILL_CHUNK = 64
 DECODE_PACK = 8
@@ -18,6 +19,7 @@ def parse_vllm_metrics(text: str) -> dict[str, float]:
     usage: float | None = None
     waiting: float | None = None
     running: float | None = None
+    at_capacity: float | None = None
     for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -34,6 +36,11 @@ def parse_vllm_metrics(text: str) -> dict[str, float]:
             waiting = value
         elif name == "vllm:num_requests_running" and running is None:
             running = value
+        elif name == "vllm:num_requests_waiting_by_reason" and 'reason="capacity"' in line:
+            # The engine's own statement that it has no room. KV usage cannot say
+            # this: it counts retained prefix-cache blocks, which vLLM evicts on
+            # demand, so an idle pod can read 80% while able to accept anything.
+            at_capacity = (at_capacity or 0.0) + value
     if usage is not None and usage > 1.0:
         usage = usage / 100.0
     out: dict[str, float] = {}
@@ -43,6 +50,8 @@ def parse_vllm_metrics(text: str) -> dict[str, float]:
         out["waiting"] = waiting
     if running is not None:
         out["running"] = running
+    if at_capacity is not None:
+        out["at_capacity"] = at_capacity
     return out
 
 class FakeWorker:
@@ -268,11 +277,20 @@ class VLLMWorker:
         active = None
         if waiting_i is not None or running_i is not None:
             active = int((waiting_i or 0) + (running_i or 0))
+        # The engine's own verdict, not an inference from memory. kv_cache_usage
+        # counts retained prefix-cache blocks that vLLM evicts on demand, so an
+        # IDLE pod reads 80% and the old rule refused everything. Measured:
+        # prefill at 0.736 usage with 0 running and 0 waiting.
+        at_capacity = parsed.get("at_capacity")
+        out_of_room = at_capacity is not None and at_capacity > 0
+        # Keep a memory backstop, but at a level only true saturation reaches.
+        kv_wall = kv_free is not None and kv_free < (1.0 - KV_HARD_CEILING)
+
         snap = Snapshot(
             pod_id=self.id,
             age_s=0.0,
             healthy=True,
-            saturating=self.saturating or bool(kv_free is not None and kv_free < (1.0 - KV_SATURATION)),
+            saturating=self.saturating or out_of_room or kv_wall,
             kv_free_ratio=kv_free,
             tokens_in_flight=active,
             uncached_prefill_tokens=None,

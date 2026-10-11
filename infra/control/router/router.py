@@ -8,7 +8,7 @@ from collections.abc import Callable, Sequence
 from gateway.metrics import METRICS
 from router.planner import plan as plan_replicas
 from gateway.types import (
-    KV_SATURATION,
+    KV_HARD_CEILING,
     STALE_S,
     STICKY_OVERLAP,
     STICKY_TAU,
@@ -68,9 +68,21 @@ def is_unknown(snap: Snapshot | None) -> bool:
     return snap.age_s > STALE_S
 
 def is_saturating(snap: Snapshot) -> bool:
+    """Is this pool genuinely out of room?
+
+    `snap.saturating` already carries the engine's own answer — it is set from
+    num_requests_waiting_by_reason{reason="capacity"}. This used to ALSO shed on
+    kv_free_ratio < 0.20, which re-derived the question from memory usage and
+    got it wrong: kv_cache_usage_perc counts retained prefix-cache blocks that
+    vLLM evicts on demand, so an idle prefill pod reads 0.736 with nothing
+    running and the router refused everything.
+
+    The memory check survives only as a far-off backstop for the case where KV
+    really has run out.
+    """
     if snap.saturating:
         return True
-    if snap.kv_free_ratio is not None and snap.kv_free_ratio < (1.0 - KV_SATURATION):
+    if snap.kv_free_ratio is not None and snap.kv_free_ratio < (1.0 - KV_HARD_CEILING):
         return True
     return False
 
@@ -283,7 +295,7 @@ class Router:
     def _shed_reason(pool: Sequence[Worker]) -> str:
         for w in pool:
             snap = w.snapshot()
-            if snap.kv_free_ratio is not None and snap.kv_free_ratio < (1.0 - KV_SATURATION):
+            if snap.kv_free_ratio is not None and snap.kv_free_ratio < (1.0 - KV_HARD_CEILING):
                 return "kv_free"
         return "no_eligible_pod"
 

@@ -7,7 +7,17 @@ from typing import Protocol
 
 STALE_S = 5.0
 
+#: Retained prefix-cache blocks count toward kv_cache_usage_perc, and vLLM
+#: evicts them on demand — so this is NOT "how full the GPU is". Measured on an
+#: idle prefill pod: 0.736 usage with 0 running and 0 waiting. Shedding on it
+#: refused traffic the cluster could serve, which is where 6,100 kv_free 503s
+#: came from and why three benchmark cases could not run at all.
+#:
+#: Saturation now comes from the engine's own num_requests_waiting_by_reason
+#: {reason="capacity"}; this remains only as a far-off backstop for the case
+#: where memory really has run out.
 KV_SATURATION = 0.80
+KV_HARD_CEILING = 0.98
 
 STICKY_OVERLAP = 0.8
 STICKY_TAU = 10_000
