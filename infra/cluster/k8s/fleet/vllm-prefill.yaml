@@ -44,6 +44,17 @@ spec:
         - name: vllm
           image: vllm/vllm-openai:latest
           env:
+            # The NIC is RoCE (link_layer: Ethernet), not InfiniBand. Mooncake's
+            # topology discovery cannot infer a GID for RoCE the way it can for
+            # IB, so it reported "Found 0 HCAs" and silently fell back to TCP —
+            # where a 377 MB / 11,508-descriptor transfer fails with ret=-1 and
+            # vLLM recomputes instead. Every KV transfer on this cluster had
+            # failed, while prompt_tokens_by_source still counted the tokens as
+            # arrived.
+            #
+            # gid[3] is the RoCE v2 entry bound to the host's own address:
+            #   gid[3]  RoCE v2  0000:...:ffff:ac1d:96ee  = 172.29.150.238
+            - { name: MC_GID_INDEX, value: "3" }
             # nvidia_peermem pins GPU memory for RDMA. Set 0 on hosts without
             # the kernel module and Mooncake uses the DMA-BUF path instead.
             - { name: WITH_NVIDIA_PEERMEM, value: "1" }
