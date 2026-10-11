@@ -1,0 +1,105 @@
+{
+  "args": {
+    "url": "http://127.0.0.1:8080",
+    "prom_url": "http://127.0.0.1:31490",
+    "model": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    "sessions": 2,
+    "max_tokens": 200,
+    "tool_gap": 0.2,
+    "timeout": 600,
+    "seed": 1,
+    "run": "capacity-s2"
+  },
+  "wall_s": 7.639064073562622,
+  "signal": [
+    0.10390152305445444,
+    0.10390152305445444,
+    0.10390152305445444,
+    0.18255789693302737,
+    0.18255789693302737,
+    0.18255789693302737,
+    0.18255789693302737
+  ],
+  "results": [
+    {
+      "session": 0,
+      "turn": 1,
+      "prompt_chars": 8611,
+      "status": 200,
+      "latency_s": 0.8816080093383789,
+      "completion_tokens": 64,
+      "prompt_tokens": 1960,
+      "error": ""
+    },
+    {
+      "session": 1,
+      "turn": 1,
+      "prompt_chars": 8612,
+      "status": 200,
+      "latency_s": 1.6653251647949219,
+      "completion_tokens": 200,
+      "prompt_tokens": 1962,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 2,
+      "prompt_chars": 11833,
+      "status": 200,
+      "latency_s": 1.5868988037109375,
+      "completion_tokens": 200,
+      "prompt_tokens": 2338,
+      "error": ""
+    },
+    {
+      "session": 1,
+      "turn": 2,
+      "prompt_chars": 11834,
+      "status": 200,
+      "latency_s": 1.6242728233337402,
+      "completion_tokens": 200,
+      "prompt_tokens": 2340,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 3,
+      "prompt_chars": 59856,
+      "status": 200,
+      "latency_s": 1.7510530948638916,
+      "completion_tokens": 200,
+      "prompt_tokens": 7946,
+      "error": ""
+    },
+    {
+      "session": 1,
+      "turn": 3,
+      "prompt_chars": 59857,
+      "status": 200,
+      "latency_s": 1.7836050987243652,
+      "completion_tokens": 200,
+      "prompt_tokens": 7948,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 4,
+      "prompt_chars": 59885,
+      "status": 200,
+      "latency_s": 1.7928929328918457,
+      "completion_tokens": 200,
+      "prompt_tokens": 7952,
+      "error": ""
+    },
+    {
+      "session": 1,
+      "turn": 4,
+      "prompt_chars": 59886,
+      "status": 200,
+      "latency_s": 1.7572038173675537,
+      "completion_tokens": 200,
+      "prompt_tokens": 7954,
+      "error": ""
+    }
+  ]
+}

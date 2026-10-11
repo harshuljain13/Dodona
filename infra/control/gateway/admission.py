@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import time
+from typing import Callable
 import urllib.error
 
 from gateway.admitperf_gate import Gate
@@ -23,11 +24,15 @@ DEFAULT_TOKENS_PER_MIN = int(os.environ.get("TENANT_TOKENS_PER_MIN") or 10_000)
 
 class Gateway:
 
-    def __init__(self, router: Router, tokens_per_min: int | None = None) -> None:
+    def __init__(self, router: Router, tokens_per_min: int | None = None,
+                 *, clock: Callable[[], float] | None = None) -> None:
         self.router = router
         self.tokens_per_min = (
             DEFAULT_TOKENS_PER_MIN if tokens_per_min is None else tokens_per_min
         )
+        #: The rate limiter's own clock. Monotonic so a clock adjustment cannot
+        #: hand a tenant a free window or freeze one shut.
+        self._clock = clock or time.monotonic
         self._window: dict[str, tuple[float, int]] = {}
         # The AdmitPerf policy, from ADMISSION_* in the environment. Off when
         # ADMISSION_POLICY is unset, leaving this gateway's own behaviour unchanged.
@@ -118,10 +123,26 @@ class Gateway:
         return Response(status=200, handoff=result, body=body)
 
     def _over_cap(self, req: Request) -> bool:
+        """Tokens per minute, per tenant, on a window the SERVER advances.
+
+        This used to window on `req.arrival_t`, which `request_from_openai`
+        defaults to 0.0 whenever the client omits it — and every real client
+        omits it. So `arrival_t - start` was `0.0 - 0.0` forever, the window
+        never rolled over, and `used` accumulated for the life of the process:
+        "2,000,000 tokens per minute" was really 2,000,000 tokens ever. The
+        gateway then 429'd every request for the rest of its uptime, which in a
+        capacity sweep looks exactly like the cluster refusing load it could not
+        handle.
+
+        A rate limiter cannot take its clock from the thing it is limiting.
+        `arrival_t` is still honoured when given, because the behaviour harness
+        drives synthetic arrivals to test the window itself.
+        """
+        now = req.arrival_t if req.arrival_t else self._clock()
         cost = int(req.prompt_tokens) + int(req.max_new_tokens)
-        start, used = self._window.get(req.tenant, (req.arrival_t, 0))
-        if req.arrival_t - start >= WINDOW_S:
-            start, used = req.arrival_t, 0
+        start, used = self._window.get(req.tenant, (now, 0))
+        if now - start >= WINDOW_S:
+            start, used = now, 0
         if used + cost > self.tokens_per_min:
             return True
         self._window[req.tenant] = (start, used + cost)

@@ -1,0 +1,351 @@
+{
+  "args": {
+    "url": "http://127.0.0.1:8080",
+    "prom_url": "http://127.0.0.1:31490",
+    "model": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    "sessions": 8,
+    "max_tokens": 200,
+    "tool_gap": 0.2,
+    "timeout": 600,
+    "seed": 1,
+    "run": "capacity-s8"
+  },
+  "wall_s": 15.456094980239868,
+  "signal": [
+    0.26747339870644693,
+    0.26747339870644693,
+    0.26747339870644693,
+    0.26747339870644693,
+    0.26747339870644693,
+    0.26747339870644693,
+    0.26747339870644693,
+    0.26747339870644693,
+    0.26914249947840596,
+    0.26914249947840596,
+    0.26914249947840596,
+    0.26914249947840596,
+    0.26914249947840596
+  ],
+  "results": [
+    {
+      "session": 0,
+      "turn": 1,
+      "prompt_chars": 8611,
+      "status": 503,
+      "latency_s": 0.3644533157348633,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 1,
+      "turn": 1,
+      "prompt_chars": 8612,
+      "status": 503,
+      "latency_s": 0.364926815032959,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 2,
+      "turn": 1,
+      "prompt_chars": 8620,
+      "status": 503,
+      "latency_s": 0.365278959274292,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 4,
+      "turn": 1,
+      "prompt_chars": 8630,
+      "status": 503,
+      "latency_s": 0.39935994148254395,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 7,
+      "turn": 1,
+      "prompt_chars": 8612,
+      "status": 503,
+      "latency_s": 0.42598605155944824,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 5,
+      "turn": 1,
+      "prompt_chars": 8616,
+      "status": 503,
+      "latency_s": 0.43617987632751465,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 6,
+      "turn": 1,
+      "prompt_chars": 8611,
+      "status": 503,
+      "latency_s": 0.43650102615356445,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 1,
+      "turn": 2,
+      "prompt_chars": 11834,
+      "status": 503,
+      "latency_s": 0.167802095413208,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 0,
+      "turn": 2,
+      "prompt_chars": 11833,
+      "status": 503,
+      "latency_s": 0.2213728427886963,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 4,
+      "turn": 2,
+      "prompt_chars": 11852,
+      "status": 503,
+      "latency_s": 0.2859020233154297,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 2,
+      "turn": 2,
+      "prompt_chars": 11842,
+      "status": 503,
+      "latency_s": 0.32317018508911133,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 7,
+      "turn": 2,
+      "prompt_chars": 11834,
+      "status": 503,
+      "latency_s": 0.258591890335083,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 6,
+      "turn": 2,
+      "prompt_chars": 11833,
+      "status": 503,
+      "latency_s": 0.3760337829589844,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 5,
+      "turn": 2,
+      "prompt_chars": 11838,
+      "status": 503,
+      "latency_s": 0.3947288990020752,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 1,
+      "turn": 3,
+      "prompt_chars": 59857,
+      "status": 503,
+      "latency_s": 0.281663179397583,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 3,
+      "turn": 1,
+      "prompt_chars": 8633,
+      "status": 503,
+      "latency_s": 1.2699952125549316,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 0,
+      "turn": 3,
+      "prompt_chars": 59856,
+      "status": 503,
+      "latency_s": 0.7547779083251953,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 7,
+      "turn": 3,
+      "prompt_chars": 59857,
+      "status": 503,
+      "latency_s": 0.713953971862793,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 2,
+      "turn": 3,
+      "prompt_chars": 59865,
+      "status": 503,
+      "latency_s": 0.8420279026031494,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 4,
+      "turn": 3,
+      "prompt_chars": 59875,
+      "status": 503,
+      "latency_s": 0.9443032741546631,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 3,
+      "turn": 2,
+      "prompt_chars": 11855,
+      "status": 503,
+      "latency_s": 0.8965449333190918,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 6,
+      "turn": 3,
+      "prompt_chars": 59856,
+      "status": 503,
+      "latency_s": 1.2407019138336182,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 7,
+      "turn": 4,
+      "prompt_chars": 59886,
+      "status": 503,
+      "latency_s": 3.5935018062591553,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 2,
+      "turn": 4,
+      "prompt_chars": 59894,
+      "status": 503,
+      "latency_s": 5.5665600299835205,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 5,
+      "turn": 3,
+      "prompt_chars": 59861,
+      "status": 503,
+      "latency_s": 7.51106595993042,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 5,
+      "turn": 4,
+      "prompt_chars": 59890,
+      "status": 503,
+      "latency_s": 2.4572408199310303,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 1,
+      "turn": 4,
+      "prompt_chars": 59886,
+      "status": 503,
+      "latency_s": 10.225212097167969,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 0,
+      "turn": 4,
+      "prompt_chars": 59885,
+      "status": 503,
+      "latency_s": 9.944990873336792,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 4,
+      "turn": 4,
+      "prompt_chars": 59904,
+      "status": 503,
+      "latency_s": 10.383318901062012,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 3,
+      "turn": 3,
+      "prompt_chars": 59878,
+      "status": 503,
+      "latency_s": 10.114989995956421,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 6,
+      "turn": 4,
+      "prompt_chars": 59885,
+      "status": 503,
+      "latency_s": 10.079366683959961,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    },
+    {
+      "session": 3,
+      "turn": 4,
+      "prompt_chars": 59907,
+      "status": 503,
+      "latency_s": 2.35817813873291,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    }
+  ]
+}

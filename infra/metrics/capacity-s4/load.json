@@ -1,0 +1,195 @@
+{
+  "args": {
+    "url": "http://127.0.0.1:8080",
+    "prom_url": "http://127.0.0.1:31490",
+    "model": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    "sessions": 4,
+    "max_tokens": 200,
+    "tool_gap": 0.2,
+    "timeout": 600,
+    "seed": 1,
+    "run": "capacity-s4"
+  },
+  "wall_s": 18.430649995803833,
+  "signal": [
+    0.10411016065094925,
+    0.10411016065094925,
+    0.10411016065094925,
+    0.10411016065094925,
+    0.10411016065094925,
+    0.11558522845816821,
+    0.11558522845816821,
+    0.11558522845816821,
+    0.11558522845816821,
+    0.11558522845816821,
+    0.11558522845816821,
+    0.11558522845816821,
+    0.11558522845816821,
+    0.11558522845816821,
+    0.11558522845816821,
+    0.11558522845816821,
+    0.11558522845816821
+  ],
+  "results": [
+    {
+      "session": 1,
+      "turn": 1,
+      "prompt_chars": 8612,
+      "status": 200,
+      "latency_s": 1.7754168510437012,
+      "completion_tokens": 200,
+      "prompt_tokens": 1962,
+      "error": ""
+    },
+    {
+      "session": 2,
+      "turn": 1,
+      "prompt_chars": 8620,
+      "status": 200,
+      "latency_s": 3.4590179920196533,
+      "completion_tokens": 200,
+      "prompt_tokens": 1963,
+      "error": ""
+    },
+    {
+      "session": 3,
+      "turn": 1,
+      "prompt_chars": 8633,
+      "status": 200,
+      "latency_s": 3.478998899459839,
+      "completion_tokens": 200,
+      "prompt_tokens": 1963,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 1,
+      "prompt_chars": 8611,
+      "status": 200,
+      "latency_s": 3.4994421005249023,
+      "completion_tokens": 200,
+      "prompt_tokens": 1960,
+      "error": ""
+    },
+    {
+      "session": 1,
+      "turn": 2,
+      "prompt_chars": 11834,
+      "status": 200,
+      "latency_s": 2.888808012008667,
+      "completion_tokens": 140,
+      "prompt_tokens": 2340,
+      "error": ""
+    },
+    {
+      "session": 2,
+      "turn": 2,
+      "prompt_chars": 11842,
+      "status": 200,
+      "latency_s": 2.115323305130005,
+      "completion_tokens": 28,
+      "prompt_tokens": 2341,
+      "error": ""
+    },
+    {
+      "session": 3,
+      "turn": 2,
+      "prompt_chars": 11855,
+      "status": 200,
+      "latency_s": 2.163907051086426,
+      "completion_tokens": 34,
+      "prompt_tokens": 2341,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 2,
+      "prompt_chars": 11833,
+      "status": 200,
+      "latency_s": 3.464614152908325,
+      "completion_tokens": 200,
+      "prompt_tokens": 2338,
+      "error": ""
+    },
+    {
+      "session": 3,
+      "turn": 3,
+      "prompt_chars": 59878,
+      "status": 200,
+      "latency_s": 2.9979429244995117,
+      "completion_tokens": 142,
+      "prompt_tokens": 7949,
+      "error": ""
+    },
+    {
+      "session": 1,
+      "turn": 3,
+      "prompt_chars": 59857,
+      "status": 200,
+      "latency_s": 4.013777017593384,
+      "completion_tokens": 200,
+      "prompt_tokens": 7948,
+      "error": ""
+    },
+    {
+      "session": 2,
+      "turn": 3,
+      "prompt_chars": 59865,
+      "status": 200,
+      "latency_s": 3.2355170249938965,
+      "completion_tokens": 200,
+      "prompt_tokens": 7949,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 3,
+      "prompt_chars": 59856,
+      "status": 200,
+      "latency_s": 2.016322135925293,
+      "completion_tokens": 200,
+      "prompt_tokens": 7946,
+      "error": ""
+    },
+    {
+      "session": 2,
+      "turn": 4,
+      "prompt_chars": 59894,
+      "status": 200,
+      "latency_s": 1.4710938930511475,
+      "completion_tokens": 58,
+      "prompt_tokens": 7955,
+      "error": ""
+    },
+    {
+      "session": 3,
+      "turn": 4,
+      "prompt_chars": 59907,
+      "status": 200,
+      "latency_s": 1.8607239723205566,
+      "completion_tokens": 200,
+      "prompt_tokens": 7955,
+      "error": ""
+    },
+    {
+      "session": 1,
+      "turn": 4,
+      "prompt_chars": 59886,
+      "status": 200,
+      "latency_s": 1.9398608207702637,
+      "completion_tokens": 200,
+      "prompt_tokens": 7954,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 4,
+      "prompt_chars": 59885,
+      "status": 503,
+      "latency_s": 8.635478019714355,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
+    }
+  ]
+}

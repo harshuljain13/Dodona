@@ -1,0 +1,64 @@
+{
+  "args": {
+    "url": "http://127.0.0.1:8080",
+    "prom_url": "http://127.0.0.1:31490",
+    "model": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    "sessions": 1,
+    "max_tokens": 200,
+    "tool_gap": 0.2,
+    "timeout": 600,
+    "seed": 1,
+    "run": "capacity-s1"
+  },
+  "wall_s": 6.499808311462402,
+  "signal": [
+    0.10390152305445444,
+    0.10390152305445444,
+    0.10390152305445444,
+    0.10390152305445444,
+    0.10390152305445444,
+    0.10390152305445444
+  ],
+  "results": [
+    {
+      "session": 0,
+      "turn": 1,
+      "prompt_chars": 8611,
+      "status": 200,
+      "latency_s": 0.8162808418273926,
+      "completion_tokens": 73,
+      "prompt_tokens": 1960,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 2,
+      "prompt_chars": 11833,
+      "status": 200,
+      "latency_s": 1.480851173400879,
+      "completion_tokens": 200,
+      "prompt_tokens": 2338,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 3,
+      "prompt_chars": 59856,
+      "status": 200,
+      "latency_s": 1.7065410614013672,
+      "completion_tokens": 200,
+      "prompt_tokens": 7946,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 4,
+      "prompt_chars": 59885,
+      "status": 200,
+      "latency_s": 1.6846671104431152,
+      "completion_tokens": 200,
+      "prompt_tokens": 7952,
+      "error": ""
+    }
+  ]
+}
