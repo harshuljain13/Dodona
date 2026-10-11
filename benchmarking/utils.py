@@ -395,9 +395,18 @@ class Report:
 
     def bar(self, title: str, labels: list[str], series: dict[str, list[float]],
             *, ylabel: str = "", log: bool = False, hline: float | None = None,
+            stacked: bool = False, horizontal: bool = False, total: bool = False,
             note: str = "", conclusion: str = "", show: bool = True) -> "Report":
+        """`stacked` for parts of a whole, `horizontal` when labels are prose.
+
+        Grouped bars ask the reader to add the segments up. If the series sum to
+        something meaningful — percentages of one prompt, or the two halves of
+        one wait — stacking makes the composition the chart rather than an
+        inference from it.
+        """
         spec = {"kind": "bar", "title": title, "labels": labels, "series": series,
-                "ylabel": ylabel, "log": log, "hline": hline}
+                "ylabel": ylabel, "log": log, "hline": hline,
+                "stacked": stacked, "horizontal": horizontal, "total": total}
         self.blocks.append(_Block("spec", spec, note))
         if show:
             _show_interactive(spec, note)
@@ -592,29 +601,72 @@ def _draw_spec_mpl(ax, spec: dict) -> None:
 
     if spec["kind"] == "bar":
         labels, series = spec["labels"], spec["series"]
-        width = 0.8 / max(len(series), 1)
-        for i, (name, values) in enumerate(series.items()):
-            offset = (i - (len(series) - 1) / 2) * width
-            xs = [j + offset for j in range(len(labels))]
-            bars = ax.bar(xs, values, width, label=name,
-                          color=PALETTE[i % len(PALETTE)],
-                          edgecolor="white", linewidth=0.6, zorder=3)
-            labelled = True
-            # The number, on the bar. An axis reading is an estimate.
-            if not spec.get("log"):
-                ax.bar_label(bars, fmt=_bar_fmt(values), fontsize=8,
-                             padding=2, color="#30363d")
-        ax.set_xticks(range(len(labels)))
-        ax.set_xticklabels(labels, fontsize=9)
+        horizontal = spec.get("horizontal", False)
+        stacked = spec.get("stacked", False)
+        pos = list(range(len(labels)))
 
-        # Log needs a positive value somewhere. A freshly restarted fleet reads
-        # all zeros, and matplotlib warns rather than falling back.
-        has_positive = any(v > 0 for vs in series.values() for v in vs)
-        if spec["log"] and has_positive:
-            ax.set_yscale("log")
+        if stacked:
+            # Parts of a whole. The segment IS the composition; grouped bars
+            # would make the reader add them up by eye.
+            running = [0.0] * len(labels)
+            for i, (name, values) in enumerate(series.items()):
+                colour = PALETTE[i % len(PALETTE)]
+                if horizontal:
+                    ax.barh(pos, values, 0.62, left=running, label=name,
+                            color=colour, edgecolor="white", linewidth=0.6, zorder=3)
+                else:
+                    ax.bar(pos, values, 0.62, bottom=running, label=name,
+                           color=colour, edgecolor="white", linewidth=0.6, zorder=3)
+                # Only label a segment big enough to hold the text.
+                span = max((a + b for a, b in zip(running, values)), default=1) or 1
+                for j, val in enumerate(values):
+                    if val > span * 0.08:
+                        mid = running[j] + val / 2
+                        xy = (mid, pos[j]) if horizontal else (pos[j], mid)
+                        ax.annotate(_seg_fmt(val), xy, ha="center", va="center",
+                                    fontsize=8, color="white", fontweight="bold",
+                                    zorder=4)
+                running = [a + b for a, b in zip(running, values)]
+                labelled = True
+            if spec.get("total"):
+                for j, tot in enumerate(running):
+                    xy = (tot, pos[j]) if horizontal else (pos[j], tot)
+                    off = (4, 0) if horizontal else (0, 4)
+                    ax.annotate(_seg_fmt(tot), xy, textcoords="offset points",
+                                xytext=off, ha="left" if horizontal else "center",
+                                va="center" if horizontal else "bottom",
+                                fontsize=8, fontweight="bold", color="#30363d")
+            top = max(running, default=0)
         else:
+            width = 0.8 / max(len(series), 1)
+            for i, (name, values) in enumerate(series.items()):
+                offset = (i - (len(series) - 1) / 2) * width
+                at = [j + offset for j in pos]
+                draw = ax.barh if horizontal else ax.bar
+                bars = draw(at, values, width, label=name,
+                            color=PALETTE[i % len(PALETTE)],
+                            edgecolor="white", linewidth=0.6, zorder=3)
+                labelled = True
+                if not spec.get("log"):
+                    ax.bar_label(bars, fmt=_bar_fmt(values), fontsize=8,
+                                 padding=2, color="#30363d")
             top = max((v for vs in series.values() for v in vs), default=0)
-            ax.set_ylim(0, top * 1.18 if top > 0 else 1)
+
+        if horizontal:
+            ax.set_yticks(pos); ax.set_yticklabels(labels, fontsize=9)
+            ax.invert_yaxis()      # first case at the top, as the table reads
+            ax.set_xlim(0, top * 1.12 if top > 0 else 1)
+        else:
+            ax.set_xticks(pos)
+            ax.set_xticklabels(labels, fontsize=9,
+                               rotation=20 if max(map(len, labels)) > 12 else 0,
+                               ha="right" if max(map(len, labels)) > 12 else "center")
+            # Log needs a positive value somewhere. A freshly restarted fleet
+            # reads all zeros, and matplotlib warns rather than falling back.
+            if spec["log"] and any(v > 0 for vs in series.values() for v in vs):
+                ax.set_yscale("log")
+            else:
+                ax.set_ylim(0, top * 1.18 if top > 0 else 1)
     else:
         for i, (name, values) in enumerate(spec["series"].items()):
             ax.plot(spec["x"], values, marker=MARKERS[i % len(MARKERS)],
@@ -638,17 +690,22 @@ def _draw_spec_mpl(ax, spec: dict) -> None:
 
     # A threshold line is a different kind of thing from a measurement, so it
     # gets a different style rather than another colour in the same series.
+    rule = ax.axvline if spec.get("horizontal") else ax.axhline
     for name, y in spec.get("hlines", {}).items():
-        ax.axhline(y, ls="--", color="#a40e26", linewidth=1.4, label=name, zorder=2)
+        rule(y, ls="--", color="#a40e26", linewidth=1.4, label=name, zorder=2)
         labelled = True
     if spec.get("hline") is not None:
-        ax.axhline(spec["hline"], ls="--", color="#a40e26", linewidth=1.4,
-                   label="target", zorder=2)
+        rule(spec["hline"], ls="--", color="#a40e26", linewidth=1.4,
+             label="budget", zorder=2)
         labelled = True
 
-    ax.set_ylabel(spec.get("ylabel", ""), fontsize=9)
+    if spec.get("horizontal"):
+        ax.set_xlabel(spec.get("ylabel", ""), fontsize=9)
+    else:
+        ax.set_ylabel(spec.get("ylabel", ""), fontsize=9)
     ax.set_title(spec["title"], fontsize=11, fontweight="bold", pad=10)
-    ax.grid(True, axis="y", ls=":", color="#8b949e", alpha=0.6, zorder=0)
+    ax.grid(True, axis="x" if spec.get("horizontal") else "y",
+            ls=":", color="#8b949e", alpha=0.6, zorder=0)
     ax.set_axisbelow(True)
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
@@ -667,6 +724,15 @@ def _is_geometric(xs: list[float]) -> bool:
         return False
     ratios = [b / a for a, b in zip(xs, xs[1:])]
     return min(ratios) >= 1.4 and max(ratios) <= 4.0
+
+
+def _seg_fmt(value: float) -> str:
+    """A label that fits inside a stacked segment."""
+    if value >= 100:
+        return f"{value:,.0f}"
+    if value >= 10:
+        return f"{value:.0f}"
+    return f"{value:.1f}"
 
 
 def _bar_fmt(values: list[float]) -> str:
