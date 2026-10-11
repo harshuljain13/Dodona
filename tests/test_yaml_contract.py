@@ -178,29 +178,27 @@ def test_a_failed_kv_transfer_must_not_kill_the_pod() -> None:
             f"{name}: a failed transfer would fail the request and kill the engine")
 
 
-def test_latency_buckets_resolve_the_latencies_we_actually_have() -> None:
-    """vLLM's default request_latency buckets start at 0.3s.
+def test_we_do_not_pass_a_flag_this_vllm_rejects() -> None:
+    """--custom-histogram-buckets does not exist in vLLM 0.31.0.
 
-    That family is shared by e2e, queue, inference, prefill and decode. Every
-    request on this cluster finishes in under 100ms, so 96-100% of samples land
-    in the first bucket, histogram_quantile interpolates inside [0, 0.3], and
-    all five report 0.15/0.27/0.297 while their true means differ 17x —
-    decode's mean is 5ms.
+    It would fix the real problem — the default request_latency buckets start
+    at 0.3s and cannot resolve anything this cluster does — but it was added
+    after 0.31.0 and passing it is a hard startup failure:
 
-    The lowest boundary has to sit below the fastest thing being measured.
+        vllm: error: unrecognized arguments: --custom-histogram-buckets
+
+    I added it from reading vLLM's `main` branch without checking the version
+    we actually run. Until the engine is upgraded, the percentiles for e2e,
+    queue, prefill and decode are unusable and the mean is the honest figure.
     """
-    import json
-    import re
-
     for name in ("vllm-prefill", "vllm-decode"):
         text = (K8S / "fleet" / f"{name}.yaml").read_text()
-        match = re.search(r"--custom-histogram-buckets '(\{.*?\})'", text, re.S)
-        assert match, f"{name}: no custom buckets, so e2e/queue/prefill/decode collide"
-        buckets = json.loads(match.group(1))["request_latency"]
-        assert buckets == sorted(buckets), f"{name}: bucket bounds must increase"
-        assert buckets[0] <= 0.005, (
-            f"{name}: lowest bound {buckets[0]}s is above decode's ~5ms mean")
-        assert max(buckets) >= 30, f"{name}: nothing to catch a slow request"
+        # Split on the YAML KEY, not the substring: the comment above it says
+        # "everything below `args:`", and splitting on "args:" matched that
+        # instead — so the test read the explanation as if it were the command.
+        args = text.split("\n          args:\n")[1].split("ports:")[0]
+        assert "--custom-histogram-buckets" not in args, (
+            f"{name} passes a flag vLLM 0.31.0 rejects — the pod will crash-loop")
 
 
 def test_no_comment_inside_a_folded_shell_command() -> None:

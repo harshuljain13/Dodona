@@ -60,11 +60,16 @@ spec:
           # line. Doing that here silently dropped --enable-auto-tool-choice,
           # --host, --port and --kv-transfer-config. Explanations go HERE.
           #
-          # --custom-histogram-buckets: vLLM's default request_latency buckets
-          # start at 0.3s and are shared by e2e, queue, inference, prefill and
-          # decode. Every request here finishes under 100ms, so 96-100% of
-          # samples land in the first bucket and histogram_quantile returns the
-          # same p50/p90/p99 for all five while their true means differ 17x.
+          # NOT SET: --custom-histogram-buckets. vLLM's default request_latency
+          # buckets start at 0.3s and are shared by e2e, queue, inference,
+          # prefill and decode, so on this cluster every sample lands in the
+          # first bucket and all five report the same interpolated percentile.
+          # The flag that would fix it does not exist in 0.31.0 — it was added
+          # later, and passing it is a hard startup failure:
+          #     vllm: error: unrecognized arguments: --custom-histogram-buckets
+          # So those four percentiles are unusable here. Use the exact mean from
+          # _sum/_count, or TTFT, which has its own buckets from 0.001s, or our
+          # own orch_request_duration_seconds, whose buckets start at 0.005s.
           args:
             - >-
               pip install -q mooncake-transfer-engine-cuda13 &&
@@ -74,7 +79,6 @@ spec:
               --max-num-seqs=64
               --gpu-memory-utilization=0.90
               --enable-prefix-caching
-              --custom-histogram-buckets '{"request_latency":[0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10,30,60,120]}'
               --enable-auto-tool-choice
               --tool-call-parser=hermes
               --host=0.0.0.0 --port=8000
