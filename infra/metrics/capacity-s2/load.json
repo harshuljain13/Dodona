@@ -10,46 +10,35 @@
     "seed": 1,
     "run": "capacity-s2"
   },
-  "wall_s": 8.07066011428833,
+  "wall_s": 7.464125156402588,
   "signal": [
-    0.5063634466930941,
-    0.5063634466930941,
-    0.506572084289589,
-    0.506572084289589,
-    0.506572084289589,
-    0.506572084289589,
-    0.506572084289589,
-    0.506572084289589
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277
   ],
   "results": [
-    {
-      "session": 0,
-      "turn": 1,
-      "prompt_chars": 8611,
-      "status": 200,
-      "latency_s": 1.489844799041748,
-      "completion_tokens": 200,
-      "prompt_tokens": 1960,
-      "error": ""
-    },
     {
       "session": 1,
       "turn": 1,
       "prompt_chars": 8612,
       "status": 200,
-      "latency_s": 1.506523847579956,
-      "completion_tokens": 200,
+      "latency_s": 0.8796737194061279,
+      "completion_tokens": 74,
       "prompt_tokens": 1962,
       "error": ""
     },
     {
       "session": 0,
-      "turn": 2,
-      "prompt_chars": 11833,
+      "turn": 1,
+      "prompt_chars": 8611,
       "status": 200,
-      "latency_s": 0.6656351089477539,
-      "completion_tokens": 53,
-      "prompt_tokens": 2338,
+      "latency_s": 1.6535229682922363,
+      "completion_tokens": 200,
+      "prompt_tokens": 1960,
       "error": ""
     },
     {
@@ -57,19 +46,19 @@
       "turn": 2,
       "prompt_chars": 11834,
       "status": 200,
-      "latency_s": 1.469316005706787,
-      "completion_tokens": 36,
+      "latency_s": 1.662855863571167,
+      "completion_tokens": 200,
       "prompt_tokens": 2340,
       "error": ""
     },
     {
       "session": 0,
-      "turn": 3,
-      "prompt_chars": 59856,
+      "turn": 2,
+      "prompt_chars": 11833,
       "status": 200,
-      "latency_s": 1.39288330078125,
-      "completion_tokens": 30,
-      "prompt_tokens": 7946,
+      "latency_s": 1.5777111053466797,
+      "completion_tokens": 200,
+      "prompt_tokens": 2338,
       "error": ""
     },
     {
@@ -77,19 +66,19 @@
       "turn": 3,
       "prompt_chars": 59857,
       "status": 200,
-      "latency_s": 2.6724610328674316,
-      "completion_tokens": 200,
+      "latency_s": 1.1739919185638428,
+      "completion_tokens": 112,
       "prompt_tokens": 7948,
       "error": ""
     },
     {
       "session": 0,
-      "turn": 4,
-      "prompt_chars": 59885,
+      "turn": 3,
+      "prompt_chars": 59856,
       "status": 200,
-      "latency_s": 1.9158880710601807,
+      "latency_s": 1.674842119216919,
       "completion_tokens": 200,
-      "prompt_tokens": 7952,
+      "prompt_tokens": 7946,
       "error": ""
     },
     {
@@ -97,9 +86,19 @@
       "turn": 4,
       "prompt_chars": 59886,
       "status": 200,
-      "latency_s": 1.6037209033966064,
+      "latency_s": 1.6952447891235352,
       "completion_tokens": 200,
       "prompt_tokens": 7954,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 4,
+      "prompt_chars": 59885,
+      "status": 200,
+      "latency_s": 1.738205909729004,
+      "completion_tokens": 200,
+      "prompt_tokens": 7952,
       "error": ""
     }
   ]

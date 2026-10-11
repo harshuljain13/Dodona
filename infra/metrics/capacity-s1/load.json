@@ -10,14 +10,15 @@
     "seed": 1,
     "run": "capacity-s1"
   },
-  "wall_s": 6.553570032119751,
+  "wall_s": 7.25042986869812,
   "signal": [
-    0.5063634466930941,
-    0.5063634466930941,
-    0.5063634466930941,
-    0.5063634466930941,
-    0.5063634466930941,
-    0.5063634466930941
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277
   ],
   "results": [
     {
@@ -25,8 +26,8 @@
       "turn": 1,
       "prompt_chars": 8611,
       "status": 200,
-      "latency_s": 0.7283153533935547,
-      "completion_tokens": 71,
+      "latency_s": 1.5853009223937988,
+      "completion_tokens": 200,
       "prompt_tokens": 1960,
       "error": ""
     },
@@ -35,7 +36,7 @@
       "turn": 2,
       "prompt_chars": 11833,
       "status": 200,
-      "latency_s": 1.458822250366211,
+      "latency_s": 1.4720547199249268,
       "completion_tokens": 200,
       "prompt_tokens": 2338,
       "error": ""
@@ -45,7 +46,7 @@
       "turn": 3,
       "prompt_chars": 59856,
       "status": 200,
-      "latency_s": 1.9504778385162354,
+      "latency_s": 1.7154908180236816,
       "completion_tokens": 200,
       "prompt_tokens": 7946,
       "error": ""
@@ -55,7 +56,7 @@
       "turn": 4,
       "prompt_chars": 59885,
       "status": 200,
-      "latency_s": 1.602890968322754,
+      "latency_s": 1.6713061332702637,
       "completion_tokens": 200,
       "prompt_tokens": 7952,
       "error": ""
