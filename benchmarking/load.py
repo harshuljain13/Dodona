@@ -34,6 +34,7 @@ import statistics
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
@@ -136,16 +137,30 @@ def session(idx: int, args, run: Run) -> None:
         time.sleep(args.tool_gap)
 
 
-def sample_signal(metrics_url: str, run: Run, stop: threading.Event) -> None:
-    """Poll the KV-usage gauge. Without this a run says nothing about scarcity."""
+#: The signal an admission policy reads, asked of Prometheus rather than of one
+#: pod. KV usage is per-engine, so the figure that matters across a fleet is the
+#: max — a policy fires on the worst slice, not on the average of all of them.
+SIGNAL_QUERY = "max(vllm:kv_cache_usage_perc)"
+
+
+def sample_signal(prom_url: str, run: Run, stop: threading.Event) -> None:
+    """Poll the KV-usage gauge. Without this a run says nothing about scarcity.
+
+    This used to scrape `<gateway>/metrics`, which does not export
+    vllm:kv_cache_usage_perc at all — that gauge lives on the engine pods. So it
+    silently collected nothing and every run reported "no signal samples",
+    meaning no load run ever recorded whether the GPU was under pressure. A
+    latency number without the scarcity beside it cannot tell a cluster that
+    coped from one that was never asked for anything.
+    """
+    url = f"{prom_url.rstrip('/')}/api/v1/query?query={urllib.parse.quote(SIGNAL_QUERY)}"
     while not stop.is_set():
         try:
-            txt = urllib.request.urlopen(metrics_url, timeout=5).read().decode()
-            for line in txt.splitlines():
-                if line.startswith("vllm:kv_cache_usage_perc") and "{" in line:
-                    with run.lock:
-                        run.signal.append(float(line.rsplit(" ", 1)[1]))
-                    break
+            body = json.loads(urllib.request.urlopen(url, timeout=5).read())
+            result = body.get("data", {}).get("result") or []
+            if result:
+                with run.lock:
+                    run.signal.append(float(result[0]["value"][1]))
         except Exception:
             pass
         stop.wait(1.0)
@@ -163,7 +178,10 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--url", default="http://127.0.0.1:8080",
                     help="serve path. The gateway once it exists; a pool NodePort before that")
-    ap.add_argument("--metrics-url", default="", help="default: <url>/metrics")
+    # Prometheus, not the gateway: the KV gauge is on the engines, and Prometheus
+    # is the only place that already aggregates across them.
+    ap.add_argument("--prom-url", default="http://127.0.0.1:31490",
+                    help="where to read the scarcity signal from")
     ap.add_argument("--model", default="Qwen/Qwen2.5-7B-Instruct-AWQ")
     ap.add_argument("--sessions", type=int, default=8)
     ap.add_argument("--max-tokens", type=int, default=200)
@@ -173,10 +191,10 @@ def main() -> int:
     ap.add_argument("--run", default="", help="write the bundle to metrics/<run>/")
     args = ap.parse_args()
     random.seed(args.seed)
-    metrics_url = args.metrics_url or f"{args.url}/metrics"
+
 
     run, stop = Run(), threading.Event()
-    sampler = threading.Thread(target=sample_signal, args=(metrics_url, run, stop), daemon=True)
+    sampler = threading.Thread(target=sample_signal, args=(args.prom_url, run, stop), daemon=True)
     sampler.start()
 
     print(f"  {args.sessions} sessions x 4 turns -> {args.url}")
@@ -217,7 +235,7 @@ def main() -> int:
                   "never reached 0.90 — a kv_threshold policy would have been INERT"
         print(f"    {verdict}")
     else:
-        print("\n  no signal samples — is --metrics-url right?")
+        print(f"\n  no signal samples — is Prometheus reachable at {args.prom_url}?")
 
     if args.run:
         # Repo-root relative, not cwd relative: this is run from the box's
