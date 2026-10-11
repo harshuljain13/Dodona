@@ -5,9 +5,13 @@ SLO drifts between documents; here a change breaks a check.
 
     from slos import SLOS, target_sessions, set_target_sessions
 
-The point of an SLO rather than a measurement: "p95 TTFT was 1.2s" is a number,
-"1.2s against a 1.5s promise" is a result. A config that is faster but misses
-the promise under load is still a failure.
+The point of an SLO rather than a measurement: "p95 TTFT was 0.4s" is a number,
+"0.4s against a 0.5s budget" is a result. A config that is faster but misses
+the budget under load is still a failure.
+
+Note which number the engine is held to. A listener tolerates about 1.5s of
+silence, but that covers ASR, retrieval, the engine and TTS in series — so the
+engine gets a slice, not the whole thing. See SPEECH_STAGES.
 """
 from __future__ import annotations
 
@@ -40,11 +44,35 @@ class SLO:
         return f"{measured:g}{self.unit} {op} {self.target:g}{self.unit}"
 
 
+#: The 1.5s a listener will tolerate is the WHOLE speech path, not the engine's
+#: share of it. Everything here is serial on the way to first audio:
+#:
+#:     ASR finalize -> retrieval/tools -> LLM TTFT -> TTS first chunk
+#:
+#: So holding the engine to 1.5s spends the entire conversational budget on
+#: first-token alone and leaves nothing for the three stages around it. Stated
+#: as a decomposition rather than one number, because a figure whose derivation
+#: lives in prose drifts away from the figure the code checks.
+SPEECH_BUDGET_S = 1.5
+
+SPEECH_STAGES: dict[str, float] = {
+    "ASR finalize": 0.300,
+    "retrieval and tools": 0.400,
+    "TTS first chunk": 0.300,
+}
+
+#: What is left for the engine once the rest of the path is paid for. Derived,
+#: so changing a stage moves the SLO instead of silently contradicting it.
+TTFT_BUDGET_S = round(SPEECH_BUDGET_S - sum(SPEECH_STAGES.values()), 3)
+
+
 SLOS: dict[str, SLO] = {
     "ttft_p95": SLO(
-        "ttft_p95", "TTFT p95", 1.5, "s", "max",
-        "A voice agent's latency is dead air. Past about 1.5s the listener "
-        "starts talking over it.",
+        "ttft_p95", "TTFT p95", TTFT_BUDGET_S, "s", "max",
+        "A voice agent's latency is dead air, and the listener's 1.5s applies to "
+        "the whole path: ASR, retrieval, the engine, then TTS. "
+        f"{TTFT_BUDGET_S:g}s is what remains for first token once "
+        f"{sum(SPEECH_STAGES.values()):g}s of ASR, retrieval and TTS is paid for.",
     ),
     "turn_p95": SLO(
         "turn_p95", "turn p95", 30.0, "s", "max",
@@ -84,6 +112,16 @@ def set_target_sessions(n: int, *, evidence: str) -> Path:
     DERIVED.write_text(json.dumps(
         {"target_sessions": int(n), "evidence": evidence}, indent=2) + "\n")
     return DERIVED
+
+
+def budget_rows() -> list[list[object]]:
+    """The speech budget, stage by stage, with the engine's share derived."""
+    rows = [[name, f"{s * 1000:.0f} ms", ""] for name, s in SPEECH_STAGES.items()]
+    rows.insert(2, ["LLM TTFT", f"{TTFT_BUDGET_S * 1000:.0f} ms",
+                    "what 03 measures"])
+    rows.append(["total", f"{SPEECH_BUDGET_S * 1000:.0f} ms",
+                 "what a listener tolerates"])
+    return rows
 
 
 def table_rows() -> list[list[object]]:

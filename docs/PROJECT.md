@@ -101,13 +101,32 @@ And voice adds the thing a text app does not have: **a real deadline**.
 ### Two SLOs on one request
 
 ```
-listener speaks  ──►  "let me look that up"        time-to-first-audio   < 1 s
+listener speaks  ──►  "let me look that up"        time-to-first-audio   1.5 s
                  ──►  "...according to [source]"   time-to-full-answer   10-30 s
 ```
 
 These are different promises on the same request, and they fail differently. Miss
 the first and the interface feels broken — dead air. Miss the second and the
-answer is merely late. **A request that cannot make its first-audio budget is
+answer is merely late.
+
+**The 1.5 s is the whole speech path, not the engine's share of it.** Four stages
+are serial on the way to first audio, so the engine is held to what is left after
+the other three are paid for:
+
+| stage | budget |
+|---|---|
+| ASR finalize | 300 ms |
+| retrieval and tools | 400 ms |
+| **LLM TTFT** | **500 ms** ← what `03-capacity` measures |
+| TTS first chunk | 300 ms |
+| total | 1500 ms |
+
+This matters more than it looks. Holding the engine to 1.5 s instead of 500 ms
+overstates its headroom threefold, and `03-capacity` derives the cluster's
+concurrency limit from that number — so the error would propagate into every
+experiment downstream. The split lives in `benchmarking/slos.py` as a
+decomposition, with the engine's target *derived* rather than written down twice,
+and a test asserts the stages still sum to the total. **A request that cannot make its first-audio budget is
 better refused aloud than admitted and left silent**, which is exactly the
 decision the brief's `timeout_queue` shed is for.
 

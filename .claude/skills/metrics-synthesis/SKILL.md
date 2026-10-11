@@ -99,9 +99,12 @@ sessions on an H100.
 
 ## What makes it a result rather than a number
 
-1. **Against an SLO.** "p95 TTFT 1.21s" is a number. "1.21s against a 1.5s
-   promise" is a result. `benchmarking/slos.py` holds them; `Report.slo()`
-   checks against them.
+1. **Against an SLO.** "p95 TTFT 0.42s" is a number. "0.42s against a 0.5s
+   budget" is a result. `benchmarking/slos.py` holds them; `Report.slo()`
+   checks against them. Check what the budget actually covers: a voice
+   listener tolerates ~1.5s, but ASR, retrieval, the engine and TTS are
+   serial within it, so quoting the engine against 1.5s overstates headroom
+   threefold.
 2. **With what was scarce beside it.** A latency figure cannot tell a policy
    that worked from one that never had anything to decide. Always report the
    peak of the signal the policy reads.
