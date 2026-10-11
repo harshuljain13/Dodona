@@ -573,37 +573,110 @@ class Report:
 
 # ── chart rendering, from one spec ─────────────────────────────────────────
 
+#: One palette, used in order, so the same series keeps its colour between
+#: charts in a notebook. matplotlib's default cycle is fine but low-contrast
+#: when printed.
+PALETTE = ("#1f6feb", "#d1700a", "#1a7f37", "#a40e26", "#6639ba", "#0d7680")
+MARKERS = ("o", "s", "^", "D", "v", "P")
+
+
 def _draw_spec_mpl(ax, spec: dict) -> None:
-    """Render a chart spec into a matplotlib Axes, for the PDF."""
+    """Render a chart spec into a matplotlib Axes.
+
+    Opinionated about three things a benchmarking chart is unreadable without:
+    a grid behind the data so a value can be read off the axis, a legend
+    whenever anything is named, and value labels on bars so the reader does not
+    have to estimate from the axis.
+    """
+    labelled = False
+
     if spec["kind"] == "bar":
         labels, series = spec["labels"], spec["series"]
         width = 0.8 / max(len(series), 1)
         for i, (name, values) in enumerate(series.items()):
             offset = (i - (len(series) - 1) / 2) * width
-            ax.bar([j + offset for j in range(len(labels))], values, width, label=name)
-        ax.set_xticks(range(len(labels))); ax.set_xticklabels(labels)
+            xs = [j + offset for j in range(len(labels))]
+            bars = ax.bar(xs, values, width, label=name,
+                          color=PALETTE[i % len(PALETTE)],
+                          edgecolor="white", linewidth=0.6, zorder=3)
+            labelled = True
+            # The number, on the bar. An axis reading is an estimate.
+            if not spec.get("log"):
+                ax.bar_label(bars, fmt=_bar_fmt(values), fontsize=8,
+                             padding=2, color="#30363d")
+        ax.set_xticks(range(len(labels)))
+        ax.set_xticklabels(labels, fontsize=9)
+
         # Log needs a positive value somewhere. A freshly restarted fleet reads
         # all zeros, and matplotlib warns rather than falling back.
         has_positive = any(v > 0 for vs in series.values() for v in vs)
         if spec["log"] and has_positive:
             ax.set_yscale("log")
         else:
-            ax.set_ylim(bottom=0)
-        if len(series) > 1:
-            ax.legend(fontsize=8)
+            top = max((v for vs in series.values() for v in vs), default=0)
+            ax.set_ylim(0, top * 1.18 if top > 0 else 1)
     else:
-        for name, values in spec["series"].items():
-            ax.plot(spec["x"], values, "o-", label=name)
-        ax.set_xlabel(spec.get("xlabel", ""))
-        ax.set_ylim(bottom=0)
-        for name, y in spec.get("hlines", {}).items():
-            ax.axhline(y, ls="--", color="#c0392b", label=name)
-        if len(spec["series"]) > 1 or spec.get("hlines"):
-            ax.legend(fontsize=8)
+        for i, (name, values) in enumerate(spec["series"].items()):
+            ax.plot(spec["x"], values, marker=MARKERS[i % len(MARKERS)],
+                    color=PALETTE[i % len(PALETTE)], linewidth=1.8,
+                    markersize=5, label=name, zorder=3)
+            labelled = True
+        ax.set_xlabel(spec.get("xlabel", ""), fontsize=9)
+        # A doubling sweep on a linear axis crams 1,2,4,8 into the left eighth
+        # of the chart and spends half the width on the gap to the last point.
+        if _is_geometric(spec["x"]):
+            ax.set_xscale("log", base=2)
+        # Every x we actually measured, so nobody reads a value off an
+        # interpolated tick that was never sampled.
+        if spec["x"] and len(spec["x"]) <= 12:
+            ax.set_xticks(spec["x"])
+            ax.set_xticklabels([f"{x:g}" for x in spec["x"]], fontsize=9)
+            ax.minorticks_off()
+        top = max((v for vs in spec["series"].values() for v in vs), default=0)
+        top = max(top, *spec.get("hlines", {}).values()) if spec.get("hlines") else top
+        ax.set_ylim(0, top * 1.15 if top > 0 else 1)
+
+    # A threshold line is a different kind of thing from a measurement, so it
+    # gets a different style rather than another colour in the same series.
+    for name, y in spec.get("hlines", {}).items():
+        ax.axhline(y, ls="--", color="#a40e26", linewidth=1.4, label=name, zorder=2)
+        labelled = True
     if spec.get("hline") is not None:
-        ax.axhline(spec["hline"], ls="--", color="#c0392b")
-    ax.set_ylabel(spec.get("ylabel", ""))
-    ax.set_title(spec["title"])
+        ax.axhline(spec["hline"], ls="--", color="#a40e26", linewidth=1.4,
+                   label="target", zorder=2)
+        labelled = True
+
+    ax.set_ylabel(spec.get("ylabel", ""), fontsize=9)
+    ax.set_title(spec["title"], fontsize=11, fontweight="bold", pad=10)
+    ax.grid(True, axis="y", ls=":", color="#8b949e", alpha=0.6, zorder=0)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    ax.tick_params(labelsize=9)
+    # One series and no threshold needs no key — the title already says what it
+    # is, and a legend box over the data is noise.
+    named = len(spec.get("series", {})) + len(spec.get("hlines", {}))
+    if labelled and (named > 1 or spec.get("hline") is not None):
+        ax.legend(fontsize=8, frameon=True, framealpha=0.95, edgecolor="#d0d7de",
+                  loc="best")
+
+
+def _is_geometric(xs: list[float]) -> bool:
+    """Does x roughly double each step? Then it wants a log axis."""
+    if len(xs) < 4 or any(x <= 0 for x in xs):
+        return False
+    ratios = [b / a for a, b in zip(xs, xs[1:])]
+    return min(ratios) >= 1.4 and max(ratios) <= 4.0
+
+
+def _bar_fmt(values: list[float]) -> str:
+    """Enough precision to distinguish the bars, and no more."""
+    top = max((abs(v) for v in values), default=0)
+    if top >= 1000:
+        return "%.0f"
+    if top >= 10:
+        return "%.1f"
+    return "%.3f" if top < 1 else "%.2f"
 
 
 #: matplotlib by default: the notebook shows exactly what the PDF will contain.
