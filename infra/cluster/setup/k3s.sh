@@ -11,9 +11,38 @@ cd "$ROOT"
 echo "== GPU =="
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 
+# The installer's only use for update.k3s.io is turning a channel name like
+# "stable" into a version. Some GPU hosts cannot reach it — all three of its
+# addresses time out from this provider while github.com answers in under a
+# second — and the install then dies after a two-minute hang:
+#
+#     curl: (7) Failed to connect to update.k3s.io port 443 after 133583 ms
+#     [ERROR]  Download failed
+#
+# Setting INSTALL_K3S_VERSION skips the channel lookup, so the install goes
+# straight to the GitHub release that the box can already reach. Resolved from
+# GitHub rather than hardcoded, because a pinned version silently rots.
+k3s_version() {
+  local v
+  v=$(curl -sfL -m 20 https://api.github.com/repos/k3s-io/k3s/releases/latest 2>/dev/null \
+      | sed -n 's/.*"tag_name" *: *"\([^"]*\)".*/\1/p' | head -1)
+  if [[ -n "$v" ]]; then
+    echo "$v"
+  else
+    # Last resort, so a GitHub API rate-limit does not block a bring-up.
+    echo "$K3S_FALLBACK_VERSION"
+  fi
+}
+
+#: Only used if the GitHub API is unreachable or rate-limited.
+K3S_FALLBACK_VERSION="v1.37.1+k3s1"
+
 if [[ ! -x /usr/local/bin/k3s && ! -x /usr/bin/k3s ]]; then
-  echo "== k3s (nvidia default runtime) =="
-  curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644 --default-runtime nvidia" sh -
+  version="$(k3s_version)"
+  echo "== k3s $version (nvidia default runtime) =="
+  curl -sfL https://get.k3s.io \
+    | INSTALL_K3S_VERSION="$version" \
+      INSTALL_K3S_EXEC="--write-kubeconfig-mode 644 --default-runtime nvidia" sh -
 else
   echo "== k3s already installed =="
 fi
