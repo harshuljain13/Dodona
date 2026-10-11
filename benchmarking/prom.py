@@ -282,23 +282,28 @@ CATALOGUE: dict[str, list[tuple[str, str, str, str]]] = {
          "high queue with low KV means the SCHEDULER is binding, not memory."),
     ],
     "Did the KV hop move bytes?": [
-        ("Was the connector asked?", "sum(vllm:external_prefix_cache_queries_total)",
+        ("Was the connector asked?",
+         'sum(vllm:external_prefix_cache_queries_total{pod=~"vllm-decode.*"})',
          "decode looked for blocks on the producer",
          "being asked is not being answered."),
-        ("Did it find blocks?", "sum(vllm:external_prefix_cache_hits_total)",
+        ("Did it find blocks?",
+         'sum(vllm:external_prefix_cache_hits_total{pod=~"vllm-decode.*"})',
          "the LOOKUP matched",
          "A LOOKUP, NOT A TRANSFER. The pull can still fail. This exact metric "
          "produced a wrong result here before it was caught."),
         ("Did bytes actually arrive?",
-         'sum(vllm:prompt_tokens_by_source_total{source="external_kv_transfer"})',
+         'sum(vllm:prompt_tokens_by_source_total'
+         '{source="external_kv_transfer",pod=~"vllm-decode.*"})',
          "prompt tokens whose KV came over the wire instead of being computed",
          "the honest one. Cross-check against 'Num successful transfers' in the log."),
         ("What did decode compute itself?",
-         'sum(vllm:prompt_tokens_by_source_total{source="local_compute"})',
+         'sum(vllm:prompt_tokens_by_source_total'
+         '{source="local_compute",pod=~"vllm-decode.*"})',
          "prompt work decode could not avoid",
          "nothing — this is the cost the hop exists to remove."),
         ("What came from its OWN cache?",
-         'sum(vllm:prompt_tokens_by_source_total{source="local_cache_hit"})',
+         'sum(vllm:prompt_tokens_by_source_total'
+         '{source="local_cache_hit",pod=~"vllm-decode.*"})',
          "decode serving its own repeat",
          "ONE WORD from the connector metric and constantly mistaken for it. "
          "High here with zero transferred looks like a working hop."),
@@ -341,6 +346,27 @@ CATALOGUE: dict[str, list[tuple[str, str, str, str]]] = {
 }
 
 
+def wait_for_deployments(prom: "Prom", *, timeout_s: float = 120.0,
+                         poll_s: float = 5.0) -> dict[str, tuple[float, float, float]]:
+    """Poll until every expected deployment is available, or give up.
+
+    A health check run straight after `make cluster` catches the gateway
+    mid-rollout and reports 0/1 for something that is simply still starting.
+    Failing on that is noise; passing on it would hide a real outage. So wait a
+    bounded time and report whichever it turned out to be.
+    """
+    import time
+
+    deadline = time.monotonic() + timeout_s
+    while True:
+        found = deployments(prom)
+        if all(a >= 1 and a == d for d, a, _ in found.values()):
+            return found
+        if time.monotonic() >= deadline:
+            return found
+        time.sleep(poll_s)
+
+
 #: The component checks Part 2 runs. Each is (label, PromQL, what it means).
 #: Grouped the way an on-call would read them, not the way the metrics are
 #: named — "is the scheduler queueing?" rather than "num_requests_waiting".
@@ -361,15 +387,22 @@ COMPONENT_CHECKS: dict[str, list[tuple[str, str, str]]] = {
         ("KV usage", "max(vllm:kv_cache_usage_perc)", "the signal admission reads"),
     ],
     "KV hop": [
-        ("connector asked", "sum(vllm:external_prefix_cache_queries_total)",
+        # Scoped to decode. BOTH pools run a connector, so an unscoped sum
+        # double-counts the queries and credits prefill's own prompt work to
+        # decode — which made a perfect hop look like it was half recomputing.
+        ("connector asked",
+         'sum(vllm:external_prefix_cache_queries_total{pod=~"vllm-decode.*"})',
          "decode looked for remote blocks"),
-        ("connector served", "sum(vllm:external_prefix_cache_hits_total)",
+        ("connector served",
+         'sum(vllm:external_prefix_cache_hits_total{pod=~"vllm-decode.*"})',
          "blocks found remotely"),
         ("tokens transferred",
-         'sum(vllm:prompt_tokens_by_source_total{source="external_kv_transfer"})',
+         'sum(vllm:prompt_tokens_by_source_total'
+         '{source="external_kv_transfer",pod=~"vllm-decode.*"})',
          "KV that arrived instead of being computed"),
         ("tokens recomputed",
-         'sum(vllm:prompt_tokens_by_source_total{source="local_compute"})',
+         'sum(vllm:prompt_tokens_by_source_total'
+         '{source="local_compute",pod=~"vllm-decode.*"})',
          "prompt work decode had to do itself"),
         ("hops recorded", "sum(orch_kv_transfer_total)",
          "router bookkeeping — not proof of bytes"),
