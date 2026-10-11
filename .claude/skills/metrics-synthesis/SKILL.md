@@ -76,6 +76,27 @@ tokens in the request whether or not they were computed. The split is
 `prompt_tokens_by_source{source=...}`: `local_compute`, `local_cache_hit`,
 `external_kv_transfer`.
 
+**A notebook that errors leaves its OLD outputs on disk.** `nbconvert
+--execute --inplace` aborts without writing when a cell raises, so the file
+still holds the previous run's results. Reading it then shows clean output and
+plausible numbers from a run that no longer corresponds to the code. Both times
+this happened here the stale table was almost reported as a finding. Check
+nbconvert's own exit status and log — and beware `cmd | tail; echo $?`, which
+reports tail's status, not nbconvert's.
+
+**A notebook can pass on data that says it is broken.** The capacity sweep
+printed `-95 requests`, three steps serving nothing, `running peak 0` while
+supposedly serving, and KV frozen at one value across three load levels — then
+concluded "capacity is 2 concurrent sessions" with every check PASS. Guard the
+inputs, not just the result: did every step produce traffic, did any counter go
+backwards, did a pod restart mid-run, and was the refusal a 503 or a 429?
+
+**503 and 429 are different findings.** 503 is the cluster refusing on
+capacity. 429 is a client quota and says nothing about the cluster. Counted
+together, a rate-limited run is indistinguishable from a saturated one — which
+is exactly how a broken tenant limiter capped a capacity measurement at 2
+sessions on an H100.
+
 ## What makes it a result rather than a number
 
 1. **Against an SLO.** "p95 TTFT 1.21s" is a number. "1.21s against a 1.5s

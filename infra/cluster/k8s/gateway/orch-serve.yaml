@@ -68,7 +68,13 @@ spec:
             # 10,000/min is under TWO requests at that prompt length, so the
             # second arrival 429s and the run measures the quota instead of the
             # GPU. High here on purpose: the tenant window gets its own arm.
-            - { name: TENANT_TOKENS_PER_MIN, value: "2000000" }
+            # A tenant quota is a client-fairness control, not a capacity control.
+            # At 2,000,000 the capacity sweep's top step demands 2,580,840/min and
+            # is refused — so the measurement becomes a measurement of the quota,
+            # and a 429 in the results is indistinguishable from the cluster
+            # saturating. Held 25x above the heaviest load we test so it stays in
+            # the request path and exercised, but never the binding constraint.
+            - { name: TENANT_TOKENS_PER_MIN, value: "50000000" }
             # MOONCAKE_URL is deliberately unset. kvbus skips the POST when it
             # is empty; pointing it at a service that does not exist costs a
             # 2-second timeout on every hop.

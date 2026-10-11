@@ -247,3 +247,29 @@ def test_the_engine_flags_that_must_never_be_lost() -> None:
         text = (K8S / "fleet" / f"{name}.yaml").read_text()
         for flag, consequence in required.items():
             assert flag in text, f"{name} lost {flag}: {consequence}"
+
+
+def test_the_tenant_quota_cannot_bind_at_the_loads_we_measure() -> None:
+    """The quota must sit above the heaviest sweep step, or it becomes the result.
+
+    03-capacity's top step asks for ~2.58M tokens/min. With the quota at 2M, that
+    step is refused with 429s and the notebook sees a cluster that "ran out" —
+    when nothing about the GPU was involved. A 429 is client-attributable and
+    says nothing about capacity, so a quota below the test load silently turns a
+    capacity experiment into a rate-limit experiment.
+
+    This caught a sweep that concluded "capacity is 2 concurrent sessions" on an
+    H100.
+    """
+    import re
+
+    text = (K8S / "gateway" / "orch-serve.yaml").read_text()
+    match = re.search(r'TENANT_TOKENS_PER_MIN, value: "(\d+)"', text)
+    assert match, "the quota is not set, so the gateway falls back to 10,000"
+    quota = int(match.group(1))
+
+    # 24 sessions x 4 turns, the heaviest step, delivered in roughly 20s.
+    heaviest_per_min = 2_580_840
+    assert quota == 0 or quota > heaviest_per_min * 2, (
+        f"quota {quota:,}/min is not clear of the {heaviest_per_min:,}/min the "
+        f"sweep demands — capacity results will contain 429s")

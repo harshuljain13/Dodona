@@ -10,342 +10,332 @@
     "seed": 1,
     "run": "capacity-s8"
   },
-  "wall_s": 15.456094980239868,
+  "wall_s": 2.397501230239868,
   "signal": [
-    0.26747339870644693,
-    0.26747339870644693,
-    0.26747339870644693,
-    0.26747339870644693,
-    0.26747339870644693,
-    0.26747339870644693,
-    0.26747339870644693,
-    0.26747339870644693,
-    0.26914249947840596,
-    0.26914249947840596,
-    0.26914249947840596,
-    0.26914249947840596,
-    0.26914249947840596
+    0.5063634466930941,
+    0.5063634466930941,
+    0.5063634466930941
   ],
   "results": [
-    {
-      "session": 0,
-      "turn": 1,
-      "prompt_chars": 8611,
-      "status": 503,
-      "latency_s": 0.3644533157348633,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
     {
       "session": 1,
       "turn": 1,
       "prompt_chars": 8612,
-      "status": 503,
-      "latency_s": 0.364926815032959,
+      "status": 429,
+      "latency_s": 0.13399219512939453,
       "completion_tokens": 0,
       "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 2,
-      "turn": 1,
-      "prompt_chars": 8620,
-      "status": 503,
-      "latency_s": 0.365278959274292,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
+      "error": "Too Many Requests"
     },
     {
       "session": 4,
       "turn": 1,
       "prompt_chars": 8630,
-      "status": 503,
-      "latency_s": 0.39935994148254395,
+      "status": 429,
+      "latency_s": 0.1402580738067627,
       "completion_tokens": 0,
       "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 7,
-      "turn": 1,
-      "prompt_chars": 8612,
-      "status": 503,
-      "latency_s": 0.42598605155944824,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
+      "error": "Too Many Requests"
     },
     {
       "session": 5,
       "turn": 1,
       "prompt_chars": 8616,
-      "status": 503,
-      "latency_s": 0.43617987632751465,
+      "status": 429,
+      "latency_s": 0.14010906219482422,
       "completion_tokens": 0,
       "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 6,
-      "turn": 1,
-      "prompt_chars": 8611,
-      "status": 503,
-      "latency_s": 0.43650102615356445,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 1,
-      "turn": 2,
-      "prompt_chars": 11834,
-      "status": 503,
-      "latency_s": 0.167802095413208,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 0,
-      "turn": 2,
-      "prompt_chars": 11833,
-      "status": 503,
-      "latency_s": 0.2213728427886963,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 4,
-      "turn": 2,
-      "prompt_chars": 11852,
-      "status": 503,
-      "latency_s": 0.2859020233154297,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 2,
-      "turn": 2,
-      "prompt_chars": 11842,
-      "status": 503,
-      "latency_s": 0.32317018508911133,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 7,
-      "turn": 2,
-      "prompt_chars": 11834,
-      "status": 503,
-      "latency_s": 0.258591890335083,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 6,
-      "turn": 2,
-      "prompt_chars": 11833,
-      "status": 503,
-      "latency_s": 0.3760337829589844,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 5,
-      "turn": 2,
-      "prompt_chars": 11838,
-      "status": 503,
-      "latency_s": 0.3947288990020752,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 1,
-      "turn": 3,
-      "prompt_chars": 59857,
-      "status": 503,
-      "latency_s": 0.281663179397583,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
+      "error": "Too Many Requests"
     },
     {
       "session": 3,
       "turn": 1,
       "prompt_chars": 8633,
-      "status": 503,
-      "latency_s": 1.2699952125549316,
+      "status": 429,
+      "latency_s": 0.18749594688415527,
       "completion_tokens": 0,
       "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 0,
-      "turn": 3,
-      "prompt_chars": 59856,
-      "status": 503,
-      "latency_s": 0.7547779083251953,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 7,
-      "turn": 3,
-      "prompt_chars": 59857,
-      "status": 503,
-      "latency_s": 0.713953971862793,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
+      "error": "Too Many Requests"
     },
     {
       "session": 2,
-      "turn": 3,
-      "prompt_chars": 59865,
-      "status": 503,
-      "latency_s": 0.8420279026031494,
+      "turn": 1,
+      "prompt_chars": 8620,
+      "status": 429,
+      "latency_s": 0.18764710426330566,
       "completion_tokens": 0,
       "prompt_tokens": 0,
-      "error": "Service Unavailable"
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 7,
+      "turn": 1,
+      "prompt_chars": 8612,
+      "status": 429,
+      "latency_s": 0.18711328506469727,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 0,
+      "turn": 1,
+      "prompt_chars": 8611,
+      "status": 429,
+      "latency_s": 0.18808889389038086,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 1,
+      "turn": 2,
+      "prompt_chars": 11834,
+      "status": 429,
+      "latency_s": 0.11025810241699219,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
     },
     {
       "session": 4,
-      "turn": 3,
-      "prompt_chars": 59875,
-      "status": 503,
-      "latency_s": 0.9443032741546631,
+      "turn": 2,
+      "prompt_chars": 11852,
+      "status": 429,
+      "latency_s": 0.12006878852844238,
       "completion_tokens": 0,
       "prompt_tokens": 0,
-      "error": "Service Unavailable"
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 5,
+      "turn": 2,
+      "prompt_chars": 11838,
+      "status": 429,
+      "latency_s": 0.12882399559020996,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
     },
     {
       "session": 3,
       "turn": 2,
       "prompt_chars": 11855,
-      "status": 503,
-      "latency_s": 0.8965449333190918,
+      "status": 429,
+      "latency_s": 0.11399292945861816,
       "completion_tokens": 0,
       "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 6,
-      "turn": 3,
-      "prompt_chars": 59856,
-      "status": 503,
-      "latency_s": 1.2407019138336182,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 7,
-      "turn": 4,
-      "prompt_chars": 59886,
-      "status": 503,
-      "latency_s": 3.5935018062591553,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
+      "error": "Too Many Requests"
     },
     {
       "session": 2,
-      "turn": 4,
-      "prompt_chars": 59894,
-      "status": 503,
-      "latency_s": 5.5665600299835205,
+      "turn": 2,
+      "prompt_chars": 11842,
+      "status": 429,
+      "latency_s": 0.11992788314819336,
       "completion_tokens": 0,
       "prompt_tokens": 0,
-      "error": "Service Unavailable"
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 0,
+      "turn": 2,
+      "prompt_chars": 11833,
+      "status": 429,
+      "latency_s": 0.126708984375,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 7,
+      "turn": 2,
+      "prompt_chars": 11834,
+      "status": 429,
+      "latency_s": 0.12958312034606934,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 1,
+      "turn": 3,
+      "prompt_chars": 59857,
+      "status": 429,
+      "latency_s": 0.1397089958190918,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 4,
+      "turn": 3,
+      "prompt_chars": 59875,
+      "status": 429,
+      "latency_s": 0.15111827850341797,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
     },
     {
       "session": 5,
       "turn": 3,
       "prompt_chars": 59861,
-      "status": 503,
-      "latency_s": 7.51106595993042,
+      "status": 429,
+      "latency_s": 0.15442681312561035,
       "completion_tokens": 0,
       "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 5,
-      "turn": 4,
-      "prompt_chars": 59890,
-      "status": 503,
-      "latency_s": 2.4572408199310303,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 1,
-      "turn": 4,
-      "prompt_chars": 59886,
-      "status": 503,
-      "latency_s": 10.225212097167969,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 0,
-      "turn": 4,
-      "prompt_chars": 59885,
-      "status": 503,
-      "latency_s": 9.944990873336792,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
-    },
-    {
-      "session": 4,
-      "turn": 4,
-      "prompt_chars": 59904,
-      "status": 503,
-      "latency_s": 10.383318901062012,
-      "completion_tokens": 0,
-      "prompt_tokens": 0,
-      "error": "Service Unavailable"
+      "error": "Too Many Requests"
     },
     {
       "session": 3,
       "turn": 3,
       "prompt_chars": 59878,
-      "status": 503,
-      "latency_s": 10.114989995956421,
+      "status": 429,
+      "latency_s": 0.13488197326660156,
       "completion_tokens": 0,
       "prompt_tokens": 0,
-      "error": "Service Unavailable"
+      "error": "Too Many Requests"
     },
     {
-      "session": 6,
-      "turn": 4,
-      "prompt_chars": 59885,
-      "status": 503,
-      "latency_s": 10.079366683959961,
+      "session": 2,
+      "turn": 3,
+      "prompt_chars": 59865,
+      "status": 429,
+      "latency_s": 0.14104390144348145,
       "completion_tokens": 0,
       "prompt_tokens": 0,
-      "error": "Service Unavailable"
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 0,
+      "turn": 3,
+      "prompt_chars": 59856,
+      "status": 429,
+      "latency_s": 0.15372610092163086,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 7,
+      "turn": 3,
+      "prompt_chars": 59857,
+      "status": 429,
+      "latency_s": 0.14495587348937988,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 1,
+      "turn": 4,
+      "prompt_chars": 59886,
+      "status": 429,
+      "latency_s": 0.1421670913696289,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 4,
+      "turn": 4,
+      "prompt_chars": 59904,
+      "status": 429,
+      "latency_s": 0.15034103393554688,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 5,
+      "turn": 4,
+      "prompt_chars": 59890,
+      "status": 429,
+      "latency_s": 0.14264416694641113,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
     },
     {
       "session": 3,
       "turn": 4,
       "prompt_chars": 59907,
-      "status": 503,
-      "latency_s": 2.35817813873291,
+      "status": 429,
+      "latency_s": 0.14413785934448242,
       "completion_tokens": 0,
       "prompt_tokens": 0,
-      "error": "Service Unavailable"
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 2,
+      "turn": 4,
+      "prompt_chars": 59894,
+      "status": 429,
+      "latency_s": 0.14218592643737793,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 6,
+      "turn": 1,
+      "prompt_chars": 8611,
+      "status": 429,
+      "latency_s": 1.2022838592529297,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 0,
+      "turn": 4,
+      "prompt_chars": 59885,
+      "status": 429,
+      "latency_s": 0.13826584815979004,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 7,
+      "turn": 4,
+      "prompt_chars": 59886,
+      "status": 429,
+      "latency_s": 0.14310979843139648,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 6,
+      "turn": 2,
+      "prompt_chars": 11833,
+      "status": 429,
+      "latency_s": 0.11453795433044434,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 6,
+      "turn": 3,
+      "prompt_chars": 59856,
+      "status": 429,
+      "latency_s": 0.1309511661529541,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
+    },
+    {
+      "session": 6,
+      "turn": 4,
+      "prompt_chars": 59885,
+      "status": 429,
+      "latency_s": 0.13814306259155273,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
     }
   ]
 }

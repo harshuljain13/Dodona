@@ -10,55 +10,51 @@
     "seed": 1,
     "run": "capacity-s1"
   },
-  "wall_s": 6.499808311462402,
+  "wall_s": 1.4428479671478271,
   "signal": [
-    0.10390152305445444,
-    0.10390152305445444,
-    0.10390152305445444,
-    0.10390152305445444,
-    0.10390152305445444,
-    0.10390152305445444
+    0.5061548090965993,
+    0.5061548090965993
   ],
   "results": [
     {
       "session": 0,
       "turn": 1,
       "prompt_chars": 8611,
-      "status": 200,
-      "latency_s": 0.8162808418273926,
-      "completion_tokens": 73,
-      "prompt_tokens": 1960,
-      "error": ""
+      "status": 503,
+      "latency_s": 0.17253804206848145,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
     },
     {
       "session": 0,
       "turn": 2,
       "prompt_chars": 11833,
-      "status": 200,
-      "latency_s": 1.480851173400879,
-      "completion_tokens": 200,
-      "prompt_tokens": 2338,
-      "error": ""
+      "status": 503,
+      "latency_s": 0.16688895225524902,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Service Unavailable"
     },
     {
       "session": 0,
       "turn": 3,
       "prompt_chars": 59856,
-      "status": 200,
-      "latency_s": 1.7065410614013672,
-      "completion_tokens": 200,
-      "prompt_tokens": 7946,
-      "error": ""
+      "status": 429,
+      "latency_s": 0.1459810733795166,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
     },
     {
       "session": 0,
       "turn": 4,
       "prompt_chars": 59885,
-      "status": 200,
-      "latency_s": 1.6846671104431152,
-      "completion_tokens": 200,
-      "prompt_tokens": 7952,
-      "error": ""
+      "status": 429,
+      "latency_s": 0.13865399360656738,
+      "completion_tokens": 0,
+      "prompt_tokens": 0,
+      "error": "Too Many Requests"
     }
   ]
 }
