@@ -109,26 +109,36 @@ These are different promises on the same request, and they fail differently. Mis
 the first and the interface feels broken — dead air. Miss the second and the
 answer is merely late.
 
-**The 1.5 s is the whole speech path, not the engine's share of it.** Four stages
-are serial on the way to first audio, so the engine is held to what is left after
-the other three are paid for:
+**The 1.5 s is the whole speech path, not the engine's share of it.** Three
+stages are serial on the way to first audio, so the engine is held to what is
+left after the others are paid for:
 
 | stage | budget |
 |---|---|
-| ASR finalize | 300 ms |
-| retrieval and tools | 400 ms |
-| **LLM TTFT** | **500 ms** ← what `03-capacity` measures |
-| TTS first chunk | 300 ms |
-| total | 1500 ms |
+| ASR endpoint and finalize | 300 ms |
+| **LLM TTFT** | **800 ms** ← what the engine is held to |
+| TTS first chunk | 200 ms |
+| network and orchestration | 200 ms |
+| first audio | 1500 ms |
 
-This matters more than it looks. Holding the engine to 1.5 s instead of 500 ms
-overstates its headroom threefold, and `03-capacity` derives the cluster's
-concurrency limit from that number — so the error would propagate into every
-experiment downstream. The split lives in `benchmarking/slos.py` as a
-decomposition, with the engine's target *derived* rather than written down twice,
-and a test asserts the stages still sum to the total. **A request that cannot make its first-audio budget is
-better refused aloud than admitted and left silent**, which is exactly the
-decision the brief's `timeout_queue` shed is for.
+Two more numbers complete the promise:
+
+| | target | why |
+|---|---|---|
+| **ITL p95** | 80 ms | Speech is spoken at ~3.3 tokens/s. Past **303 ms** per token TTS runs dry and the audio stutters mid-sentence. The target holds ~4× that buffer. |
+| **full answer p95** | 30 s | Generation outpaces speech roughly 40×, so once audio starts the listener is listening rather than waiting. A regression guard, not the binding constraint. |
+
+**There is one SLO set, and it does not move with load.** Capacity is what you
+derive from a fixed promise; admission control is what keeps offered load under
+that capacity so the promise holds. A measured TTFT of 2.4 s is not a reason to
+set the target to 2.4 s — it is a reason to serve fewer sessions, which is what
+shedding is for. Relaxing a promise because the system missed it makes every
+later comparison a tautology.
+
+The split lives in `benchmarking/slos.py` as a decomposition, with the engine's
+target *derived* rather than written down twice. Tests assert the stages sum to
+the total, that the ITL target stays under the stutter floor, and that no
+per-workload SLO variants creep back in.
 
 It also makes warmth matter more than it does in text: a cold replica's first
 token is *audible*. The ~1.8 s penalty of single-bucket CUDA-graph capture is
