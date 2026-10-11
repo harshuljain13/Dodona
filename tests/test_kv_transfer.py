@@ -157,3 +157,45 @@ def test_bootstrap_url_is_the_worker_host_on_the_mooncake_port() -> None:
     assert _bootstrap_url("http://vllm-prefill:8000") == "http://vllm-prefill:8998"
     assert _bootstrap_url("http://10.0.0.5:8000/") == "http://10.0.0.5:8998"
     assert _bootstrap_url("") == ""
+
+
+def test_concurrent_requests_do_not_share_a_transfer_id() -> None:
+    """Each request needs its own id, because the KV handshake is keyed on it.
+
+    queue.py builds transfer_id as f"xfer-{req.id}". request_from_openai used to
+    default the id to the literal "http" whenever the payload omitted one — and
+    every OpenAI client omits it, load.py included. So every concurrent request
+    claimed the transfer id "xfer-http".
+
+    The engine then receives a finished_recving for an id whose earlier owner has
+    already completed and had its blocks freed, and this assert in vLLM's
+    scheduler takes EngineCore down with it:
+
+        assert req_id in self.requests
+
+    Decode died four times this way during a capacity sweep, at which point the
+    gateway shed every later request with 503 and the sweep measured nothing. It
+    survived 1 and 2 sessions, which is what made it look like a capacity limit.
+    """
+    from gateway.types import request_from_openai
+    from gateway.queue import kv_params
+
+    payload = {"messages": [{"role": "user", "content": "hello"}]}
+    ids = {request_from_openai(dict(payload)).id for _ in range(50)}
+    assert len(ids) == 50, (
+        f"only {len(ids)} distinct ids across 50 requests — concurrent requests "
+        f"will collide on one transfer_id and kill the engine")
+    assert not any(i == "http" for i in ids), "the old constant default is back"
+
+    # And the handshake must carry that distinctness through to both legs.
+    a, b = (request_from_openai(dict(payload)) for _ in range(2))
+    assert (kv_params(f"xfer-{a.id}", producer=True)["transfer_id"]
+            != kv_params(f"xfer-{b.id}", producer=True)["transfer_id"])
+
+
+def test_an_explicit_id_is_still_honoured() -> None:
+    """The harness and the behaviour tests drive specific ids on purpose."""
+    from gateway.types import request_from_openai
+
+    payload = {"messages": [{"role": "user", "content": "x"}], "id": "fixed-1"}
+    assert request_from_openai(payload).id == "fixed-1"

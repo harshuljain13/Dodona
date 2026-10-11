@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import uuid
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -109,7 +110,15 @@ def request_from_openai(payload: dict) -> Request:
         hashlib.sha256(text[:256].encode("utf-8")).hexdigest()[:16] if text else None
     )
     return Request(
-        id=str(payload.get("id") or payload.get("user") or "http"),
+        # Unique per request, NOT a constant. queue.py derives the KV handshake's
+        # transfer_id from this, so a shared id makes concurrent requests claim the
+        # same transfer. The engine then gets a finished_recving for an id whose
+        # earlier owner has already completed and had its blocks freed, and
+        # scheduler.py's `assert req_id in self.requests` kills EngineCore. This
+        # defaulted to the literal "http", so every OpenAI client that omits an id —
+        # which is all of them, load.py included — sent every request as "http" and
+        # took decode down at 8 concurrent sessions.
+        id=str(payload.get("id") or payload.get("user") or f"req-{uuid.uuid4().hex[:16]}"),
         arrival_t=float(payload.get("arrival_t") or 0.0),
         priority=int(payload.get("priority", 1)),
         prompt_tokens=estimate_prompt_tokens(payload),
