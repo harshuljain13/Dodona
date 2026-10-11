@@ -114,8 +114,17 @@ def post(url: str, model: str, prompt: str, max_tokens: int, timeout: float):
 
 
 def session(idx: int, args, run: Run) -> None:
+    """One agent's conversation, repeated `--repeat` times.
+
+    A single pass is four turns and finishes in about twelve seconds. Prometheus
+    scrapes every 15s, so a one-pass run can land entirely between two scrapes
+    and leave no trace in the metrics at all — which is how a capacity sweep
+    produced decode-KV readings of 0%, 51%, 7.5%, 52% across monotonically
+    rising load. Repeating holds the load up long enough to be observed.
+    """
     q = QUESTIONS[idx % len(QUESTIONS)]
-    for n, prompt in enumerate(turns(q), start=1):
+    prompts = [p for _ in range(max(1, args.repeat)) for p in turns(q)]
+    for n, prompt in enumerate(prompts, start=1):
         t0 = time.time()
         try:
             status, data = post(args.url, args.model, prompt, args.max_tokens, args.timeout)
@@ -187,6 +196,9 @@ def main() -> int:
     ap.add_argument("--max-tokens", type=int, default=200)
     ap.add_argument("--tool-gap", type=float, default=1.0, help="quiet time between turns")
     ap.add_argument("--timeout", type=float, default=600)
+    ap.add_argument("--repeat", type=int, default=1,
+                    help="passes through the conversation; raise it so the run "
+                         "spans several 15s Prometheus scrapes")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--run", default="", help="write the bundle to metrics/<run>/")
     args = ap.parse_args()
@@ -197,7 +209,8 @@ def main() -> int:
     sampler = threading.Thread(target=sample_signal, args=(args.prom_url, run, stop), daemon=True)
     sampler.start()
 
-    print(f"  {args.sessions} sessions x 4 turns -> {args.url}")
+    print(f"  {args.sessions} sessions x {4 * max(1, args.repeat)} turns "
+          f"-> {args.url}")
     t0 = time.time()
     threads = [threading.Thread(target=session, args=(i, args, run))
                for i in range(args.sessions)]
