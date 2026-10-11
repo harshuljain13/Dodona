@@ -201,3 +201,51 @@ def test_latency_buckets_resolve_the_latencies_we_actually_have() -> None:
         assert buckets[0] <= 0.005, (
             f"{name}: lowest bound {buckets[0]}s is above decode's ~5ms mean")
         assert max(buckets) >= 30, f"{name}: nothing to catch a slow request"
+
+
+def test_no_comment_inside_a_folded_shell_command() -> None:
+    """A `#` in a YAML folded scalar is not a comment — it is text.
+
+    `args: [- >- ...]` folds every line into ONE shell command. A `#` survives
+    the fold, and the shell then treats it as a comment and discards everything
+    after it on that line. Putting an explanation there silently dropped
+    --enable-auto-tool-choice, --host, --port and --kv-transfer-config: the pod
+    came up healthy, served requests, and had no KV connector at all.
+
+    Explanations belong above `args:`, where YAML really does strip them.
+    """
+    for path in sorted(K8S.glob("*/*.yaml")):
+        text = path.read_text()
+        if "- >-" not in text:
+            continue
+        for block in text.split("- >-")[1:]:
+            # The folded scalar runs until a line that is less indented.
+            lines = []
+            for line in block.splitlines()[1:]:
+                if line.strip() and not line.startswith(" " * 14):
+                    break
+                lines.append(line)
+            folded = "\n".join(lines)
+            assert "#" not in folded, (
+                f"{path.name}: '#' inside a folded shell command — the shell will "
+                f"discard the rest of the line:\n{folded[:200]}")
+
+
+def test_the_engine_flags_that_must_never_be_lost() -> None:
+    """Each of these has failed silently here at least once.
+
+    A missing flag does not crash the pod. It comes up, answers requests, and
+    quietly does less than you think it is doing.
+    """
+    required = {
+        "--enable-prefix-caching": "no prefix cache, every prompt recomputed",
+        "--enable-auto-tool-choice": "every OpenAI client sends tool_choice and gets a 400",
+        "--tool-call-parser": "tool calls arrive as prose in message.content",
+        "--kv-transfer-config": "no KV connector, decode re-prefills",
+        "--custom-histogram-buckets": "latency percentiles collapse to one bucket edge",
+        "--max-model-len": "context defaults, and the capacity arithmetic is wrong",
+    }
+    for name in ("vllm-prefill", "vllm-decode"):
+        text = (K8S / "fleet" / f"{name}.yaml").read_text()
+        for flag, consequence in required.items():
+            assert flag in text, f"{name} lost {flag}: {consequence}"
