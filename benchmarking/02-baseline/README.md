@@ -1,4 +1,4 @@
-# 02-metrics
+# 02-baseline
 
 **What do these numbers mean, and what can they not tell you?**
 
@@ -22,7 +22,7 @@ their name suggests, and the difference decides whether a result is real:
 | 5 | watch them move — own seeded load, with the real Grafana panels |
 
 ```bash
-cd benchmarking/02-metrics
+cd benchmarking/02-baseline
 export GRAFANA_PASSWORD=...          # printed by make observability
 ../../.venv/bin/jupyter lab notebook.ipynb
 ```

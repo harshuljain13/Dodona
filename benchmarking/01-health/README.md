@@ -22,5 +22,5 @@ Needs `make ssh`. Independent of every other notebook.
 ## What it deliberately does not do
 
 No percentiles, no SLOs, no load. A health check that also benchmarks is one
-you stop running because it takes too long. [`02-metrics`](../02-metrics/) reads
+you stop running because it takes too long. [`02-baseline`](../02-baseline/) reads
 what the numbers mean; `03-capacity` pushes them.

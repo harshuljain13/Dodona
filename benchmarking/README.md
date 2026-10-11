@@ -25,7 +25,7 @@ benchmarking/
   slos.py                  what we promise
   load.py  locustfile.py   load generators, run ON THE BOX
   01-health/               is it there and wired?
-  02-metrics/              what do the numbers mean?
+  02-baseline/              what do the numbers mean?
 ```
 
 **Every notebook is independent.** Each drives its own seeded load and needs
