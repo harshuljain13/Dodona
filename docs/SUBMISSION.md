@@ -16,13 +16,24 @@ and links out.
 |---|---|---|
 | 0 | engine on the whole card | ✅ **2026-10-10** — all five gate checks pass |
 | 1 | Open WebUI | ✅ |
-| 2 | k3s + HAMi, 1 prefill + 2 decode | ✅ **2026-10-10** — 3 pods, 10,624 MiB each, KV identical across all three |
-| 3 | Prometheus + Grafana | ✅ **2026-10-10** — scraping all three pods, `vllm:kv_cache_usage_perc` live. **Pass/fail item met** |
-| 4–8 | gateway · guard · admit · place · hop | not started |
-| 9–10 | the agent, then the runs | not started |
+| 2 | k3s + HAMi, 1 prefill + 1 decode | ✅ **2026-10-11** — both pods on one card, 10,690 MiB each |
+| 3 | Prometheus + Grafana | ✅ **2026-10-10** — all pods scraped, `vllm:kv_cache_usage_perc` live. **Pass/fail item met** |
+| 4 | gateway in the request path | ✅ **2026-10-11** — `orch_requests_total` increments; nothing reaches a worker around it |
+| 5 | guard — prompt size, tenant quota | ✅ **2026-10-11** |
+| 6 | admit — AdmitPerf integrated | ⚠️ wired and switchable, **`ADMISSION_POLICY` unset**, so the gate is off |
+| 7 | place — prefix-sticky, power-of-two | ⚠️ running, but **not exercised**: one decode replica, 0 of 12,230 picks sticky |
+| 8 | hop — Mooncake prefill → decode | ❌ **configured and does not transfer.** `Num successful transfers = 0` on both pools |
+| 9 | the agent | ✅ **2026-10-18** — `app/`, voice over LiveKit, answered by the gateway |
+| 10 | the runs | ⚠️ 01-health and 02-baseline pass; 03-capacity needs re-measuring |
 
-**As deployed:** NVIDIA A100-SXM4-40GB (sm80, 40 GiB) · vLLM **0.31.0** ·
+**As deployed:** NVIDIA **H100 PCIe 80GB (sm90, 81,559 MiB)** · vLLM **0.31.0** ·
 torch 2.13.0+cu130 · `Qwen/Qwen2.5-7B-Instruct-AWQ`, Marlin int4 kernels.
+
+> **The card changed under the design.** Part 1's arithmetic was done for an
+> A100-SXM4-40GB. This is an H100-80, which is sm90 — so fp8 is available
+> natively and **int4 is no longer forced**. The AWQ choice was justified by a
+> constraint that no longer applies. The numbers below are not edited to match;
+> the gap is the finding.
 
 ### Deployment issues
 
@@ -45,6 +56,13 @@ other half: what actually went wrong, recorded as it happened.
 | `make ssh` printed nine "Address already in use" and gave a shell with no forwards | A **second** tunnel cannot bind ports the first already holds. The first was working the whole time | `ssh.sh` closes any tunnel it already holds, and `ExitOnForwardFailure=yes` so it refuses rather than pretending |
 | Open WebUI: *"auto tool choice requires --enable-auto-tool-choice"* | Deferred those flags to the agent step on the grounds that the bare engine has no tools — but **every OpenAI-compatible client sends `tool_choice: "auto"`**, so the engine rejects the request outright | Both flags on the fleet from the start. Verified: `get_weather {"city": "Delhi"}`, `finish_reason: tool_calls` |
 | Rollout hung — new pods `Pending` forever | A full GPU **cannot do a RollingUpdate**. The default surges a replacement before retiring the old pod, and with 36 GiB allocated it can never be scheduled | `strategy: { type: Recreate }`. A single card cannot be rolled without downtime |
+| **The KV hop has never transferred anything** | The NIC is **RoCE, not InfiniBand** (`link_layer: Ethernet`). Mooncake's topology discovery reports `Found 0 HCAs` and falls back to TCP, where a 377 MB / 11,508-descriptor batch fails with `ret=-1`. vLLM then recomputes — which is the constant **1105 ms** in decode's TTFT, measured across eight identical requests as 1105/1105/1107/1106/1102/1106/1105/1105 | **Open.** `MC_GID_INDEX=3` is the correct GID for this NIC and is set, but GID selection happens *after* discovery. `MC_FORCE_HCA=mlx5_0` skips discovery and then fails init outright, crash-looping decode; reverted |
+| …and the metric said it worked | `prompt_tokens_by_source{source="external_kv_transfer"}` is attributed at **scheduling** time, before the pull fails. It counted 6,581 tokens as arrived for a transfer that returned −1, so "decode recomputes 0% of its prompt tokens" was reported as proven and was false | Read `Num successful transfers` from the engine log. The project's own metrics skill already said this; the warning was written and then not followed |
+| The gateway refused traffic on an **idle** cluster | `KV_SATURATION = 0.80` shed whenever `kv_free_ratio < 0.20`, and that ratio counts **retained prefix-cache blocks** — which vLLM evicts on demand. Measured: prefill at **0.736 usage with 0 running and 0 waiting**. 6,100 `kv_free` 503s, 503s at 24 sessions while decode sat at 50%, and three benchmark cases that could not run at all | Saturation now comes from `vllm:num_requests_waiting_by_reason{reason="capacity"}` — the engine's own verdict. Memory check kept at 0.98 as a backstop. `reason="deferred"` is deliberately excluded: on a disaggregated fleet every decode request is briefly deferred awaiting its hop |
+| "Tokens per minute" was a **lifetime** quota | The limiter windowed on `req.arrival_t`, which defaults to `0.0` when the client omits it — and every client omits it. `0.0 - 0.0 >= 60` is never true, so the window never rolled and `used` accumulated for the life of the process. After 2M tokens the gateway 429'd everything | The limiter uses `time.monotonic()`. A rate limiter cannot take its clock from the thing it is limiting |
+| A capacity sweep reported **2 concurrent sessions** on an H100 | The tenant quota (2M/min) sat *below* the sweep's own demand (24 sessions × 8 passes = 2.58M/min), so the heaviest steps were refused on arithmetic alone — and a 429 is indistinguishable in a report from the cluster saturating | Quota raised to 50M/min, 25× clear of the heaviest step, with a test asserting it stays clear. 503 (capacity) and 429 (quota) are counted separately everywhere |
+| Decode died four times mid-sweep | Every request was named `"http"` — `request_from_openai` defaulted the id to that literal, and `queue.py` derives the KV handshake from it (`transfer_id = f"xfer-{req.id}"`). Concurrent requests all claimed one transfer, so vLLM's `assert req_id in self.requests` took EngineCore down | `req-<uuid4>` per request. One shared string, and the 503s that followed looked exactly like a capacity limit |
+| TTFT percentiles identical across a 48× load range | 95% of samples land in vLLM's `[1.0, 2.5]` bucket, so `histogram_quantile` interpolates inside it and returns the same p50/p90/p99 at every load. The flag that would re-bucket it does not exist in 0.31.0 and crash-loops the pod | Quote the exact mean from `_sum/_count`; show percentiles only where the buckets resolve them. Notebooks mark an unusable percentile `n/a` rather than printing a number |
 
 ---
 
@@ -1139,8 +1157,11 @@ Dodona is built **stage by stage** — nothing is inherited wholesale. Runbook:
 | | |
 |---|---|
 | The design, the arithmetic, the decision trees | **This document** |
-| Stages 0–10 | **None started.** See [`README.md`](../README.md#status) |
-| Any measured number | **None.** All `TBM` |
+| Stages 0–5, 9 | **Built and measured.** |
+| Stages 6–7 (admit, place) | **Built, not exercised.** The policy gate is off and there is one decode replica to route between |
+| Stage 8 (hop) | **Built and failing.** See the KV-transfer entry in Deployment issues |
+| Stage 10 (the runs) | 01-health and 02-baseline pass. 03-capacity's numbers predate the admission fix and are void |
+| Measured numbers | `benchmarking/01-health`, `02-baseline`. 17 `TBM` markers remain below |
 
 Reference implementations we port from, piece by piece, rather than run as a
 black box: the course lab (gateway, router, Mooncake, HAMi, dashboards) and

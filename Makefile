@@ -71,7 +71,7 @@ logs:
 kv:
 	@bash $(SETUP)/up.sh kv
 
-voice: ## the voice demo — LiveKit, the agent worker, and the UI
+app: ## the voice app — LiveKit, the agent worker, and the UI
 	@bash app/run.sh
 
 clean:

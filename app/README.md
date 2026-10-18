@@ -27,7 +27,7 @@ voice worker              agentship-voice, LiveKit AgentSession
 
 ```bash
 make ssh        # the tunnel, so :8080 reaches the GPU
-make voice      # LiveKit + worker + UI, then open http://localhost:3000
+make app      # LiveKit + worker + UI, then open http://localhost:3000
 ```
 
 ## What it needs
