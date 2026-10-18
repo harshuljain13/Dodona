@@ -1,0 +1,41 @@
+:root {
+  --bg: #07090f;
+  --panel: #0d1117;
+  --line: #1c2230;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: radial-gradient(1200px 700px at 50% -10%, #121a2b 0%, var(--bg) 60%);
+  color: var(--text);
+  font: 15px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.shell { display: grid; grid-template-columns: 1.1fr 1fr; height: 100vh; }
+@media (max-width: 920px) { .shell { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } }
+
+.stage { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 32px; }
+.brand { position: absolute; top: 28px; left: 32px; font-weight: 650; letter-spacing: 0.3px; }
+.brand span { color: var(--muted); font-weight: 400; margin-left: 10px; font-size: 13px; }
+
+.state { font-size: 13px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); min-height: 20px; }
+
+button.cta {
+  background: var(--accent); color: #04121f; border: 0; border-radius: 999px;
+  padding: 13px 30px; font-size: 15px; font-weight: 640; cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+button.cta:hover { filter: brightness(1.08); transform: translateY(-1px); }
+button.cta.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+
+.transcript { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+.transcript header { padding: 18px 22px; border-bottom: 1px solid var(--line); font-size: 13px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.log { flex: 1; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+.turn { max-width: 88%; padding: 12px 16px; border-radius: 14px; white-space: pre-wrap; }
+.turn.you { align-self: flex-end; background: #1d2b45; border-bottom-right-radius: 4px; }
+.turn.agent { align-self: flex-start; background: #15202e; border-bottom-left-radius: 4px; }
+.who { display: block; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.empty { color: var(--muted); font-size: 14px; margin: auto; text-align: center; max-width: 280px; }

@@ -1,60 +1,69 @@
 # app/ — the Dodona voice agent
 
-Talks **only** to our serve path. Completions that skip guard / admit / place /
-queue do not count, so there is no direct route from here to a worker.
+Talk to the research agent out loud and watch what it does to the cluster.
+Everything here runs on the laptop; the one thing that leaves it is the
+completion, and that goes to the gateway on `127.0.0.1:8080` — through guard,
+admit, place and queue. A completion that skips the serve path tells us nothing
+about the infrastructure this project exists to measure.
+
+```
+browser (orb + transcript)
+   │  WebRTC
+LiveKit server            docker, 127.0.0.1:7880
+   │
+voice worker              agentship-voice, LiveKit AgentSession
+   ├── Deepgram           STT nova-3, TTS aura-2
+   └── LLM ─────────────► 127.0.0.1:8080/v1  →  tunnel  →  H100
+```
 
 | | |
 |---|---|
-| `dodona.yaml` | the agent spec — model, prompt, tools, `api_base` |
-| `questions.jsonl` | the fixed question set, so runs are comparable |
-| `run.py` | drives N concurrent sessions, writes per-question traces |
-| `voice.py` | the Deepgram loop — STT in, TTS out |
+| `dodona.yaml` | the agent — model, prompt, tools, `api_base` |
+| `voice.py` | the LiveKit worker: AgentShip in the `llm=` slot |
+| `docker-compose.yml` | LiveKit, in dev mode, bound to localhost |
+| `web/` | Next.js UI — animated orb, live transcript, token route |
 
-**Status: not written.** Stages 1 and 9 of
-[`../RUNBOOK.md`](../docs/RUNBOOK.md).
+## Run it
 
-## Shape
-
-```yaml
-model: openai/Qwen2.5-7B-Instruct-AWQ
-params:
-  api_base: "http://127.0.0.1:8080/v1"
-  temperature: 0.3
-  top_p: 0.8
-  max_tokens: 1024
-tools: [web_search, scrape_url, http_request, calculator]
+```bash
+make ssh        # the tunnel, so :8080 reaches the GPU
+make voice      # LiveKit + worker + UI, then open http://localhost:3000
 ```
 
-`openai/<model>` because LiteLLM's `openai` provider speaks to any
-OpenAI-compatible endpoint, and our gateway is one.
+## What it needs
 
-## Two settings that are choices, not defaults
+`DEEPGRAM_API_KEY` in `.env`. One account covers both ears and mouth.
 
-Both change the traffic shape, so a reader would otherwise mis-attribute what
-they cause.
+LiveKit runs in `--dev` mode, which uses the well-known `devkey` / `secret`
+pair. That is fine for something bound to localhost and is **not** a credential
+to reuse anywhere.
 
-- **`scrape_url` truncated to 12k tokens**, so a turn-4 request fits inside
-  `max_model_len` 16,384. Without it a long article plus three turns of history
-  overruns the context and vLLM refuses — and an engine context refusal looks
-  nothing like an admission refusal in the decision log.
-- **One tool call per reply.** The `hermes` parser returns the *entire batch* as
-  text when any single call in it is malformed, losing the valid calls with it.
+## Why these choices
 
-## Voice
+**Deepgram for both.** `nova-3` is purpose-built for streaming speech and is
+markedly more accurate on live audio than a batch transcriber fed one VAD
+segment at a time. A misheard question is answered confidently and wrongly,
+which is worse than a slow answer.
 
-Deepgram for both directions, off-GPU. The agent speaks an acknowledgement
-immediately (**time-to-first-audio < 1 s**) and narrates the researched answer
-when it lands (**10–30 s**). Those are two different SLOs on one request; see
-[`../PROJECT.md`](../docs/PROJECT.md#two-slos-on-one-request).
+**Silero for voice activity.** Local, free, no key, and it decides the one thing
+that cannot be outsourced without adding a round trip: when you stopped talking.
 
-A listener talking over the answer **aborts** mid-generation, which makes the
-`aborted` KV-release path common rather than exotic. Part 5 covers who frees it.
+**AgentShip in the `llm=` slot only.** LiveKit has no pipeline node to drop an
+agent into — it has an `AgentSession` with `stt` / `vad` / `llm` / `tts` slots.
+So the other three are LiveKit's own plugins and the agent is the LLM. Memory,
+tracing and tools are inherited from the agent rather than reimplemented for
+audio.
 
-## Prove it on a hosted model first
+## Where the time goes
 
-```
-python run.py --questions questions.jsonl --concurrency 1 --model openai/gpt-4o-mini
-```
+The SLO chain in `benchmarking/slos.py` budgets a listener's 1.5 s like this:
 
-Deliberate: a broken agent and a broken gateway produce the same symptom, and
-separating them after the box is rented costs an hour.
+| stage | budget |
+|---|---|
+| ASR endpoint and finalize | 300 ms |
+| **LLM TTFT** | **800 ms** |
+| TTS first chunk | 200 ms |
+| network and orchestration | 200 ms |
+
+The engine's 800 ms is the part this repo measures. Speaking to it is how you
+find out whether that budget means anything to a person waiting in silence.

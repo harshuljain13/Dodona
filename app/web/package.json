@@ -1,0 +1,23 @@
+{
+  "name": "dodona-voice",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000"
+  },
+  "dependencies": {
+    "@livekit/components-react": "^2.9.9",
+    "@livekit/components-styles": "^1.1.6",
+    "livekit-client": "^2.15.4",
+    "livekit-server-sdk": "^2.13.1",
+    "next": "^15.5.4",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "typescript": "^5.7.3"
+  }
+}

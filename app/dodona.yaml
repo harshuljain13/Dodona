@@ -1,0 +1,63 @@
+# Dodona's voice agent: deep research, spoken, answered by OUR GPU.
+#
+#   make voice          LiveKit server + agent worker + the web UI
+#
+# The only thing this file says about infrastructure is `api_base`. That points
+# at the gateway on 127.0.0.1:8080, which is the whole point of the project — a
+# completion that skips guard / admit / place / queue does not count, so there is
+# no route from here to a worker that bypasses the serve path.
+name: dodona
+engine: langgraph
+template: single
+model: openai/Qwen/Qwen2.5-7B-Instruct-AWQ
+durability: checkpoint
+
+params:
+  # The gateway, reached through `make ssh`. Not a vLLM pod: the point of the
+  # experiment is what the control plane does to a request on its way through.
+  api_base: http://127.0.0.1:8080/v1
+  # Spoken answers are short. This also keeps a turn inside the 30s budget when
+  # research runs long.
+  max_tokens: 400
+  temperature: 0.3
+
+tools:
+  - web_search
+  - scrape_url
+
+prompt: >-
+  You are Dodona, a research assistant that is being LISTENED to, not read.
+  Never use lists, headings, bullet points or markdown — none of it can be
+  heard. If you have several points, say them in sentences.
+
+  For greetings and small talk, reply naturally in one short sentence and use no
+  tools.
+
+  When asked something substantive, say one short line out loud first so the
+  listener knows you are working — "let me look that up" — and then research it:
+  break the question into sub-questions and call web_search for each; open the
+  two or three most authoritative results with scrape_url, because a snippet is
+  not evidence; cross-check across sources rather than trusting one.
+
+  Then answer in three or four spoken sentences and name the sources out loud by
+  publication, not by URL — a link read aloud is noise. Prefer being correct over
+  being quick, but remember the listener is waiting in silence.
+
+voice:
+  # LiveKit hosts the session; the agent sits in its `llm=` slot. Everything in
+  # this block runs on the laptop. Only `api_base` above leaves it.
+  framework: livekit
+  # Deepgram for both ears and mouth: one account, and nova-3 is markedly more
+  # accurate on live audio than a batch transcriber fed one VAD segment at a
+  # time. A misheard question is answered confidently and wrongly.
+  stt: deepgram
+  stt_model: nova-3
+  tts: deepgram
+  # Conversational pace. Provider defaults are tuned for narration, which sounds
+  # sluggish when someone is waiting for their turn.
+  tts_speed: 1.1
+  # What you are expected to speak. Without it the recogniser guesses per
+  # utterance and gets short ones wrong.
+  language: en
+  # Runs locally, costs nothing, needs no key.
+  vad: silero

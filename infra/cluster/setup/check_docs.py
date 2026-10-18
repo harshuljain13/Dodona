@@ -37,7 +37,15 @@ def anchors(path: str) -> set[str]:
 
 def main() -> int:
     bad = 0
-    files = [f for f in glob.glob("**/*.md", recursive=True) if "/.venv/" not in f]
+    # Vendored trees are not our documentation. node_modules alone added 120
+    # "broken links" — every one of them a relative path inside someone else's
+    # README that is correct in their repo and meaningless in ours. A check that
+    # reports those has stopped being a check.
+    VENDORED = ("/.venv/", "/node_modules/", "/.next/", "/site-packages/")
+    files = [
+        f for f in glob.glob("**/*.md", recursive=True)
+        if not any(part in f"/{f}" for part in VENDORED)
+    ]
     for f in files:
         d, text = os.path.dirname(f), open(f, errors="replace").read()
         for m in LINK.finditer(text):

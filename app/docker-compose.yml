@@ -1,0 +1,14 @@
+# LiveKit, on this laptop. Nothing about the voice path leaves the machine
+# except the completion, which goes to the gateway and on to the GPU.
+#
+# Dev mode uses the well-known devkey/secret pair. That is fine for something
+# bound to localhost and is NOT a credential to reuse anywhere else.
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --dev --bind 0.0.0.0
+    ports:
+      - "7880:7880"       # signalling / websocket, what the browser connects to
+      - "7881:7881"       # TURN over TCP, for networks that block UDP
+      - "50000-50100:50000-50100/udp"   # media
+    restart: unless-stopped
