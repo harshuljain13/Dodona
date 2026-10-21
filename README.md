@@ -229,9 +229,10 @@ ssh — there is no separate login step.
 
 | | |
 |---|---|
-| `make cluster` | syncs the project, then k3s + HAMi + KEDA, **1 prefill + 2 decode** across three slices, the gateway in front of them, and **the capacity checks against a running pod** |
+| `make cluster` | syncs the project, then k3s + HAMi + KEDA, **1 prefill + 1 decode** across slices, the gateway in front of them, and **the capacity checks against a running pod** |
 | `make observability` | Prometheus + Grafana + DCGM |
 | `make ssh` | the tunnel. Leave it open — every URL below is `127.0.0.1` |
+| `make app` | the voice app — LiveKit, the agent worker and the UI on `localhost:3000`. Talks to the GPU through the gateway, so `make ssh` first |
 | `make test` | the control plane, locally, **with no GPU** |
 
 Both bring-up targets are safe to re-run. Stopping, logs, load generation and

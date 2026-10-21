@@ -12,7 +12,9 @@
 # Anything more specific is a plain python or bash line in docs/COMMANDS.md.
 # Make is the workflow, not a menu.
 .DEFAULT_GOAL := help
-.PHONY: help cluster observability ssh test load logs kv clean
+# `app` must be here: a directory of that name exists, so without it make
+# reports "`app' is up to date" and runs nothing.
+.PHONY: help cluster observability ssh test load logs kv app clean
 
 SHELL := /usr/bin/env bash
 SETUP := infra/cluster/setup

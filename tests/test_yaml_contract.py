@@ -276,3 +276,28 @@ def test_the_tenant_quota_cannot_bind_at_the_loads_we_measure() -> None:
     assert quota == 0 or quota > heaviest_per_min * 2, (
         f"quota {quota:,}/min is not clear of the {heaviest_per_min:,}/min the "
         f"sweep demands — capacity results will contain 429s")
+
+
+def test_every_make_target_is_phony() -> None:
+    """A target named after a directory silently does nothing.
+
+    `make app` reported "`app' is up to date" and ran nothing, because app/
+    exists and make treats the target as a file that is already built. It fails
+    by succeeding, which is the worst way for a command to fail.
+    """
+    import re
+
+    makefile = (ROOT / "Makefile").read_text()
+    phony = set()
+    for line in makefile.splitlines():
+        if line.startswith(".PHONY:"):
+            phony.update(line.split(":", 1)[1].split())
+
+    targets = {
+        m.group(1)
+        for m in re.finditer(r"^([a-z][a-z0-9-]*):(?!=)", makefile, re.M)
+    }
+    missing = sorted(targets - phony)
+    assert not missing, (
+        f"not declared .PHONY: {missing} — any of these that matches a file or "
+        f"directory name will silently do nothing")
