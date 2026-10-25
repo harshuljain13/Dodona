@@ -6,7 +6,7 @@ they describe.
 
 | Skill | Use it when |
 |---|---|
-| `dodona-stage` | Bringing up or debugging a stage from `infra/cluster/RUNBOOK.md` |
+| `dodona-stage` | Bringing up or debugging a stage from `infra/lambda-cluster/RUNBOOK.md` |
 | `dodona-capacity` | A knob moved — card, model, slice size, context — and the arithmetic has to be redone |
 | `dodona-run` | Running an experiment, or reading what one produced |
 | `dodona-docs` | A number changed and the docs have to stop disagreeing with each other |

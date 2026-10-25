@@ -21,12 +21,12 @@ make fleet-lambda             # then: make observability && make ssh
 
 There are four targets and no more: `fleet-lambda`, `observability`, `ssh`, `test`.
 `make fleet-lambda` runs the steps below over ssh — it is not a second
-implementation, it calls the same scripts in `infra/cluster/setup/`. **If a step is
-wrong, fix the script, not `infra/cluster/setup/up.sh`.**
+implementation, it calls the same scripts in `infra/lambda-cluster/setup/`. **If a step is
+wrong, fix the script, not `infra/setup/up.sh`.**
 
 It needs **no venv and no vLLM on the box**: the pods bring their own vLLM in
 the container image, and `gate.py` is stdlib-only. The whole-card engine below
-is a separate, optional measurement — `bash infra/cluster/setup/up.sh engine` — kept
+is a separate, optional measurement — `bash infra/setup/up.sh engine` — kept
 because comparing it against a slice is what shows that CUDA-graph overhead
 does not extrapolate. `make fleet-lambda` does not need it.
 
@@ -59,7 +59,7 @@ still work, so an existing `.env` needs no editing.
 ## Step 1 — ship the code to the box `[Mac]`
 
 ```bash
-bash infra/cluster/setup/sync.sh
+bash infra/setup/sync.sh
 ```
 
 Lands the whole project at `~/dodona` on the box. Excludes `.venv`,
@@ -69,7 +69,7 @@ not your secrets.
 ## Step 2 — open the tunnel, and leave it open `[Mac]`
 
 ```bash
-bash infra/cluster/setup/tunnel.sh
+bash infra/lambda-cluster/setup/tunnel.sh
 ```
 
 Gives you a shell on the box in `~/dodona`, with these ports forwarded back:
@@ -124,8 +124,8 @@ flags that are in the capacity arithmetic so you cannot forget one.
 
 ```bash
 cd ~/dodona
-bash infra/cluster/setup/box_packages.sh      # venv, requirements, vllm, verify
-bash infra/cluster/setup/engine.sh       # serve, on :8000
+bash infra/setup/box_packages.sh      # venv, requirements, vllm, verify
+bash infra/setup/engine.sh       # serve, on :8000
 ```
 
 `box_packages.sh` builds `.venv`, installs `requirements.txt` and

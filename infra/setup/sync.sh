@@ -4,8 +4,7 @@
 # Excludes .venv, __pycache__, .pytest_cache — source only, no environments.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PROJECT_ROOT="$(cd "$ROOT/../.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$PROJECT_ROOT"   # the whole project, not just infra/
 
 if [[ -f "$PROJECT_ROOT/.env" ]]; then

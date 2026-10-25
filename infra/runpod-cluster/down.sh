@@ -21,7 +21,7 @@ note() { printf '    %s\n' "$*"; }
 #: this repo's path where possible, so a vLLM someone else is running on the
 #: same box is left alone.
 declare -a TARGETS=(
-  "infra/local/workers.sh"        # the supervisors — first, always
+  "infra/runpod-cluster/workers.sh"        # the supervisors — first, always
   "$ROOT/.venv/bin/vllm"          # the three engines
   "vllm serve"                    # ...and any started a different way
   "$ROOT/.venv/bin/python -m gateway.serve"
@@ -52,7 +52,7 @@ sleep 2
 
 # Report what is left rather than claiming success. A worker that ignored TERM
 # is more useful named than assumed gone.
-left="$(pgrep -fa "vllm serve|gateway.serve|router.mooncake|infra/local/workers.sh" 2>/dev/null || true)"
+left="$(pgrep -fa "vllm serve|gateway.serve|router.mooncake|infra/runpod-cluster/workers.sh" 2>/dev/null || true)"
 if [[ -n "$left" ]]; then
   note ""
   note "still running:"

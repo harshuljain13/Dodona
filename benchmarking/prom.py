@@ -11,7 +11,7 @@ Three capabilities, in order of how much they matter:
     Grafana.render()    the actual panel, as a PNG
 
 `panel_queries` is the one worth understanding. The dashboards are generated
-from infra/cluster/observability/dashboards.py, so their queries are already
+from infra/lambda-cluster/observability/dashboards.py, so their queries are already
 reviewed and already what the cluster is judged by. A notebook that writes its
 own PromQL will drift from them; one that reads theirs cannot.
 """

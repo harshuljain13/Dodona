@@ -4,7 +4,7 @@
 Cheap to run and catches the failure that is otherwise invisible until someone
 clicks: a file moved and the twelve things pointing at it did not.
 
-    python3 infra/cluster/setup/check_docs.py
+    python3 infra/setup/check_docs.py
 """
 from __future__ import annotations
 

@@ -551,7 +551,7 @@ def fleet() -> dict:
         "dodona-fleet",
         "Dodona / Fleet (no orchestrator)",
         [
-            # The card. DCGM names, from infra/local/gpu_exporter.py — the
+            # The card. DCGM names, from infra/runpod-cluster/gpu_exporter.py — the
             # label is `gpu` because that is what dcgm-exporter uses for the
             # index, so these panels read the same on either path.
             _panel(1, "GPU utilisation", "DCGM_FI_DEV_GPU_UTIL", legend="GPU {{gpu}}",

@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-K8S = ROOT / "infra" / "cluster" / "k8s"
+K8S = ROOT / "infra" / "lambda-cluster" / "k8s"
 
 def _read_all() -> str:
     files = sorted(K8S.glob("*/*.yaml"))

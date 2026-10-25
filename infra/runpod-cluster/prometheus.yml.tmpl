@@ -40,7 +40,7 @@ scrape_configs:
 
   # GPU utilisation, memory, power and temperature, under the DCGM_FI_DEV_*
   # names dashboards.py queries. The k8s path gets them from a dcgm-exporter
-  # DaemonSet; here infra/local/gpu_exporter.py reads the same driver through
+  # DaemonSet; here infra/runpod-cluster/gpu_exporter.py reads the same driver through
   # nvidia-smi and publishes the three fields `cluster` plots.
   - job_name: dcgm
     static_configs:

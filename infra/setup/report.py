@@ -4,9 +4,9 @@
 Not a dump. Every number is printed with the thing it tells you, and anything
 that looks wrong is called out with what to do about it. Run it on the GPU box:
 
-    python3 infra/cluster/setup/report.py                 # what is the cluster doing
-    python3 infra/cluster/setup/report.py --dashboards    # why panels are empty
-    python3 infra/cluster/setup/report.py --json out.json
+    python3 infra/setup/report.py                 # what is the cluster doing
+    python3 infra/setup/report.py --dashboards    # why panels are empty
+    python3 infra/setup/report.py --json out.json
 
 The one question it exists to answer, at the bottom of every run:
 
@@ -38,7 +38,7 @@ THRESHOLD = 0.90
 
 def _default_report_path() -> str:
     """Where a bare --json lands. Reports are output, so they go under infra/."""
-    root = Path(__file__).resolve().parents[3]      # repo root
+    root = Path(__file__).resolve().parents[2]      # repo root
     stamp = subprocess.run(["date", "-u", "+%Y%m%dT%H%M%SZ"],
                            capture_output=True, text=True).stdout.strip()
     return str(root / "benchmarking" / "01-sanity" / "reports" / f"cluster-{stamp}.json")

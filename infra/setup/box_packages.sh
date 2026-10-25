@@ -4,11 +4,11 @@
 # torch and vLLM import and can see the device. No Kubernetes here.
 set -euo pipefail
 
-# This script is at infra/cluster/setup/, so the repo root is three levels up,
+# This script is at infra/lambda-cluster/setup/, so the repo root is three levels up,
 # not two. It was two — PROJECT_ROOT landed on infra/, pip looked for
 # infra/requirements.txt, and the venv would have been built there as well,
 # where workers.sh does not look for it. Found on the first real box.
-PROJECT_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # Quiet by default, with the full pip output kept in a file. vLLM pulls in
@@ -55,7 +55,7 @@ step "vllm (~10 GB)"     pip install -q "vllm>=0.28"
 # for a comparison measurement and has no dashboards to feed — pulling ~400 MB
 # of binaries it will never run is a cost with no return.
 if [[ "${WITH_OBSERVABILITY:-0}" == "1" ]]; then
-  bash "$PROJECT_ROOT/infra/local/observability.sh" || true
+  bash "$PROJECT_ROOT/infra/runpod-cluster/observability.sh" || true
 fi
 
 say "verify"
