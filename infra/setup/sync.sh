@@ -27,7 +27,16 @@ fi
 
 echo "Sync Mac → $BOX:~/dodona/  (port $SSH_PORT)"
 ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new "$BOX" "mkdir -p ~/dodona"
-rsync -avz -e "ssh -i $SSH_KEY -p $SSH_PORT -o StrictHostKeyChecking=accept-new" \
+# --delete, so the box mirrors the repo rather than accumulating it.
+#
+# Without it a rename leaves both trees behind: infra/cluster survived
+# alongside infra/lambda-cluster, and the running Grafana kept provisioning
+# from the old path — serving eleven dashboards out of a directory the repo no
+# longer has. A stale file that still works is worse than a missing one.
+#
+# The --exclude list is protected: rsync will not delete an excluded path, so
+# .venv, .env and metrics/ on the box survive.
+rsync -avz --delete -e "ssh -i $SSH_KEY -p $SSH_PORT -o StrictHostKeyChecking=accept-new" \
   --exclude '.venv' \
   --exclude '__pycache__' \
   --exclude '.pytest_cache' \
