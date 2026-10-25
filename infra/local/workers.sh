@@ -31,8 +31,14 @@ mkdir -p "$LOGS"
 # Fresh logs per fleet. They were appended to for ever, so `status` counted
 # restarts from runs that ended hours ago and reported a healthy fleet as
 # having failed 51 times. Previous content moves aside rather than vanishing.
+# NOT fleet.log. up.sh redirects this process's stdout into it before exec'ing
+# here, so renaming it moves the file out from under an open descriptor: the
+# output keeps going to fleet.log.prev, fleet.log stays empty, and the command
+# waiting on the Mac sees no progress at all and looks frozen.
 for old in "$LOGS"/*.log; do
-  [[ -e "$old" ]] && mv -f "$old" "$old.prev" 2>/dev/null || true
+  [[ -e "$old" ]] || continue
+  [[ "$(basename "$old")" == "fleet.log" ]] && continue
+  mv -f "$old" "$old.prev" 2>/dev/null || true
 done
 
 PY="${PY:-$ROOT/.venv/bin/python}"

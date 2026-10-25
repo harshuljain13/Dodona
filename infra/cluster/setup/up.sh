@@ -248,8 +248,15 @@ cmd_fleet_runpod() {
     fi
 
     [[ "$line" == *UP ]] && { announce "fleet up"; break; }
-    sleep 10
-    waited=$(( waited + 10 ))
+
+    # Say something every 30s regardless. Three workers loading a 32B produce
+    # long gaps with nothing to report, and a silent terminal is indentical to
+    # a hung one from where you are sitting.
+    if (( waited > 0 && waited % 30 == 0 )); then
+      printf '    still loading — %dm%02ds\r' $(( waited / 60 )) $(( waited % 60 ))
+    fi
+    sleep 5
+    waited=$(( waited + 5 ))
   done
 
   if ! "${SSH[@]}" "$BOX" "curl -sf -m 2 localhost:8080/v1/models >/dev/null 2>&1"; then
