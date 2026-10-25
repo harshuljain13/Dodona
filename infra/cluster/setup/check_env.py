@@ -2,7 +2,7 @@
 """Every value `.env` has to carry is present, named, and not a placeholder.
 
 The failure this prevents is finding a missing key twelve minutes into
-`make cluster`, reported by whatever happened to need it — a HuggingFace 401
+`make fleet-lambda`, reported by whatever happened to need it — a HuggingFace 401
 deep inside a weight download, or LiteLLM announcing "No API credentials" as
 though a cloud account were missing. Each of those names its own symptom and
 not its cause.
@@ -29,7 +29,7 @@ import sys
 #: of it being absent, because that is the question someone has when they read
 #: a failure here.
 REQUIRED = {
-    "BOX": "no box to drive — `make cluster` has nothing to ssh to",
+    "BOX": "no box to drive — `make fleet-lambda` has nothing to ssh to",
     "SSH_KEY": "no key to ssh with",
     "SSH_PORT": "defaults to 22; RunPod uses a high port, so a wrong one looks like a dead box",
     "HF_TOKEN": "the model download fails partway through bring-up",
@@ -119,7 +119,7 @@ def main() -> int:
 
     print()
     if bad:
-        print(f"  {bad} to fix before `make cluster` — see PREREQUISITES.md")
+        print(f"  {bad} to fix before `make fleet-lambda` — see PREREQUISITES.md")
         return 1
 
     print("  .env is complete")

@@ -350,7 +350,7 @@ def wait_for_deployments(prom: "Prom", *, timeout_s: float = 120.0,
                          poll_s: float = 5.0) -> dict[str, tuple[float, float, float]]:
     """Poll until every expected deployment is available, or give up.
 
-    A health check run straight after `make cluster` catches the gateway
+    A health check run straight after `make fleet-lambda` catches the gateway
     mid-rollout and reports 0/1 for something that is simply still starting.
     Failing on that is noise; passing on it would hide a real outage. So wait a
     bounded time and report whichever it turned out to be.

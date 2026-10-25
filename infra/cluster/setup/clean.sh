@@ -70,5 +70,5 @@ cat <<'NOTE'
     The box is bare. Nothing should hold GPU memory above a few MiB.
     The instance is still running and still billing.
 
-    Rebuild:  make cluster && make observability && make ssh
+    Rebuild:  make fleet-lambda && make observability && make ssh
 NOTE

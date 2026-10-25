@@ -1,7 +1,8 @@
 # Dodona.
 #
-#   make cluster        k3s + HAMi + KEDA + the fleet + the gateway (needs a host)
-#   make workers        the same fleet as processes, no orchestrator (any box)
+#   make fleet-lambda   k3s + HAMi + KEDA + the fleet + gateway  (needs a host)
+#   make fleet-runpod   the same fleet as processes, no k3s     (any box)
+#   make fleet-down     stop a process fleet
 #   make observability  Prometheus + Grafana + DCGM
 #   make ssh            tunnel — Grafana, the app and the fleet in your browser
 #   make doctor         is .env complete? run this before the first bring-up
@@ -17,7 +18,7 @@
 .DEFAULT_GOAL := help
 # `app` must be here: a directory of that name exists, so without it make
 # reports "`app' is up to date" and runs nothing.
-.PHONY: help cluster workers observability ssh test load logs kv app doctor clean
+.PHONY: help fleet-lambda fleet-runpod fleet-down observability ssh test load logs kv app doctor clean
 
 SHELL := /usr/bin/env bash
 SETUP := infra/cluster/setup
@@ -31,8 +32,9 @@ help:
 	@echo ""
 	@echo "  Dodona"
 	@echo ""
-	@echo "   make cluster        k3s + HAMi + KEDA + fleet + gateway   (needs a host)"
-	@echo "   make workers        same fleet as processes, no k8s    (runs in a container)"
+	@echo "   make fleet-lambda   k3s + HAMi + KEDA + fleet + gateway   (needs a host)"
+	@echo "   make fleet-runpod   same fleet as processes, no k3s    (runs in a container)"
+	@echo "   make fleet-down     stop a process fleet"
 	@echo "   make observability  Prometheus + Grafana + DCGM"
 	@echo "   make ssh            tunnel — Grafana :31495, app :30030, fleet :30800"
 	@echo "   make doctor         is .env complete? before the first bring-up"
@@ -44,32 +46,37 @@ help:
 	@echo "   make clean          wipe the box: workloads, helm, k3s, engines"
 	@echo ""
 	@echo "  First run:  cp .env.example .env   # set BOX and SSH_KEY"
-	@echo "              make cluster && make observability && make ssh"
+	@echo "              make fleet-lambda && make observability && make ssh"
 	@echo ""
-	@echo "  Redo from scratch:  make clean && make cluster"
+	@echo "  Redo from scratch:  make clean && make fleet-lambda"
 	@echo ""
 	@echo "  Both bring-up targets are safe to re-run."
 	@echo "  Stopping, logs, load, one-off tools: COMMANDS.md"
 	@echo ""
 
 # venv first, so this works on a fresh clone with nothing installed.
-cluster:
+fleet-lambda:
 	@[ -d .venv ] || { python3 -m venv .venv && .venv/bin/pip install -qU pip \
 	  && .venv/bin/pip install -qr requirements.txt; }
-	@bash $(SETUP)/up.sh cluster
+	@bash $(SETUP)/up.sh fleet-lambda
 
 # One vLLM per GPU, the gateway in front, no orchestrator. For boxes that are
-# containers — which is most rented GPUs — where `make cluster` cannot install
+# containers — which is most rented GPUs — where `make fleet-lambda` cannot install
 # k3s. Same control plane, same dashboards, same reports; what it drops is
 # HAMi's enforced slices and KEDA.
 #
 # Drives the box over ssh, like every other target here — syncs, installs vLLM
-# (which `make cluster` does not need: there the pods bring their own), then
+# (which `make fleet-lambda` does not need: there the pods bring their own), then
 # starts the workers. Leave it running; Ctrl-C stops the fleet.
-workers:
+fleet-runpod:
 	@[ -d .venv ] || { python3 -m venv .venv && .venv/bin/pip install -qU pip \
 	  && .venv/bin/pip install -qr requirements.txt; }
-	@bash $(SETUP)/up.sh workers
+	@bash $(SETUP)/up.sh fleet-runpod
+
+# Stops what fleet-runpod started. The Kubernetes path's equivalent is
+# `make clean`, which deletes the workloads and k3s with them.
+fleet-down:
+	@bash $(SETUP)/up.sh fleet-down
 
 observability:
 	@bash $(SETUP)/up.sh observability

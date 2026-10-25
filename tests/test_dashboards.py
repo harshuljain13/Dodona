@@ -121,7 +121,7 @@ def test_counters_are_plotted_as_rates_not_raw() -> None:
 
 
 def test_every_gateway_query_aggregates() -> None:
-    """orch_* is emitted by a pod that restarts on every `make cluster`.
+    """orch_* is emitted by a pod that restarts on every `make fleet-lambda`.
 
     A new pod means a new series, so an unaggregated query draws one line per
     deploy generation — forever. Nine deploys produced nine identical "picks"

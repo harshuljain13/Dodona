@@ -186,7 +186,7 @@ def _dash(uid: str, title: str, panels: list[dict], tags: list[str]) -> dict:
     }
 
 def overview() -> dict:
-    # EVERY query aggregates. orch-serve restarts on each `make cluster`, and a
+    # EVERY query aggregates. orch-serve restarts on each `make fleet-lambda`, and a
     # new pod means a new series — nine deploys left nine orch_kv_free_ratio
     # lines, nine identical "picks" legends, and nine prefill/decode pairs. An
     # unaggregated gateway metric draws one line per pod generation, forever.
