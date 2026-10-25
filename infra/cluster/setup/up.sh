@@ -109,10 +109,12 @@ show_card() {
   fi
 }
 
+# WITH_OBSERVABILITY=1 adds prometheus and grafana. Off by default so the
+# engine path does not pay for binaries it never starts.
 install_packages() {
   # No announce here: box_packages.sh prints its own heading and a per-step
   # status, and two "==> packages" lines in a row read as a repeated step.
-  on_box_tty 'bash infra/cluster/setup/box_packages.sh'
+  on_box_tty "WITH_OBSERVABILITY=${WITH_OBSERVABILITY:-0} bash infra/cluster/setup/box_packages.sh"
 }
 
 # Holds the whole card, to measure the model's real footprint before slicing.
@@ -207,7 +209,7 @@ cmd_engine() {
 cmd_fleet_runpod() {
   sync_project
   show_card
-  install_packages
+  WITH_OBSERVABILITY=1 install_packages
   announce "fleet  —  1 vLLM per GPU, gateway, mooncake"
 
   # Detached, not attached. Held in the foreground this blocks the terminal, so
