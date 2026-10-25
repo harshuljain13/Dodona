@@ -292,7 +292,7 @@ ssh — there is no separate login step.
 |---|---|
 | `make doctor` | **start here.** Is `.env` complete? Names every value and what its absence breaks, printing no secrets |
 | `make fleet-lambda` | syncs the project, then k3s + HAMi + KEDA, **1 prefill + 1 decode** across slices, the gateway in front of them, and **the capacity checks against a running pod** |
-| `make observability` | Prometheus + Grafana + DCGM |
+| `make observability` | Prometheus + Grafana + DCGM, **for `fleet-lambda`** — Helm generates the Grafana password, read it from the cluster. `fleet-runpod` starts both itself, with `admin` / `$GRAFANA_PASSWORD` |
 | `make ssh` | the tunnel. Leave it open — every URL below is `127.0.0.1` |
 | `make app` | the voice app — the AgentShip service and the UI on `localhost:3000`. Talks to the GPU through the gateway, so `make ssh` first |
 | `make test` | the control plane, locally, **with no GPU** |

@@ -279,7 +279,7 @@ else
 fi
 
 if command -v grafana-server >/dev/null 2>&1 || command -v grafana >/dev/null 2>&1; then
-  say "grafana  —  :31495"
+  say "grafana  —  :31495   login: admin / ${GRAFANA_PASSWORD:-admin}"
   supervise grafana env \
     DODONA_ROOT="$ROOT" \
     GF_PATHS_PROVISIONING="$ROOT/infra/local/grafana" \
