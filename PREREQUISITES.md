@@ -269,9 +269,17 @@ an error that never mentions `.env`.
 Now prove the box answers. **This is the first time anything here leaves your
 machine**, and it is the step that catches a key RunPod never installed:
 
+`.env` is a file, not your shell — editing it sets nothing in the terminal you
+are typing in. The `make` targets read it themselves, but a bare `ssh` does
+not, so load it first:
+
 ```bash
+source .env                      # now $BOX and $SSH_PORT exist in this shell
 ssh $BOX -p $SSH_PORT nvidia-smi
 ```
+
+(`make doctor` also prints this line with your values already filled in, if you
+would rather copy it than source anything.)
 
 Being asked for a **password** means the key is not on the box — RunPod injects
 keys at launch, so adding one to your account afterwards does nothing for a pod

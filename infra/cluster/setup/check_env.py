@@ -121,7 +121,21 @@ def main() -> int:
     if bad:
         print(f"  {bad} to fix before `make cluster` — see PREREQUISITES.md")
         return 1
+
     print("  .env is complete")
+
+    # Hand back the one command people reach for next, with the values already
+    # in it. `.env` is a file, not a shell: editing it leaves $BOX unset in the
+    # terminal, so `ssh $BOX` fails with an empty host and an error that blames
+    # ssh. None of these three is a secret, so printing them costs nothing.
+    box, port = resolve(values, "BOX"), resolve(values, "SSH_PORT") or "22"
+    if box:
+        print()
+        print("  the box, from this shell without sourcing anything:")
+        # Expanded, so the line reads as a path rather than as $HOME — it would
+        # work either way once pasted, but a printed command people are meant to
+        # trust should not look like it still needs resolving.
+        print(f"    ssh {box} -p {port} -i {key or '~/.ssh/dodona_ed25519'} nvidia-smi")
     return 0
 
 
