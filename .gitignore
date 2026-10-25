@@ -41,6 +41,11 @@ __pycache__/
 # Trace output from a run, not source.
 # Anchored to the repo root because it contains a slash — it has to
 # follow the directory when metrics/ moves.
+#
+# AdmitPerf writes its decision log to a relative `metrics/<run>/` from wherever
+# it was invoked, so `make test` drops one at the repo root. The artifacts this
+# repo keeps are in infra/metrics/; this leading slash ignores only the stray.
+/metrics/
 infra/metrics/traces/requests.jsonl
 
 # Notebook checkpoints, not source.
