@@ -96,7 +96,11 @@ util_for() {
 # because nginx answers.
 #
 # PORT_BASE moves the whole block if something is in the way.
-PORT_BASE="${PORT_BASE:-8000}"
+# 8100 rather than 8000: RunPod's Jupyter template runs nginx on :8001, which
+# is decode-0's port if the block starts at 8000. Every attendee on that
+# template would hit it, and the fix would be an edit they have to be told
+# about. 8100-8102 is free there and on a bare VM alike.
+PORT_BASE="${PORT_BASE:-8100}"
 PREFILL_PORT=$(( PORT_BASE ))
 DECODE0_PORT=$(( PORT_BASE + 1 ))
 DECODE1_PORT=$(( PORT_BASE + 2 ))

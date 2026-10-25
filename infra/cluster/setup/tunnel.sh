@@ -27,7 +27,7 @@ SSH_PORT="${SSH_PORT:-22}"
 # when something on the box already holds one — RunPod's Jupyter template runs
 # nginx on :8001 — and a tunnel still forwarding 8000 would reach nothing while
 # looking fine. Set PORT_BASE in .env so both read the same value.
-PORT_BASE="${PORT_BASE:-8000}"
+PORT_BASE="${PORT_BASE:-8100}"
 
 [[ -n "$BOX"     ]] || { echo "Set BOX in .env" >&2; exit 1; }
 [[ -f "$SSH_KEY" ]] || { echo "Set SSH_KEY in .env to your private key path" >&2; exit 1; }
