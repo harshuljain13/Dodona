@@ -101,11 +101,19 @@ PREFILL_PORT=$(( PORT_BASE ))
 DECODE0_PORT=$(( PORT_BASE + 1 ))
 DECODE1_PORT=$(( PORT_BASE + 2 ))
 
+# Always succeeds, printing a name or nothing.
+#
+# Under `set -euo pipefail` the obvious version is a trap: grep returns 1 when
+# a port is FREE, pipefail makes that the pipeline's status, and the command
+# substitution carries it into an assignment that set -e then treats as fatal.
+# The script exited before printing a single line — on a box where every port
+# was fine, which is the one case it was supposed to wave through.
 port_holder() {
-  local port="$1"
-  local pid
-  pid=$(ss -lptn "sport = :$port" 2>/dev/null | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2)
-  [[ -n "$pid" ]] && ps -p "$pid" -o comm= 2>/dev/null
+  local port="$1" pid=""
+  pid=$(ss -lptn "sport = :$port" 2>/dev/null | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2) || true
+  [[ -z "$pid" ]] && return 0
+  ps -p "$pid" -o comm= 2>/dev/null || true
+  return 0
 }
 
 check_ports() {

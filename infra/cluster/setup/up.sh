@@ -108,7 +108,8 @@ show_card() {
 }
 
 install_packages() {
-  announce "packages  —  venv, requirements, vllm"
+  # No announce here: box_packages.sh prints its own heading and a per-step
+  # status, and two "==> packages" lines in a row read as a repeated step.
   on_box_tty 'bash infra/cluster/setup/box_packages.sh'
 }
 

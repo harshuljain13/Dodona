@@ -254,3 +254,27 @@ def test_workers_sets_up_its_own_environment_on_the_box() -> None:
     assert "export PYTHONPATH=" in src, "workers.sh must set PYTHONPATH itself"
     assert "infra/control" in src and "infra/cluster" in src, "both import roots"
     assert "export PATH=" in src and ".venv/bin" in src, "the venv must be on PATH for vllm"
+
+
+def test_port_probe_survives_a_free_port() -> None:
+    """Under `set -euo pipefail`, probing a FREE port must not kill the script.
+
+    grep returns 1 when it matches nothing, pipefail makes that the pipeline's
+    status, and a command substitution carries it into an assignment that set -e
+    treats as fatal. workers.sh exited before printing a line — on a box where
+    every port was free, the one case the check exists to wave through.
+
+    Extract the function and run it under the same flags the script uses.
+    """
+    src = (ROOT / "infra" / "local" / "workers.sh").read_text()
+    start = src.index("port_holder() {")
+    body = src[start:src.index("\n}", start) + 2]
+    # 59999 is almost certainly free; if it is not, the probe should still
+    # return cleanly, which is the property under test either way.
+    done = subprocess.run(
+        ["bash", "-c", f"set -euo pipefail\n{body}\nholder=$(port_holder 59999)\necho SURVIVED"],
+        capture_output=True, text=True,
+    )
+    assert "SURVIVED" in done.stdout, (
+        f"probing a free port aborted the script: rc={done.returncode} {done.stderr}"
+    )
