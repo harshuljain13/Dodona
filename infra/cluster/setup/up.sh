@@ -74,6 +74,24 @@ sync_project() {
   bash infra/cluster/setup/sync.sh
 }
 
+# Asked before anything is synced or installed, because the answer invalidates
+# the whole bring-up and the box cannot tell us later in any useful way: k3s
+# fails two minutes in, naming systemd and not the container it is trapped in.
+require_a_host() {
+  local init
+  init=$("${SSH[@]}" "$BOX" 'cat /proc/1/comm 2>/dev/null' | tr -d '\r')
+  [[ "$init" == "systemd" ]] && return 0
+  echo
+  fail "  $BOX is a container, not a host — PID 1 is ${init:-unknown}.
+
+  k3s installs as a systemd service and HAMi slices the GPU through the kernel.
+  Neither works inside someone else's container, so nothing in this bring-up
+  can succeed here.
+
+  On RunPod that means a standard Pod. Book an Instant Cluster or a bare-metal
+  instance instead — see PREREQUISITES.md step 6."
+}
+
 show_card() {
   announce "card"
   "${SSH[@]}" "$BOX" \
@@ -153,6 +171,7 @@ PORTS
 # container image, and the capacity checks run against a pod inside fleet.sh
 # because a whole-card measurement cannot be extrapolated to a slice anyway.
 cmd_cluster() {
+  require_a_host
   sync_project
   show_card
   start_fleet
@@ -175,6 +194,7 @@ cmd_engine() {
 }
 
 cmd_observability() {
+  require_a_host
   sync_project
   start_observability
   announce "observability up"

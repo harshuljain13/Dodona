@@ -145,14 +145,28 @@ before its numbers mean anything. One card is enough: the whole project is one
 card split three ways.
 
 > **It must be a host, not a container.** `make cluster` installs k3s as a
-> **systemd service** and HAMi slices the device. Neither works inside someone
-> else's container.
+> **systemd service** and HAMi slices the device through the kernel. Neither
+> works inside someone else's container.
 >
 > | Provider | Works? |
 > |---|---|
 > | Lambda, EC2, bare metal — a VM you are root on | ✅ |
 > | **RunPod Instant Cluster / bare metal** | ✅ |
 > | **RunPod standard Pod** | ❌ it is a container |
+>
+> `make cluster` checks this before it syncs anything and names it if wrong, so
+> a mistake here costs seconds rather than a part-finished k3s install.
+
+**Do not trust `systemctl --version` to tell you which you have.** The binary
+ships in plenty of container images and will happily report a version; what
+matters is whether systemd is PID 1:
+
+```bash
+ssh <box> -p <port> 'cat /proc/1/comm'
+```
+
+`systemd` is a host. Anything else — `docker-init`, `bash`, `sh` — is a
+container, and no amount of permissions will change that.
 
 **On RunPod specifically:**
 
