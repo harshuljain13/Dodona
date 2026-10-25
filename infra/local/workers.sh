@@ -31,6 +31,14 @@ mkdir -p "$LOGS"
 PY="${PY:-$ROOT/.venv/bin/python}"
 [[ -x "$PY" ]] || PY=python3
 
+# The Makefile exports PYTHONPATH — on the Mac. These processes run on the box,
+# reached over ssh, and inherit none of it. Without the first line
+# `python -m router.mooncake` is ModuleNotFoundError; without the second,
+# engine.sh's bare `vllm` is "command not found" even though pip installed it
+# into .venv/bin.
+export PYTHONPATH="$ROOT/infra/control:$ROOT/infra/cluster${PYTHONPATH:+:$PYTHONPATH}"
+export PATH="$ROOT/.venv/bin:$PATH"
+
 say()  { printf '\033[1;36m==> %s\033[0m\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
 fail() { printf '\033[1;31m%s\033[0m\n' "$*" >&2; exit 1; }
@@ -115,8 +123,15 @@ supervise() {
       "$@" >>"$LOGS/$name.log" 2>&1 || true
       fails=$(( fails + 1 ))
       printf '[%s] exited (restart %d)\n' "$name" "$fails" >>"$LOGS/$name.log"
-      (( fails >= 5 )) && printf '[%s] 5 restarts — see %s/%s.log\n' "$name" "$LOGS" "$name" >&2
-      sleep 3
+      # Once, with the reason. Repeating it every three seconds buries the one
+      # line that says what actually went wrong.
+      if (( fails == 3 )); then
+        printf '\033[1;31m[%s] died 3 times. Last error:\033[0m\n' "$name" >&2
+        grep -vE "^\[$name\] exited" "$LOGS/$name.log" | tail -3 | sed 's/^/    /' >&2
+        printf '    still retrying — full log: %s/%s.log\n' "$LOGS" "$name" >&2
+      fi
+      # Back off, so a permanently broken worker is not a busy loop.
+      sleep $(( fails < 3 ? 3 : 15 ))
     done
   ) &
   PIDS+=($!)

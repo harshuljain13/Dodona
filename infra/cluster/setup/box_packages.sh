@@ -11,22 +11,47 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$PROJECT_ROOT"
 
-echo "== GPU =="
-nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+# Quiet by default, with the full pip output kept in a file. vLLM pulls in
+# torch and CUDA wheels — several thousand lines that bury the four `==>` lines
+# around them and make a working install look like something went wrong.
+# `make cluster` never shows this at all, because its pods bring vLLM in the
+# image; this path installs it, and should not be noisier for that.
+LOG="${PACKAGES_LOG:-$PROJECT_ROOT/infra/metrics/local/box_packages.log}"
+mkdir -p "$(dirname "$LOG")"
 
-echo "== venv =="
-python3 -m venv .venv
+say()  { printf '\033[1;36m==> %s\033[0m\n' "$*"; }
+note() { printf '    %s\n' "$*"; }
+
+step() {
+  local what="$1"; shift
+  printf '    %-34s' "$what"
+  if "$@" >>"$LOG" 2>&1; then
+    printf 'ok\n'
+  else
+    printf 'FAILED\n'
+    echo
+    echo "    last 20 lines of $LOG:"
+    tail -20 "$LOG" | sed 's/^/      /'
+    exit 1
+  fi
+}
+
+say "packages  —  venv, requirements, vLLM"
+note "full log: $LOG"
+
+step "venv"              python3 -m venv .venv
 source .venv/bin/activate
-pip install -U pip wheel
-pip install -r requirements.txt            # project root
-pip install -r requirements-load.txt       # locust, for load tests
-pip install "vllm>=0.28"
+step "pip, wheel"        pip install -qU pip wheel
+step "requirements.txt"  pip install -q -r requirements.txt
+step "requirements-load" pip install -q -r requirements-load.txt
+# The long one: torch + CUDA wheels, several GB. Worth its own line so a slow
+# network looks like progress rather than a hang.
+step "vllm (~10 GB)"     pip install -q "vllm>=0.28"
 
-echo "== verify =="
+say "verify"
 python -c "
 import torch, vllm
-print('torch', torch.__version__)
-print('cuda', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')
-print('vllm', vllm.__version__)
-"
-echo "Packages installed. Next: bash infra/cluster/setup/engine.sh"
+print('    torch', torch.__version__)
+print('    cuda ', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')
+print('    vllm ', vllm.__version__)
+" || { echo "    import failed — see $LOG"; exit 1; }
