@@ -243,6 +243,11 @@ workers_env() {
 # No equivalent on the Kubernetes path: there `make clean` deletes the
 # workloads and k3s goes with them. Raw processes have no such owner.
 cmd_fleet_down() {
+  # Sync first. down.sh is a file on the box, and the box only has whatever the
+  # last sync left there — so a newly added script is "No such file or
+  # directory", which reads as a broken repo rather than a stale one. Every
+  # other command that runs a remote script syncs before it; this one did not.
+  sync_project
   announce "fleet-down  —  stopping the process fleet"
   on_box 'bash infra/local/down.sh'
 }
