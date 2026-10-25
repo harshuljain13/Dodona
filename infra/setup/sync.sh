@@ -27,6 +27,18 @@ fi
 
 echo "Sync Mac → $BOX:~/dodona/  (port $SSH_PORT)"
 ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new "$BOX" "mkdir -p ~/dodona"
+# Clear caches on the box first, or --delete cannot finish the job.
+#
+# rsync will not remove a directory that still holds an excluded file, and
+# __pycache__ is excluded. So after renaming infra/cluster and infra/local,
+# both survived on the box purely because each contained a __pycache__ that
+# rsync had been told not to touch — and the running Grafana kept provisioning
+# out of one of them. Caches are regenerable; delete them and the empty husks
+# go with the sync.
+ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new "$BOX" \
+  'find ~/dodona -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null;
+   find ~/dodona -name .pytest_cache -type d -prune -exec rm -rf {} + 2>/dev/null' || true
+
 # --delete, so the box mirrors the repo rather than accumulating it.
 #
 # Without it a rename leaves both trees behind: infra/cluster survived
