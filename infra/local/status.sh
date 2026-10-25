@@ -47,18 +47,44 @@ for role in prefill decode-0 decode-1; do
   kv=$(curl -sf -m 5 "localhost:$port/metrics" 2>/dev/null \
     | awk '/^vllm:kv_cache_usage_perc/ { v=$NF } END { printf "%.3f", v+0 }')
 
-  restarts=$(grep -ac "^\[$role\] exited" "$LOGS/$role.log" 2>/dev/null)
-  restarts=${restarts:-0}
+  # Uptime, not a log count. A log file records everything that ever happened
+  # on this box; it said 51 restarts for a worker that had been serving
+  # steadily for twenty minutes, because the crash loops of an earlier, broken
+  # fleet were still in the file. What matters is whether THIS process is up
+  # and has stayed up.
+  pid=$(ss -lptnH "sport = :$port" 2>/dev/null | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2)
+  up=$(ps -p "${pid:-0}" -o etimes= 2>/dev/null | tr -d ' ')
+  up=${up:-0}
 
-  line=$(printf ':%-5s %-9s %-34s kv %-6s %s restarts' \
-    "$port" "$role" "$model" "${kv:-?}" "$restarts")
-  if (( restarts > 0 )); then
-    bad "$line"
+  if (( up >= 3600 )); then   age="$(( up / 3600 ))h"
+  elif (( up >= 60 )); then   age="$(( up / 60 ))m"
+  else                        age="${up}s"
+  fi
+
+  line=$(printf ':%-5s %-9s %-34s kv %-6s up %s' \
+    "$port" "$role" "$model" "${kv:-?}" "$age")
+
+  # Under two minutes and answering means it restarted very recently — which,
+  # for a worker that takes minutes to load, means it is flapping.
+  if (( up < 120 )); then
+    bad "$line   (just restarted — may be flapping)"
     problems=$(( problems + 1 ))
   else
     ok "$line"
   fi
 done
+
+# History, reported as history. Worth seeing — a fleet that crashed thirty
+# times before settling is worth knowing about — but it is not a fault now,
+# and a status that exits non-zero for it cannot be used as a health check.
+hist=0
+for role in prefill decode-0 decode-1; do
+  n=$(grep -ac "^\[$role\] exited" "$LOGS/$role.log" 2>/dev/null); n=${n:-0}
+  hist=$(( hist + n ))
+done
+if (( hist > 0 )); then
+  note "logs record $hist restart(s) across this fleet's lifetime — make fleet-runpod-logs"
+fi
 
 # ── the control plane ──────────────────────────────────────────────────────
 say "control plane"

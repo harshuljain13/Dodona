@@ -17,11 +17,11 @@ scrape_configs:
   - job_name: vllm
     metrics_path: /metrics
     static_configs:
-      - targets: ["127.0.0.1:8000"]
+      - targets: ["127.0.0.1:__PREFILL__"]
         labels: { phase: prefill, pod: prefill }
-      - targets: ["127.0.0.1:8001"]
+      - targets: ["127.0.0.1:__DECODE0__"]
         labels: { phase: decode, pod: decode-0 }
-      - targets: ["127.0.0.1:8002"]
+      - targets: ["127.0.0.1:__DECODE1__"]
         labels: { phase: decode, pod: decode-1 }
 
   # guard / admit / place / queue counters, and the decision log's gate series.

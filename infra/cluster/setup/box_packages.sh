@@ -48,6 +48,11 @@ step "requirements-load" pip install -q -r requirements-load.txt
 # network looks like progress rather than a hang.
 step "vllm (~10 GB)"     pip install -q "vllm>=0.28"
 
+# Prometheus and Grafana, as binaries. The Kubernetes path gets them from Helm,
+# which needs a cluster — so without this the process path had no observability
+# at all, and KV pressure is something you watch rather than read about.
+bash "$PROJECT_ROOT/infra/local/observability.sh" || true
+
 say "verify"
 python -c "
 import torch, vllm

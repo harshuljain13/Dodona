@@ -255,8 +255,16 @@ wait_for gateway "http://127.0.0.1:8080"
 # produces its bundle; you simply cannot watch it happen.
 if command -v prometheus >/dev/null 2>&1; then
   say "prometheus  —  :9090"
+  # Render the template with the ports this fleet actually used. A static
+  # config scrapes wherever it was written for, which is how every dashboard
+  # came up empty while the workers were healthy on different ports.
+  PROM_CFG="$LOGS/prometheus.yml"
+  sed -e "s/__PREFILL__/$PREFILL_PORT/" \
+      -e "s/__DECODE0__/$DECODE0_PORT/" \
+      -e "s/__DECODE1__/$DECODE1_PORT/" \
+      "$ROOT/infra/local/prometheus.yml.tmpl" > "$PROM_CFG"
   supervise prometheus prometheus \
-    --config.file="$ROOT/infra/local/prometheus.yml" \
+    --config.file="$PROM_CFG" \
     --storage.tsdb.path="$LOGS/prometheus" \
     --web.listen-address=0.0.0.0:9090
 else
