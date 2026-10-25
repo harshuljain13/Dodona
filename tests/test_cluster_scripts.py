@@ -302,3 +302,21 @@ def test_status_is_read_only() -> None:
     for forbidden in ("$(make", "$(pkill", "$(bash", "pkill ", "rm -rf", "kill -"):
         offenders = [ln for ln in code if forbidden in ln]
         assert not offenders, f"status.sh must not {forbidden!r}: {offenders}"
+
+
+def test_every_remote_fleet_command_carries_the_env() -> None:
+    """The box has no .env — sync.sh excludes it — so a script run there sees
+    only what the command passes.
+
+    fleet-runpod passed it; status, smoke and down did not. smoke.sh therefore
+    fell back to its own 7B default, reported three workers as serving the
+    "wrong" model when they served exactly what the fleet was told to, and then
+    asked the gateway for a model the guard rejects. Four failures, one cause,
+    none of them about the fleet.
+    """
+    src = (SETUP / "up.sh").read_text()
+    for command in ("cmd_fleet_smoke", "cmd_fleet_status", "cmd_fleet_down"):
+        body = src.split(f"{command}() {{", 1)[1].split("\n}", 1)[0]
+        assert "workers_env" in body, (
+            f"{command} runs a script on a box with no .env and passes it nothing"
+        )
