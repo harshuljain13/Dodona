@@ -50,10 +50,13 @@ cp .env.example .env
 
 **`.env` does not exist until you copy it, and nothing works without it.**
 `.env.example` is the template, committed and safe; `.env` is yours, gitignored,
-and never leaves the laptop. **Open it now in an editor and keep it open** —
-steps 3 to 9 each hand you one line to paste into it, and step 10 checks the
-set. Leaving this until the end means transcribing six secrets from a
-scratchpad, which is how one of them ends up wrong.
+and never leaves the laptop. **Open it now in an editor and keep it open.**
+
+Steps 3 to 9 each give you one line that lives in this file. **They are not
+commands to run** — `.env` already contains every line with an empty or
+placeholder value, so the job is finding that line and filling in the right-hand
+side. Edit as you go: leaving it to the end means transcribing six secrets from
+a scratchpad, which is how one of them ends up wrong.
 
 It arrives with sensible values for everything that is not a secret, including
 one that looks odd and is not:
@@ -106,6 +109,9 @@ laptop, and is the one `.env` points at:
 ```bash
 export SSH_KEY=$HOME/.ssh/id_ed25519
 ```
+
+(That is already the default in `.env.example`. Change it only if your key has
+a different name.)
 
 ## 5 · Add the key to RunPod
 
@@ -161,7 +167,7 @@ card split three ways.
    ssh root@194.26.196.4 -p 22122 -i ~/.ssh/id_ed25519
    ```
 
-   It gives you both remaining values:
+   It gives you both remaining values. In `.env`:
 
    ```bash
    export BOX=root@194.26.196.4    # the host half
@@ -185,6 +191,8 @@ For pulling `Qwen2.5-7B-Instruct-AWQ` onto the box.
 1. Create an account at [huggingface.co](https://huggingface.co).
 2. Settings → Access Tokens → **New token**, type *read*.
 
+In `.env`:
+
 ```bash
 export HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx
 ```
@@ -196,6 +204,8 @@ One account covers both, and the free credit is far more than a demo uses.
 
 1. Sign up at [deepgram.com](https://deepgram.com).
 2. Create an API key from the dashboard.
+
+In `.env`:
 
 ```bash
 export DEEPGRAM_API_KEY=xxxxxxxxxxxxxxxx
@@ -212,6 +222,8 @@ sources and cites them. **One key covers both tools** — Firecrawl backs
 
 Sign up at [firecrawl.dev](https://firecrawl.dev) and copy the key.
 
+In `.env`:
+
 ```bash
 export FIRECRAWL_API_KEY=fc-xxxxxxxx
 ```
@@ -223,10 +235,10 @@ that has been blindfolded.
 
 ## 10 · Check yourself
 
-### First — is `.env` actually filled in?
+### First — `.env`, complete
 
-Every step above handed you one line. This is all of them together, and it is
-the file the next command reads:
+Every step above gave you one line of it. Here is the whole file's worth in one
+place, so you can see at a glance whether anything is still blank:
 
 ```bash
 # the box — step 6 (and SSH_KEY from step 4)
@@ -255,11 +267,32 @@ It also catches the failure a glance does not: a value still left as its
 placeholder, which reads as filled in and fails later at the point of use, with
 an error that never mentions `.env`.
 
-### Then — the laptop and the box
+### Then — ssh in, and check the laptop
+
+Now prove the box answers. **This is the first time anything here leaves your
+machine**, and it is the step that catches a key RunPod never installed:
 
 ```bash
-make test                           # the control plane, locally, with NO GPU
-ssh $BOX -p $SSH_PORT nvidia-smi    # the box
+ssh $BOX -p $SSH_PORT nvidia-smi
+```
+
+Being asked for a **password** means the key is not on the box — RunPod injects
+keys at launch, so adding one to your account afterwards does nothing for a pod
+that is already running. Fix it from the pod's web terminal:
+
+```bash
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+echo '<paste the contents of ~/.ssh/id_ed25519.pub>' >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+Then add the key to Account Settings as well (step 5), or the next box you
+launch will do the same thing.
+
+And the laptop, which needs no GPU and no box at all:
+
+```bash
+make test
 ```
 
 | Check | Means |
