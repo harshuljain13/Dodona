@@ -76,7 +76,7 @@ Gives you a shell on the box in `~/dodona`, with these ports forwarded back:
 
 | Port | What | Live after |
 |---|---|---|
-| `PORT_BASE`, +1, +2 | the three vLLM workers (8000–8002 by default) | `make fleet-runpod` |
+| `PORT_BASE`, +1, +2 | the three vLLM workers (8100–8102 by default) | `make fleet-runpod` |
 | 8000 | vLLM, whole card | `make fleet-lambda`, before the fleet |
 | 8080 | the gateway | `make fleet-lambda` |
 | 30800, 30801 | vLLM prefill / decode NodePorts | `make fleet-lambda` |
