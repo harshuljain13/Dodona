@@ -23,10 +23,16 @@ SSH_KEY="${SSH_KEY:-${LAMBDA_SSH_KEY:-}}"
 # RunPod and most container hosts put sshd on a high port, not 22.
 SSH_PORT="${SSH_PORT:-22}"
 
+# The worker ports, which move with the fleet. `make fleet-runpod` shifts them
+# when something on the box already holds one — RunPod's Jupyter template runs
+# nginx on :8001 — and a tunnel still forwarding 8000 would reach nothing while
+# looking fine. Set PORT_BASE in .env so both read the same value.
+PORT_BASE="${PORT_BASE:-8000}"
+
 [[ -n "$BOX"     ]] || { echo "Set BOX in .env" >&2; exit 1; }
 [[ -f "$SSH_KEY" ]] || { echo "Set SSH_KEY in .env to your private key path" >&2; exit 1; }
 
-STALE="$(pgrep -f "ssh .*-L 8000:127.0.0.1:8000 .*${BOX##*@}" 2>/dev/null | grep -v "^$$\$" || true)"
+STALE="$(pgrep -f "ssh .*-L $PORT_BASE:127.0.0.1:$PORT_BASE .*${BOX##*@}" 2>/dev/null | grep -v "^$$\$" || true)"
 if [[ -n "$STALE" ]]; then
   echo "  closing $(echo "$STALE" | wc -l | tr -d ' ') existing tunnel(s) to ${BOX##*@}"
   # shellcheck disable=SC2086
@@ -40,7 +46,9 @@ exec ssh -i "$SSH_KEY" \
   -o ExitOnForwardFailure=yes \
   -o ServerAliveInterval=30 \
   -o ServerAliveCountMax=6 \
-  -L 8000:127.0.0.1:8000 \
+  -L $PORT_BASE:127.0.0.1:$PORT_BASE \
+  -L $((PORT_BASE + 1)):127.0.0.1:$((PORT_BASE + 1)) \
+  -L $((PORT_BASE + 2)):127.0.0.1:$((PORT_BASE + 2)) \
   -L 8080:127.0.0.1:8080 \
   -L 30030:127.0.0.1:30030 \
   -L 30080:127.0.0.1:30080 \
