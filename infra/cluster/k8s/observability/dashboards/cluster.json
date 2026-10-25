@@ -368,7 +368,7 @@
           },
           "expr": "DCGM_FI_DEV_GPU_UTIL",
           "refId": "A",
-          "legendFormat": "H100 {{UUID}}"
+          "legendFormat": "GPU {{gpu}}"
         }
       ],
       "options": {
@@ -412,7 +412,7 @@
           },
           "expr": "DCGM_FI_DEV_FB_USED * 1024 * 1024",
           "refId": "A",
-          "legendFormat": "H100 FB used"
+          "legendFormat": "GPU {{gpu}} FB"
         }
       ],
       "options": {
@@ -456,7 +456,7 @@
           },
           "expr": "DCGM_FI_DEV_POWER_USAGE",
           "refId": "A",
-          "legendFormat": "H100 power"
+          "legendFormat": "GPU {{gpu}} power"
         }
       ],
       "options": {

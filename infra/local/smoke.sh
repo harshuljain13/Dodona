@@ -93,8 +93,11 @@ if curl -sf -m 5 localhost:31495/api/health >/dev/null 2>&1; then
   # datasource is absent, every panel is blank and nothing logs an error.
   n=$(curl -sf -m 10 -u "admin:$GRAFANA_PASSWORD" 'localhost:31495/api/search?type=dash-db' 2>/dev/null \
     | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))' 2>/dev/null)
-  if [[ "${n:-0}" -ge 1 ]]; then
-    pass "$n dashboard(s) provisioned"
+  # Seven: the k8s-only four are deliberately not provisioned here.
+  if [[ "${n:-0}" -ge 7 ]]; then
+    pass "$n dashboard(s) provisioned, all with a live source"
+  elif [[ "${n:-0}" -ge 1 ]]; then
+    fail "only $n dashboard(s) — expected 7 (fleet, overview, gateway, router, vllm, mooncake, errors)"
   else
     fail "grafana has no dashboards — check the provisioning tree"
   fi
