@@ -25,8 +25,8 @@ SHELL_SCRIPTS = sorted(SETUP.glob("*.sh"))
 #: What `make` offers. Deliberately small — the Makefile is the workflow, not a
 #: menu. `clean` is the one addition to the original four: a rented GPU has to
 #: be returnable, and teardown cannot be expressed by any of the others.
-MAKE_TARGETS = {"cluster", "workers", "observability", "ssh", "test", "load", "logs",
-                "kv", "app", "doctor", "clean"}
+MAKE_TARGETS = {"fleet-lambda", "fleet-runpod", "fleet-down", "observability", "ssh",
+                "test", "load", "logs", "kv", "app", "doctor", "clean"}
 
 
 def test_there_are_shell_scripts_to_check() -> None:
@@ -89,7 +89,7 @@ def test_up_sh_rejects_an_unknown_command_without_needing_env() -> None:
 def test_up_sh_help_lists_exactly_the_commands_it_dispatches() -> None:
     """Help text drifting from the `case` is how a command becomes undiscoverable."""
     source = (SETUP / "up.sh").read_text()
-    dispatched = set(re.findall(r"^\s{4}(\w+)\)\s+\w+ ;;", source, re.M))
+    dispatched = set(re.findall(r"^\s{4}([\w-]+)\)\s+\w+ ;;", source, re.M))
     assert len(dispatched) >= 6, f"dispatch table looks wrong: {dispatched}"
     done = subprocess.run(["bash", str(SETUP / "up.sh"), "--help"], capture_output=True, text=True)
     assert done.returncode == 0
@@ -145,7 +145,7 @@ def test_grep_in_a_substitution_cannot_abort_the_script(script: Path) -> None:
     grep returns 1 when it finds nothing, pipefail propagates that out of the
     pipeline, and set -e kills the script. The failure looks like the step after
     it never ran — exactly how it presented: the KV connector block aborted
-    `make cluster` before the capacity checks, and the only symptom was `Error 1`
+    `make fleet-lambda` before the capacity checks, and the only symptom was `Error 1`
     printed after a heading.
 
     Backslash continuations are joined first; the real bug spanned two lines,
@@ -204,7 +204,7 @@ def test_the_guard_refuses_a_container_not_just_a_laptop() -> None:
     # rather than after a partial install.
     up = (SETUP / "up.sh").read_text()
     assert "require_a_host" in up
-    for command in ("cmd_cluster", "cmd_observability"):
+    for command in ("cmd_fleet_lambda", "cmd_observability"):
         body = up.split(f"{command}() {{", 1)[1].split("\n}", 1)[0]
         assert "require_a_host" in body, f"{command} does not check for a host first"
 
@@ -243,7 +243,7 @@ def test_scripts_that_cd_to_the_repo_root_actually_land_there() -> None:
 def test_workers_sets_up_its_own_environment_on_the_box() -> None:
     """The Makefile's exports do not cross an ssh connection.
 
-    `make workers` runs workers.sh on the GPU box. PYTHONPATH is exported by
+    `make fleet-runpod` runs workers.sh on the GPU box. PYTHONPATH is exported by
     the Makefile on the Mac and arrives nowhere, so `python -m router.mooncake`
     was ModuleNotFoundError; `vllm` lives in .venv/bin and engine.sh calls it
     bare, so it was "command not found" even though pip had installed it. Both

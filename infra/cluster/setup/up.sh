@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Drive the GPU box from your Mac. Normally called by the Makefile.
 #
-#   up.sh cluster         k3s + HAMi + KEDA → fleet → gateway → capacity check
-#   up.sh workers         the same fleet as processes — no k3s, for container boxes
+#   up.sh fleet-lambda    k3s + HAMi + KEDA → fleet → gateway → capacity check
+#   up.sh fleet-runpod    the same fleet as processes — no k3s, for container boxes
+#   up.sh fleet-down      stop a process fleet (fleet-runpod)
 #   up.sh observability   Prometheus + Grafana + DCGM
 #   up.sh tunnel          forward the box's ports to this Mac
 #   up.sh engine          ONE worker on the whole card, for comparison only
@@ -18,7 +19,7 @@
 
 # Bash, not sh: arrays and [[ ]]. Under dash load_env is a syntax error.
 if [ -z "${BASH_VERSION:-}" ]; then
-  echo "up.sh needs bash:  bash infra/cluster/setup/up.sh cluster   (or: make cluster)" >&2
+  echo "up.sh needs bash:  bash infra/cluster/setup/up.sh fleet-lambda   (or: make fleet-lambda)" >&2
   exit 1
 fi
 set -euo pipefail
@@ -171,7 +172,7 @@ PORTS
 # No venv and no whole-card engine. The pods bring their own vLLM in the
 # container image, and the capacity checks run against a pod inside fleet.sh
 # because a whole-card measurement cannot be extrapolated to a slice anyway.
-cmd_cluster() {
+cmd_fleet_lambda() {
   require_a_host
   sync_project
   show_card
@@ -182,7 +183,7 @@ cmd_cluster() {
 }
 
 # One worker on the whole card, for the comparison measurement only. Needs the
-# box venv, which is why it is not part of `make cluster`.
+# box venv, which is why it is not part of `make fleet-lambda`.
 cmd_engine() {
   sync_project
   show_card
@@ -191,16 +192,16 @@ cmd_engine() {
   wait_for_engine
   check_capacity
   announce "engine up"
-  echo "    This holds the whole card. Run 'make cluster' to replace it with the fleet."
+  echo "    This holds the whole card. Run 'make fleet-lambda' to replace it with the fleet."
 }
 
 # The fleet without an orchestrator, for boxes that are containers — which is
 # most rented GPUs. Deliberately does NOT call require_a_host: being a container
 # is the reason this command exists.
 #
-# It installs vLLM, which `make cluster` does not need: there the pods bring
+# It installs vLLM, which `make fleet-lambda` does not need: there the pods bring
 # their own in the image. Here the workers are processes on the box.
-cmd_workers() {
+cmd_fleet_runpod() {
   sync_project
   show_card
   install_packages
@@ -239,6 +240,13 @@ workers_env() {
   printf '%s' "$out"
 }
 
+# No equivalent on the Kubernetes path: there `make clean` deletes the
+# workloads and k3s goes with them. Raw processes have no such owner.
+cmd_fleet_down() {
+  announce "fleet-down  —  stopping the process fleet"
+  on_box 'bash infra/local/down.sh'
+}
+
 cmd_observability() {
   require_a_host
   sync_project
@@ -247,7 +255,7 @@ cmd_observability() {
   echo "    make ssh   then open http://127.0.0.1:31495"
 }
 
-# Only the whole-card engine. The pods are k3s's and `make cluster` owns them;
+# Only the whole-card engine. The pods are k3s's and `make fleet-lambda` owns them;
 # `docker` on this box needs sudo anyway.
 cmd_down() {
   announce "stopping the whole-card engine"
@@ -341,14 +349,18 @@ cmd_check() {
 main() {
   local command="${1:-}"
   case "$command" in
-    cluster|workers|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
-    -h|--help|"") sed -n '2,14p' "$0"; exit 0 ;;
+    fleet-lambda|fleet-runpod|fleet-down|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
+    # Print the header block by shape, not by line number: `sed -n '2,14p'`
+    # dropped `clean` off the end the moment two commands were added, and the
+    # test that catches it is the only reason anyone noticed.
+    -h|--help|"") sed -n '2,/^$/p' "$0" | sed '$d'; exit 0 ;;
     *) fail "unknown command: $command   (try: up.sh --help)" ;;
   esac
   load_env
   case "$command" in
-    cluster)       cmd_cluster ;;
-    workers)       cmd_workers ;;
+    fleet-lambda)  cmd_fleet_lambda ;;
+    fleet-runpod)  cmd_fleet_runpod ;;
+    fleet-down)    cmd_fleet_down ;;
     observability) cmd_observability ;;
     engine)        cmd_engine ;;
     tunnel)        open_tunnel ;;

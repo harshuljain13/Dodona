@@ -1,6 +1,6 @@
 # Prerequisites
 
-Everything you need before `make cluster`. About twenty minutes, most of it
+Everything you need before `make fleet-lambda`. About twenty minutes, most of it
 waiting — for an account to confirm and for a box to boot, which is why those
 two things overlap here.
 
@@ -144,7 +144,7 @@ reporting compute capability `9.0` means
 before its numbers mean anything. One card is enough: the whole project is one
 card split three ways.
 
-> **It must be a host, not a container.** `make cluster` installs k3s as a
+> **It must be a host, not a container.** `make fleet-lambda` installs k3s as a
 > **systemd service** and HAMi slices the device through the kernel. Neither
 > works inside someone else's container.
 >
@@ -154,7 +154,7 @@ card split three ways.
 > | **RunPod Instant Cluster / bare metal** | ✅ |
 > | **RunPod standard Pod** | ❌ it is a container |
 >
-> `make cluster` checks this before it syncs anything and names it if wrong, so
+> `make fleet-lambda` checks this before it syncs anything and names it if wrong, so
 > a mistake here costs seconds rather than a part-finished k3s install.
 
 **Do not trust `systemctl --version` to tell you which you have.** The binary
@@ -332,10 +332,10 @@ cat /proc/1/comm          # on the box, via the ssh line above
 
 | It says | Run | Why |
 |---|---|---|
-| `systemd` | `make cluster` | a host — k3s can install itself |
-| anything else | `make workers` | a container — same fleet as processes, no k3s |
+| `systemd` | `make fleet-lambda` | a host — k3s can install itself |
+| anything else | `make fleet-runpod` | a container — same fleet as processes, no k3s |
 
-`make cluster` checks this itself and refuses before syncing, so guessing wrong
+`make fleet-lambda` checks this itself and refuses before syncing, so guessing wrong
 costs seconds rather than a part-finished install.
 
 Teardown is `make clean` and then **destroying the box** — the second half is
@@ -376,7 +376,7 @@ exporter, again with `AGENTSHIP_OTEL_ALLOW_SAAS=1`.
 | `Permission denied (publickey)` | Key added to RunPod *after* the box launched | Step 5, then destroy and relaunch — keys inject at start |
 | `Connection refused` | Using port 22 on RunPod | Use the port from Direct TCP |
 | `make ssh` connects but `127.0.0.1` is dead | Using the `ssh.runpod.io` proxy | Use Direct TCP |
-| `make cluster` dies installing k3s | It is a container, not a host | Rebook as Instant Cluster / bare metal |
+| `make fleet-lambda` dies installing k3s | It is a container, not a host | Rebook as Instant Cluster / bare metal |
 | Nothing on the fleet reachable from the laptop | Services are `ClusterIP`, which exists only inside the cluster | NodePorts 30800 / 30801 / 30030 |
 | `make app` will not start | No `DEEPGRAM_API_KEY` | Step 8 |
 | The agent answers but cites nothing | `web_search` has no key | Step 9 |

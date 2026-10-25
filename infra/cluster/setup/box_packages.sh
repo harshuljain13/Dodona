@@ -14,7 +14,7 @@ cd "$PROJECT_ROOT"
 # Quiet by default, with the full pip output kept in a file. vLLM pulls in
 # torch and CUDA wheels — several thousand lines that bury the four `==>` lines
 # around them and make a working install look like something went wrong.
-# `make cluster` never shows this at all, because its pods bring vLLM in the
+# `make fleet-lambda` never shows this at all, because its pods bring vLLM in the
 # image; this path installs it, and should not be noisier for that.
 LOG="${PACKAGES_LOG:-$PROJECT_ROOT/infra/metrics/local/box_packages.log}"
 mkdir -p "$(dirname "$LOG")"

@@ -186,7 +186,7 @@ Qwen2.5-7B-Instruct-AWQ (int4) · max_model_len 16,384
 ```
 
 The concurrency that follows depends on the card, so it is measured rather than
-quoted. `make cluster` prints it, and the arithmetic is in
+quoted. `make fleet-lambda` prints it, and the arithmetic is in
 [`docs/project/01-capacity.md`](docs/project/01-capacity.md).
 
 Measured on 1 × A100-40GB with 12 GiB slices: **4.80 GiB of KV per worker, 5.5
@@ -195,13 +195,13 @@ in this repo hardcodes them.
 
 ### Two ways to start it
 
-The diagram above is `make cluster` — one GPU, three HAMi slices, KEDA scaling
+The diagram above is `make fleet-lambda` — one GPU, three HAMi slices, KEDA scaling
 decode. It needs a **host**: a machine where systemd is PID 1. Most rented GPUs
 are containers, where k3s cannot install itself at all.
 
 ```
-make cluster      k3s + HAMi + KEDA, 3 slices of one card     needs a host
-make workers      1 vLLM per GPU, no orchestrator             runs in a container
+make fleet-lambda      k3s + HAMi + KEDA, 3 slices of one card     needs a host
+make fleet-runpod      1 vLLM per GPU, no orchestrator             runs in a container
 ```
 
 **Everything between the listener and the engines is identical** — the same
@@ -209,7 +209,7 @@ gateway, guard, admission policy, placement, queue, hop ledger, dashboards and
 reports. What differs is only how the workers get started, and what enforces
 their memory:
 
-| | `make cluster` | `make workers` |
+| | `make fleet-lambda` | `make fleet-runpod` |
 |---|---|---|
 | Worker memory | HAMi hands each pod a 12 GiB device | `SLICE_MIB` → a utilisation fraction of the real card |
 | Enforcement | hard — a worker **cannot** exceed its slice | soft — vLLM takes what it is told to |
@@ -217,14 +217,14 @@ their memory:
 | Scaling | KEDA, decode 1 → 2 | none — and [the reason](docs/PROJECT.md) is that scaling takes minutes while pressure spikes in seconds |
 
 HAMi exists in this project to compensate for having **one** card. With one GPU
-per worker there is nothing to slice, which is why `make workers` loses less
+per worker there is nothing to slice, which is why `make fleet-runpod` loses less
 than it appears to.
 
 ## Documentation
 
 | | |
 |---|---|
-| [**PREREQUISITES.md**](PREREQUISITES.md) | Accounts, keys, the SSH key and the GPU box — eight numbered steps, done once before `make cluster` |
+| [**PREREQUISITES.md**](PREREQUISITES.md) | Accounts, keys, the SSH key and the GPU box — eight numbered steps, done once before `make fleet-lambda` |
 | [**PROJECT.md**](docs/PROJECT.md) | The problem in full, the decision behind every choice, the C4 architecture levels, alternatives rejected, risks |
 | [**SUBMISSION.md**](docs/SUBMISSION.md) | The design answered part by part, with a decision tree per part |
 | [**COMMANDS.md**](docs/COMMANDS.md) | Every command in order, marked `[Mac]` or `[GPU]` |
@@ -266,13 +266,13 @@ git clone https://github.com/harshuljain13/Dodona.git && cd Dodona
 cp .env.example .env     # set BOX, SSH_KEY, SSH_PORT — see PREREQUISITES.md
 make doctor              # is .env complete?
 
-make cluster             # a host  — k3s + HAMi + KEDA
-make workers             # a container — the same fleet as processes
+make fleet-lambda             # a host  — k3s + HAMi + KEDA
+make fleet-runpod             # a container — the same fleet as processes
 
 make observability && make ssh
 ```
 
-**Which of the two depends on your box, not your preference.** `make cluster`
+**Which of the two depends on your box, not your preference.** `make fleet-lambda`
 installs k3s as a systemd service; most rented GPUs are containers, where that
 cannot work. It checks and tells you before syncing anything:
 
@@ -288,7 +288,7 @@ ssh — there is no separate login step.
 | | |
 |---|---|
 | `make doctor` | **start here.** Is `.env` complete? Names every value and what its absence breaks, printing no secrets |
-| `make cluster` | syncs the project, then k3s + HAMi + KEDA, **1 prefill + 1 decode** across slices, the gateway in front of them, and **the capacity checks against a running pod** |
+| `make fleet-lambda` | syncs the project, then k3s + HAMi + KEDA, **1 prefill + 1 decode** across slices, the gateway in front of them, and **the capacity checks against a running pod** |
 | `make observability` | Prometheus + Grafana + DCGM |
 | `make ssh` | the tunnel. Leave it open — every URL below is `127.0.0.1` |
 | `make app` | the voice app — the AgentShip service and the UI on `localhost:3000`. Talks to the GPU through the gateway, so `make ssh` first |

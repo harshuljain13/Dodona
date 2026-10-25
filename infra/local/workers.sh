@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # The fleet without an orchestrator: one vLLM per GPU, the gateway in front.
 #
-#   make workers        (this script, on the GPU box)
+#   make fleet-runpod        (this script, on the GPU box)
 #
-# Run on: the GPU box. The Kubernetes path is `make cluster`, and it needs a
+# Run on: the GPU box. The Kubernetes path is `make fleet-lambda`, and it needs a
 # host — a machine where systemd is PID 1. Most rented GPUs are containers, so
 # this exists to run the same control plane without k3s, HAMi or KEDA.
 #
@@ -124,7 +124,7 @@ check_ports() {
   A rented box is not empty — RunPod's Jupyter template runs nginx on :8001,
   which is decode-0's port in the default layout.
 
-  Move the block:   PORT_BASE=8100 make workers
+  Move the block:   PORT_BASE=8100 make fleet-runpod
   Or stop whatever holds them, if it is a previous run of this script."
 }
 

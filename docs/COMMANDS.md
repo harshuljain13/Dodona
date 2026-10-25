@@ -16,11 +16,11 @@ common way to waste ten minutes.
 
 ```bash
 cp .env.example .env     # set BOX, SSH_KEY, SSH_PORT
-make cluster             # then: make observability && make ssh
+make fleet-lambda             # then: make observability && make ssh
 ```
 
-There are four targets and no more: `cluster`, `observability`, `ssh`, `test`.
-`make cluster` runs the steps below over ssh — it is not a second
+There are four targets and no more: `fleet-lambda`, `observability`, `ssh`, `test`.
+`make fleet-lambda` runs the steps below over ssh — it is not a second
 implementation, it calls the same scripts in `infra/cluster/setup/`. **If a step is
 wrong, fix the script, not `infra/cluster/setup/up.sh`.**
 
@@ -28,7 +28,7 @@ It needs **no venv and no vLLM on the box**: the pods bring their own vLLM in
 the container image, and `gate.py` is stdlib-only. The whole-card engine below
 is a separate, optional measurement — `bash infra/cluster/setup/up.sh engine` — kept
 because comparing it against a slice is what shows that CUDA-graph overhead
-does not extrapolate. `make cluster` does not need it.
+does not extrapolate. `make fleet-lambda` does not need it.
 
 Everything after this point is that sequence broken out, which is what you want
 when something fails and you need to run one piece at a time.
@@ -76,10 +76,10 @@ Gives you a shell on the box in `~/dodona`, with these ports forwarded back:
 
 | Port | What | Live after |
 |---|---|---|
-| 8000 | vLLM, whole card | `make cluster`, before the fleet |
-| 8080 | the gateway | `make cluster` |
-| 30800, 30801 | vLLM prefill / decode NodePorts | `make cluster` |
-| 30030, 30080 | Open WebUI / gateway NodePorts | `make cluster` |
+| 8000 | vLLM, whole card | `make fleet-lambda`, before the fleet |
+| 8080 | the gateway | `make fleet-lambda` |
+| 30800, 30801 | vLLM prefill / decode NodePorts | `make fleet-lambda` |
+| 30030, 30080 | Open WebUI / gateway NodePorts | `make fleet-lambda` |
 | 31495 | Grafana | `make observability` |
 
 **Most GPU hosts allow only SSH inbound.** Everything is reached at `127.0.0.1:<port>`

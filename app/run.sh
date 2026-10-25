@@ -73,8 +73,8 @@ if ! curl -sf -m 2 http://127.0.0.1:8080/v1/models >/dev/null 2>&1; then
 fi
 
 # Fresh clone: the app's deps are in requirements-app.txt, not requirements.txt,
-# so `make cluster` has not installed them. Same for the UI's node_modules.
-# Install rather than complain — `make cluster` builds its venv the same way.
+# so `make fleet-lambda` has not installed them. Same for the UI's node_modules.
+# Install rather than complain — `make fleet-lambda` builds its venv the same way.
 [[ -d .venv ]] || python3 -m venv .venv
 if ! .venv/bin/python -c 'import agentship_voice, pipecat' 2>/dev/null; then
   say "python deps  —  requirements-app.txt, first run only"
