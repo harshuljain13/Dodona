@@ -3,6 +3,7 @@
 #   make cluster        k3s + HAMi + KEDA + the fleet + the gateway
 #   make observability  Prometheus + Grafana + DCGM
 #   make ssh            tunnel — Grafana, the app and the fleet in your browser
+#   make doctor         is .env complete? run this before the first bring-up
 #   make app            the voice app — LiveKit, the agent worker, the UI
 #   make test           run the control plane here, no GPU needed
 #   make load           run a load test ON THE BOX, pull the bundle back
@@ -15,7 +16,7 @@
 .DEFAULT_GOAL := help
 # `app` must be here: a directory of that name exists, so without it make
 # reports "`app' is up to date" and runs nothing.
-.PHONY: help cluster observability ssh test load logs kv app clean
+.PHONY: help cluster observability ssh test load logs kv app doctor clean
 
 SHELL := /usr/bin/env bash
 SETUP := infra/cluster/setup
@@ -32,6 +33,7 @@ help:
 	@echo "   make cluster        k3s + HAMi + KEDA + fleet + gateway + capacity checks"
 	@echo "   make observability  Prometheus + Grafana + DCGM"
 	@echo "   make ssh            tunnel — Grafana :31495, app :30030, fleet :30800"
+	@echo "   make doctor         is .env complete? before the first bring-up"
 	@echo "   make app            voice app — LiveKit + worker + UI on :3000"
 	@echo "   make test           run the control plane here, no GPU needed"
 	@echo "   make load           load test ON THE BOX  (ARGS=\"--sessions 32\")"
@@ -77,6 +79,12 @@ kv:
 
 app: ## the voice app — LiveKit, the agent worker, and the UI
 	@bash app/run.sh
+
+# Names every value .env must carry and what its absence breaks, printing no
+# secrets. The alternative is finding a missing key twelve minutes into a
+# bring-up, reported by whatever happened to need it.
+doctor:
+	@$(PY) $(SETUP)/check_env.py
 
 clean:
 	@bash $(SETUP)/up.sh clean

@@ -242,11 +242,12 @@ make cluster && make observability && make ssh
 
 Then open **http://127.0.0.1:30030** and talk to it.
 
-**Four commands, and no more.** All run from your Mac and drive the box over
+**Five commands, and no more.** All run from your Mac and drive the box over
 ssh — there is no separate login step.
 
 | | |
 |---|---|
+| `make doctor` | **start here.** Is `.env` complete? Names every value and what its absence breaks, printing no secrets |
 | `make cluster` | syncs the project, then k3s + HAMi + KEDA, **1 prefill + 1 decode** across slices, the gateway in front of them, and **the capacity checks against a running pod** |
 | `make observability` | Prometheus + Grafana + DCGM |
 | `make ssh` | the tunnel. Leave it open — every URL below is `127.0.0.1` |

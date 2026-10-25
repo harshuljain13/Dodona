@@ -243,11 +243,17 @@ export FIRECRAWL_API_KEY=fc-xxxx
 export OPENAI_API_KEY=not-used-the-gateway-is-ours
 ```
 
-Read it down the page and check each one is a real value. **The thing to look
-for is a leftover `xxxx`** — a placeholder still sitting there, or a key pasted
-on a new line beside the original rather than replacing it. Both look filled in
-at a glance and fail later, at the point of use, with an error that does not
-mention `.env`.
+Then let the repo check it for you:
+
+```bash
+make doctor
+```
+
+It names every value, says what its absence breaks, and **prints no secrets** —
+so it is safe to run on a projector or paste into a message when you are stuck.
+It also catches the failure a glance does not: a value still left as its
+placeholder, which reads as filled in and fails later at the point of use, with
+an error that never mentions `.env`.
 
 ### Then — the laptop and the box
 
@@ -258,7 +264,7 @@ ssh $BOX -p $SSH_PORT nvidia-smi    # the box
 
 | Check | Means |
 |---|---|
-| No `xxxx` left in `.env` | Nothing is still a placeholder |
+| `make doctor` prints `.env is complete` | Every key is set, and none is a placeholder |
 | `make test` prints all `ok` | Laptop is ready |
 | `nvidia-smi` prints a GPU | Box is ready |
 
