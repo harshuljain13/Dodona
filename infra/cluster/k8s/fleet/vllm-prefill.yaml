@@ -1,0 +1,147 @@
+# Prefill pool — one replica, slice 0.
+#
+# gpumem 12288 is what the pod sees as its WHOLE device, so vLLM's
+# --gpu-memory-utilization 0.90 applies to 12 GiB, not to the whole card.
+# 12 x 0.90 - 5.20 weights - ~1.3 runtime = ~4.3 GiB of KV, ~4.9 sequences.
+#
+# One prefill worker is enough: it builds KV and frees it immediately, so it
+# never holds a live sequence and is not what gates concurrency.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-prefill
+  labels: { app: vllm-prefill, phase: prefill }
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate. The default surges a new pod before retiring
+  # the old one, and on a fully-allocated GPU the replacement can never be
+  # scheduled — it sits Pending forever and the rollout hangs. A single card
+  # cannot be rolled without downtime; pretending otherwise just deadlocks.
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: vllm-prefill, phase: prefill }
+  template:
+    metadata:
+      labels: { app: vllm-prefill, phase: prefill }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: /metrics
+    spec:
+      schedulerName: hami-scheduler
+      volumes:
+        # One cache for every pod. Without this each replica re-downloads
+        # 5.6 GB, and three pods starting together will saturate the disk.
+        - name: hf-cache
+          hostPath: { path: /home/ubuntu/.cache/huggingface, type: DirectoryOrCreate }
+        - name: shm
+          emptyDir: { medium: Memory, sizeLimit: 8Gi }
+        # RDMA, into the pod. Without this Mooncake logs "No RDMA devices found"
+        # and silently falls back to TCP — it works, but not at RDMA speed.
+        - name: infiniband
+          hostPath: { path: /dev/infiniband }
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          env:
+            # The NIC is RoCE (link_layer: Ethernet), not InfiniBand. Mooncake's
+            # topology discovery cannot infer a GID for RoCE the way it can for
+            # IB, so it reported "Found 0 HCAs" and silently fell back to TCP —
+            # where a 377 MB / 11,508-descriptor transfer fails with ret=-1 and
+            # vLLM recomputes instead. Every KV transfer on this cluster had
+            # failed, while prompt_tokens_by_source still counted the tokens as
+            # arrived.
+            #
+            # gid[3] is the RoCE v2 entry bound to the host's own address:
+            #   gid[3]  RoCE v2  0000:...:ffff:ac1d:96ee  = 172.29.150.238
+            - { name: MC_GID_INDEX, value: "3" }
+            # nvidia_peermem pins GPU memory for RDMA. Set 0 on hosts without
+            # the kernel module and Mooncake uses the DMA-BUF path instead.
+            - { name: WITH_NVIDIA_PEERMEM, value: "1" }
+            - { name: VLLM_MOONCAKE_BOOTSTRAP_PORT, value: "8998" }
+          # kv_load_failure_policy=recompute: when a transfer fails, compute the
+          # prompt locally instead of failing the request. The default, `fail`,
+          # 500s the request AND a late completion for the now-dropped request
+          # trips `assert req_id in self.requests`, killing the EngineCore and
+          # the pod. We watched a 10k-token pull return -1 and take decode down.
+          # Mooncake, for real KV transfer. Everything below this line is what
+          # turns the hop from a JSON record into bytes crossing between pods.
+          #
+          # The package is not in the image, so it is pip-installed at start.
+          # cuda13 because torch here is 2.13.0+cu130; the cuda12 wheel fails
+          # with "libcudart.so.12: cannot open shared object file".
+          command: ["sh", "-c"]
+          # NOTE: everything below `args:` is ONE folded shell command. A `#` in a
+          # YAML folded scalar is NOT a comment — it folds into the string, and
+          # the shell then treats it as a comment and discards the rest of the
+          # line. Doing that here silently dropped --enable-auto-tool-choice,
+          # --host, --port and --kv-transfer-config. Explanations go HERE.
+          #
+          # NOT SET: --custom-histogram-buckets. vLLM's default request_latency
+          # buckets start at 0.3s and are shared by e2e, queue, inference,
+          # prefill and decode, so on this cluster every sample lands in the
+          # first bucket and all five report the same interpolated percentile.
+          # The flag that would fix it does not exist in 0.31.0 — it was added
+          # later, and passing it is a hard startup failure:
+          #     vllm: error: unrecognized arguments: --custom-histogram-buckets
+          # So those four percentiles are unusable here. Use the exact mean from
+          # _sum/_count, or TTFT, which has its own buckets from 0.001s, or our
+          # own orch_request_duration_seconds, whose buckets start at 0.005s.
+          args:
+            - >-
+              pip install -q mooncake-transfer-engine-cuda13 &&
+              exec vllm serve Qwen/Qwen2.5-7B-Instruct-AWQ
+              --served-model-name=Qwen/Qwen2.5-7B-Instruct-AWQ
+              --max-model-len=16384
+              --max-num-seqs=64
+              --gpu-memory-utilization=0.90
+              --enable-prefix-caching
+              --enable-auto-tool-choice
+              --tool-call-parser=hermes
+              --host=0.0.0.0 --port=8000
+              --kv-transfer-config '{"kv_connector":"MooncakeConnector","kv_role":"kv_producer","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"mooncake_protocol":"rdma","device_name":"mlx5_0"}}'
+          ports:
+            - { name: http, containerPort: 8000 }
+            # The embedded bootstrap server. Prefill ranks register here and
+            # decode queries it to find the blocks; without a Service on this
+            # port the consumer never discovers the producer.
+            - { name: bootstrap, containerPort: 8998 }
+          volumeMounts:
+            - { name: hf-cache, mountPath: /root/.cache/huggingface }
+            - { name: shm, mountPath: /dev/shm }
+            # Mooncake probes /dev/infiniband to discover HCAs.
+            - { name: infiniband, mountPath: /dev/infiniband }
+          # RDMA pins memory, which needs IPC_LOCK, and reaches the verbs
+          # device directly.
+          securityContext:
+            capabilities:
+              add: ["IPC_LOCK"]
+          # READY must not mean "can serve". startupProbe gives the engine up to
+          # 20 minutes to load weights and capture CUDA graphs; readinessProbe
+          # only then starts gating traffic.
+          startupProbe:
+            httpGet: { path: /health, port: 8000 }
+            periodSeconds: 10
+            failureThreshold: 120
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            periodSeconds: 10
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+              nvidia.com/gpumem: "12288"   # 12 GiB — the slice, not the card
+              nvidia.com/gpucores: "40"    # prefill is compute-bound
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-prefill
+  labels: { app: vllm-prefill, phase: prefill }
+spec:
+  # NodePort, not ClusterIP: ClusterIP is invisible from the host, so the ssh
+  # tunnel has nothing to forward and the fleet is unreachable from the Mac.
+  type: NodePort
+  selector: { app: vllm-prefill, phase: prefill }
+  ports:
+    - { name: http, port: 8000, targetPort: 8000, nodePort: 30800 }
+    - { name: bootstrap, port: 8998, targetPort: 8998 }

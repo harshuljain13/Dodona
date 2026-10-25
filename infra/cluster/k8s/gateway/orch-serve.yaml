@@ -1,0 +1,107 @@
+# The gateway: guardrails, admission, placement, the KV hop, then decode.
+#
+# Until this is applied, Open WebUI talks straight to vLLM and every one of
+# those is bypassed. It mounts the synced repo rather than baking an image, so
+# `make cluster` picks up code changes without a build step.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orch-serve
+  labels: { app: orch-serve }
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate. This pod binds hostPort 8080, which is a
+  # singleton on the node: the default surges a replacement first, the new pod
+  # can never bind a port the old one still holds, and the rollout sits at
+  # "1 old replicas are pending termination" until it hits its deadline.
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: orch-serve }
+  template:
+    metadata:
+      labels: { app: orch-serve }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
+    spec:
+      containers:
+        - name: orch
+          image: python:3.12-slim
+          workingDir: /lab
+          command: ["sh", "-c", "pip install -q -r requirements.txt && python -m gateway.serve"]
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            # control/ holds gateway, router and edge; cluster/ holds
+            # observability. Both are import roots, same as tests/pytest.ini.
+            - name: PYTHONPATH
+              value: /lab/infra/control:/lab/infra/cluster
+            - name: SERVE_HOST
+              value: "0.0.0.0"
+            # Service DNS, resolved inside the cluster. Two distinct values is
+            # what makes queue.py do a real prefill → hop → decode sequence
+            # instead of short-circuiting to one pod.
+            - name: PREFILL_URLS
+              value: http://vllm-prefill:8000
+            - name: DECODE_URLS
+              value: http://vllm-decode:8000
+            - name: LAB_TOPOLOGY
+              value: disaggregated
+            # phase, NOT capability: every pod in this fleet serves the same
+            # model, and a capability split would ask decode for VISION_MODEL.
+            - name: LAB_SPLIT
+              value: phase
+            # Must match infra/cluster/k8s/fleet/*.yaml --served-model-name, or vLLM
+            # 400s on every request with an unknown model.
+            - name: TEXT_MODEL
+              value: Qwen/Qwen2.5-7B-Instruct-AWQ
+            - name: TRACE_PATH
+              value: /lab/infra/metrics/traces/requests.jsonl
+            # A fetched source is ~12,000 tokens, which is ~48,000 characters.
+            # The 8,000 default turns every real request into 400
+            # prompt_too_long — a guardrail refusal that reads, in a report,
+            # exactly like a policy refusal. 60,000 sits just under
+            # max_model_len (16,384 tokens) minus max_new_tokens, so a genuine
+            # overrun is reported by the engine rather than guessed at here.
+            - { name: MAX_PROMPT_CHARS, value: "60000" }
+            # 10,000/min is under TWO requests at that prompt length, so the
+            # second arrival 429s and the run measures the quota instead of the
+            # GPU. High here on purpose: the tenant window gets its own arm.
+            # A tenant quota is a client-fairness control, not a capacity control.
+            # At 2,000,000 the capacity sweep's top step demands 2,580,840/min and
+            # is refused — so the measurement becomes a measurement of the quota,
+            # and a 429 in the results is indistinguishable from the cluster
+            # saturating. Held 25x above the heaviest load we test so it stays in
+            # the request path and exercised, but never the binding constraint.
+            - { name: TENANT_TOKENS_PER_MIN, value: "50000000" }
+            # MOONCAKE_URL is deliberately unset. kvbus skips the POST when it
+            # is empty; pointing it at a service that does not exist costs a
+            # 2-second timeout on every hop.
+          ports:
+            - containerPort: 8080
+              hostPort: 8080
+          volumeMounts:
+            - { name: lab, mountPath: /lab }
+          # Without a probe the rollout reports success while the container
+          # crash-loops on an import error.
+          readinessProbe:
+            httpGet: { path: /metrics, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12
+      volumes:
+        - name: lab
+          hostPath: { path: /home/ubuntu/dodona, type: Directory }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orch-serve
+  labels: { app: orch-serve }
+spec:
+  # NodePort, not ClusterIP: ClusterIP is invisible from the host, so the ssh
+  # tunnel has nothing to forward.
+  type: NodePort
+  selector: { app: orch-serve }
+  ports: [{ name: http, port: 8080, targetPort: 8080, nodePort: 30080 }]

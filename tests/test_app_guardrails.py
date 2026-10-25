@@ -49,9 +49,16 @@ def test_all_local_harness_behaviors() -> None:
         result = run_behavior(name)
         assert result.passed, result.summary
 
-def test_orch_lists_local_vllm_models() -> None:
+def test_orch_lists_only_aliases_it_can_serve(monkeypatch) -> None:
+    """A listed model that always 400s is worse than one that is absent."""
+    monkeypatch.delenv("VISION_MODEL", raising=False)
+    monkeypatch.setenv("TEXT_MODEL", "Qwen/Qwen2.5-7B-Instruct-AWQ")
     ids = {row["id"] for row in listed_models()["data"]}
-    assert {"text", "vision"} <= ids
+    assert "text" in ids and "Qwen/Qwen2.5-7B-Instruct-AWQ" in ids
+    assert "vision" not in ids, "no VISION_MODEL deployed, so do not advertise it"
+
+    monkeypatch.setenv("VISION_MODEL", "Qwen/Qwen2.5-VL-3B-Instruct")
+    assert "vision" in {row["id"] for row in listed_models()["data"]}
 
 def test_sse_from_completion_is_openai_stream() -> None:
     raw = sse_from_completion(
@@ -69,13 +76,14 @@ def test_orch_serve_applies_edge_before_admit() -> None:
     assert status == 200 and body["tenant"] == "lab" and body["model"] == "text"
 
 def test_app_edge_has_no_openai_account_or_litellm() -> None:
-    for name in ("guardrails.py", "harness.py", "crew_flood.py"):
-        text = (ROOT / "control" / "edge" / name).read_text().lower()
+    edge = [ROOT / "infra" / "control" / "edge" / n for n in ("guardrails.py", "harness.py")]
+    for path in edge + [ROOT / "benchmarking" / "crew_flood.py"]:
+        text = path.read_text().lower()
         assert "litellm" not in text
         assert "sk-lab" not in text
         assert "force 503" not in text
-    guard = (ROOT / "control" / "edge" / "guardrails.py").read_text()
-    harness = (ROOT / "control" / "edge" / "harness.py").read_text()
+    guard = (ROOT / "infra" / "control" / "edge" / "guardrails.py").read_text()
+    harness = (ROOT / "infra" / "control" / "edge" / "harness.py").read_text()
     for src in (guard, harness):
         assert "from gateway" not in src
         assert "import gateway" not in src

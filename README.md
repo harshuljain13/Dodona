@@ -15,7 +15,6 @@
   <a href="https://github.com/langchain-ai/langgraph"><img src="https://img.shields.io/badge/LangGraph-1C3C3C?style=flat-square" alt="LangGraph"></a>
   <a href="https://deepgram.com"><img src="https://img.shields.io/badge/Deepgram-13B981?style=flat-square" alt="Deepgram"></a>
   <a href="https://superlinked.com"><img src="https://img.shields.io/badge/Superlinked-6366F1?style=flat-square" alt="Superlinked"></a>
-  <a href="https://lambdalabs.com"><img src="https://img.shields.io/badge/Lambda-111827?style=flat-square" alt="Lambda"></a>
   <img src="https://img.shields.io/badge/Python%203.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
 </p>
 
@@ -25,9 +24,9 @@
 citations — entirely on one GPU you rent.** No hosted chat API in the answer path.
 
 The agent is the easy half. One fetched source arrives as a **12,000-token
-prefill holding 0.66 GiB of KV**; a single A100 split three ways serves
-**11 concurrent sequences**; and a listener is waiting out loud, so latency is
-dead air rather than a percentile. The cluster has to decide what to let in —
+prefill**, a single card split three ways serves only a handful of concurrent
+sequences, and a listener is waiting out loud — so latency is dead air rather
+than a percentile. The cluster has to decide what to let in —
 and most deployments make that decision by accident, when a queue fills and
 everything slows together.
 
@@ -47,20 +46,36 @@ Dodona makes it on purpose, and writes down what it saw.
   'clusterBkg':'#0F1218','clusterBorder':'#263142','edgeLabelBackground':'#0B0B0B'
 }}}%%
 flowchart TD
-    subgraph CL["Clients"]
+    subgraph CL["The app · all of it on this laptop"]
+      direction TB
       L(["<b>Listener</b><br/>speaks"])
-      DG["<b>Deepgram</b><br/>STT · TTS · off-GPU"]
-      AG["<b>AgentShip</b> + LangGraph<br/>web_search · scrape_url · cite"]
-      UI["<b>Open WebUI</b><br/>hand testing"]
-      L --> DG
-      DG <--> AG
+      WEB["<b>Web UI</b> · Next.js :3000<br/>mic → 24 kHz PCM, one socket"]
+      subgraph AS["<b>AgentShip</b> · :8090 · one process"]
+        direction TB
+        VC["<b>voice cascade</b><br/>stt · vad · tts<br/><i>built from the spec</i>"]
+        AG["<b>Dodona agent</b> · LangGraph<br/>web_search · scrape_url"]
+        VC <--> AG
+      end
+      L -->|"mic"| WEB
+      WEB <-->|"/voice"| VC
     end
+
+    subgraph EXT["Off this machine · not the GPU"]
+      direction TB
+      DG["<b>Deepgram</b><br/>nova-3 · aura-2"]
+      WB["<b>Firecrawl</b><br/>what the tools read"]
+    end
+
+    VC <-->|"speech ⇄ text"| DG
+    AG <-->|"search · scrape"| WB
+
+    UI["<b>Open WebUI</b><br/>hand testing · in-cluster :30030<br/>no agent, no tools"]
 
     subgraph GW["Control plane · <b>orch-serve</b>"]
       GD["<b>guard</b><br/>malformed → 400"]
       AD{"<b>admit</b><br/>kv_pressure ≥ 0.90?"}
       PL["<b>place</b><br/>least_loaded + queue depth"]
-      HP["<b>hop</b><br/>src ≠ dst → transfer"]
+      HP["<b>hop</b><br/>src ≠ dst → record"]
       GD --> AD --> PL --> HP
       AP["<b>AdmitPerf</b><br/>policy · decision log"]
       RF(["<b>503</b> · kv_free"])
@@ -69,14 +84,13 @@ flowchart TD
     end
 
 
-    subgraph K8S["<b>k3s</b> + <b>HAMi</b> · 1 × A100-40GB"]
-      PF["<b>vLLM prefill-0</b><br/>slice 0 · 40% cores<br/>12k tok → 0.66 GiB KV"]
-      MC[("<b>Mooncake</b><br/>KV store")]
-      D0["<b>vLLM decode-0</b><br/>slice 1 · 28% cores<br/>4.80 GiB KV · 5.5 seq"]
-      D1["<b>vLLM decode-1</b><br/>slice 2 · 28% cores<br/>4.80 GiB KV · 5.5 seq"]
-      PF --> MC
-      MC --> D0
-      MC --> D1
+    subgraph K8S["<b>k3s</b> + <b>HAMi</b> · one card, three slices"]
+      PF["<b>vLLM prefill-0</b><br/>slice 0 · builds the prompt's KV"]
+      D0["<b>vLLM decode-0</b><br/>slice 1 · generates"]
+      D1["<b>vLLM decode-1</b><br/>slice 2 · generates"]
+      PF -->|"decode RE-PREFILLS:<br/>no blocks move"| D0
+      PF --> D1
+      MC[("<b>KVBus</b><br/>records the hop<br/><i>bookkeeping only</i>")]
       D0 ~~~ D1
     end
 
@@ -93,6 +107,7 @@ flowchart TD
     AG --> GD
     UI --> GD
     HP --> PF
+    HP -.-> MC
     D0 --> AG
     D1 --> AG
     AD -->|"refused"| RF
@@ -109,12 +124,12 @@ flowchart TD
     KD -.->|"scales"| D0
 
     class L,RF actor
-    class DG,AG,UI ext
-    class GD,PL,HP ours
+    class DG,WB,UI ext
+    class GD,PL,HP,WEB ours
     class AD gate
     class PF,D0,D1 engine
     class MC store
-    class AP lib
+    class AP,AG,VC lib
     class OV gate
     class SL overflow
     class PM,GF,KD obs
@@ -166,61 +181,80 @@ mid-comparison means the deployment moved, not the policy. KEDA is wired and
 left at `min 1 · max 2` so the mechanism is real and visible.
 
 ```
-1 × A100-40GB · Qwen2.5-7B-Instruct-AWQ (int4) · TP=1
-3 HAMi slices × 12 GiB · 1 prefill + 2 decode · max_model_len 16,384
-→ 4.80 GiB of KV per worker · 5.5 sequences each · decode pool 11
+1 × NVIDIA GPU · 3 HAMi slices · 1 prefill + 2 decode · TP=1
+Qwen2.5-7B-Instruct-AWQ (int4) · max_model_len 16,384
 ```
+
+The concurrency that follows depends on the card, so it is measured rather than
+quoted. `make cluster` prints it, and the arithmetic is in
+[`docs/project/01-capacity.md`](docs/project/01-capacity.md).
+
+Measured on 1 × A100-40GB with 12 GiB slices: **4.80 GiB of KV per worker, 5.5
+sequences each, decode pool 11.** On any other card these change, and nothing
+in this repo hardcodes them.
 
 ## Documentation
 
 | | |
 |---|---|
-| [**PROJECT.md**](PROJECT.md) | The problem in full, the decision behind every choice, the C4 architecture levels, alternatives rejected, risks |
-| [**SUBMISSION.md**](SUBMISSION.md) | The design answered part by part, with a decision tree per part |
-| [**LEARNINGS.md**](LEARNINGS.md) | What went wrong during development and what each thing taught — the long version of the deployment-issues table |
-| [**COMMANDS.md**](COMMANDS.md) | Every command in order, marked `[Mac]` or `[GPU]` |
-| [**RUNBOOK.md**](RUNBOOK.md) | The ten stages, their gates, and what each failure actually means |
+| [**PREREQUISITES.md**](PREREQUISITES.md) | Accounts, keys, the SSH key and the GPU box — eight numbered steps, done once before `make cluster` |
+| [**PROJECT.md**](docs/PROJECT.md) | The problem in full, the decision behind every choice, the C4 architecture levels, alternatives rejected, risks |
+| [**SUBMISSION.md**](docs/SUBMISSION.md) | The design answered part by part, with a decision tree per part |
+| [**COMMANDS.md**](docs/COMMANDS.md) | Every command in order, marked `[Mac]` or `[GPU]` |
+| [**RUNBOOK.md**](docs/RUNBOOK.md) | The bring-up in order, the gate at each step, and what each failure actually means |
 | [`docs/project/`](docs/README.md) | Capacity arithmetic, per-part depth, the run protocol, the results report |
 | [`docs/cluster/`](docs/cluster/README.md) | The stack file by file — gateway, router, KV bus, observability |
 
 ```
-app/        the voice agent — talks only to our serve path
-control/    guard · admit · place · queue · hop · warm · stay-or-leave
-cluster/    how the engine comes up
-docs/       project-level and cluster-level deep dives
-tests/      22 test files
-notebook/   part5-queue.ipynb
-metrics/    scrapes, decision logs, reports
+app/                 the voice agent — talks only to our serve path
+benchmarking/        everything that measures the cluster
+  load.py            agent-shaped load; run it ON THE BOX, not over the tunnel
+  locustfile.py      the Locust UI, for watching rather than measuring
+  reports/           generated run reports
+  notebook/          part5-queue.ipynb
+infra/               everything that runs the cluster
+  control/           guard · admit · place · queue · hop · warm · overflow
+  cluster/           setup/, k8s/, observability/, kernels/
+  metrics/           traces and load bundles
+docs/
+  PROJECT.md         the problem, every decision, the C4 levels
+  SUBMISSION.md      the design answered part by part
+  RUNBOOK.md         the bring-up in order, with a gate at each step
+  COMMANDS.md        every command, marked [Mac] or [GPU]
+  project/ cluster/  deep dives
+tests/               22 test files
 ```
+
+`infra/` runs the cluster, `docs/` explains it, `app/` is the agent. The repo
+root holds this README and the Makefile, nothing else.
 
 ## Quick start
 
-Needs a ≥40 GiB NVIDIA card you can ssh to, and Python 3.11+ locally.
+Needs an NVIDIA card you can ssh to **and have root on**, and Python 3.11+
+locally. Accounts, keys and the box, in order, are
+[**PREREQUISITES.md**](PREREQUISITES.md) — about twenty minutes, once.
 
 ```bash
 git clone https://github.com/harshuljain13/Dodona.git && cd Dodona
-cp .env.example .env     # set LAMBDA and LAMBDA_SSH_KEY
-make up
+cp .env.example .env     # set BOX, SSH_KEY, SSH_PORT — see PREREQUISITES.md
+make cluster && make observability && make ssh
 ```
 
-That is the whole thing. `make up` syncs the project to the box, builds the venv,
-installs vLLM, starts the engine detached so it survives the ssh session, waits
-for it to answer, **runs the four gate checks**, brings up Open WebUI, and leaves
-you holding the tunnel. Then open **http://127.0.0.1:3000** and talk to it.
+Then open **http://127.0.0.1:30030** and talk to it.
 
-`make` on its own lists everything. **Three targets bring the stack up**, each
-one further than the last:
+**Four commands, and no more.** All run from your Mac and drive the box over
+ssh — there is no separate login step.
 
-| | | Stage |
-|---|---|---|
-| `make engine` | one worker on the whole card, Open WebUI, tunnel | 0–1 |
-| `make cluster` | k3s + HAMi + **1 prefill + 2 decode** on three 12 GiB slices | 2 |
-| `make observability` | Prometheus + Grafana + DCGM | 3 |
-| `make all` | all three, in order | 0–3 |
+| | |
+|---|---|
+| `make cluster` | syncs the project, then k3s + HAMi + KEDA, **1 prefill + 1 decode** across slices, the gateway in front of them, and **the capacity checks against a running pod** |
+| `make observability` | Prometheus + Grafana + DCGM |
+| `make ssh` | the tunnel. Leave it open — every URL below is `127.0.0.1` |
+| `make app` | the voice app — the AgentShip service and the UI on `localhost:3000`. Talks to the GPU through the gateway, so `make ssh` first |
+| `make test` | the control plane, locally, **with no GPU** |
 
-All four run **from your Mac** and drive the box over ssh — no separate login.
-Day to day: `make gate` · `make sync` · `make ssh` · `make logs` · `make down` ·
-`make test` · `make lint`.
+Both bring-up targets are safe to re-run. Stopping, logs, load generation and
+the one-off tools are plain commands in [COMMANDS.md](docs/COMMANDS.md).
 
 When one step fails and you want to redo just that step, `make ssh` and then the
 `box-*` targets — `box-setup`, `box-serve`, `box-gate`, `box-cluster`,
@@ -235,7 +269,7 @@ derived from those two.** If either fails, redo the arithmetic before renting
 more time.
 
 → Every command individually, and what each failure means:
-[**COMMANDS.md**](COMMANDS.md) · [**RUNBOOK.md**](RUNBOOK.md)
+[**COMMANDS.md**](docs/COMMANDS.md) · [**RUNBOOK.md**](docs/RUNBOOK.md)
 
 ## Status
 
@@ -243,9 +277,9 @@ more time.
 predictions are written down to be checked later **without being edited**.
 
 Stages **3** (a live `/metrics` scrape) and **8** (a hop or a warmup proof) are
-the two that must exist. Stage 3 comes before the gateway deliberately —
+the two that must exist. Observability comes before the gateway deliberately —
 admission is a *function of* engine metrics, so there is nothing to decide on
-until the scrape exists. Progress: [RUNBOOK.md](RUNBOOK.md).
+until the scrape exists. Progress: [RUNBOOK.md](docs/RUNBOOK.md).
 
 ## Contributing
 
@@ -268,7 +302,7 @@ pytest tests/ && python3 -m compileall -q control tests
 ```
 
 `.claude/skills/` holds five skills that load automatically in Claude Code —
-`dodona-stage`, `dodona-capacity`, `dodona-run`, `dodona-docs`, `dodona-review`.
+`dodona-bringup`, `dodona-capacity`, `dodona-run`, `dodona-docs`, `dodona-review`.
 They exist because this project has two characteristic ways of being wrong: a
 number that no longer matches the hardware, and a claim no scrape supports.
 
@@ -281,4 +315,5 @@ number that no longer matches the hardware, and a claim no scrape supports.
 [AgentShip](https://github.com/Agent-Ship/agent-ship) ·
 [Deepgram](https://deepgram.com) ·
 [Lambda](https://lambdalabs.com) ·
+[RunPod](https://runpod.io) ·
 [llm-inference-experiments](https://github.com/harshuljain13/llm-inference-experiments)

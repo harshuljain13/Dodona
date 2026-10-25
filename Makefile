@@ -1,107 +1,99 @@
-# Dodona. `make` on its own lists everything.
+# Dodona.
 #
-# Two kinds of target:
+#   make cluster        k3s + HAMi + KEDA + the fleet + the gateway
+#   make observability  Prometheus + Grafana + DCGM
+#   make ssh            tunnel — Grafana, the app and the fleet in your browser
+#   make app            the voice app — LiveKit, the agent worker, the UI
+#   make test           run the control plane here, no GPU needed
+#   make load           run a load test ON THE BOX, pull the bundle back
+#   make logs           pod logs, scrape noise stripped
+#   make kv             KV connector state and the transfer counters
+#   make clean          wipe the box back to bare metal
 #
-#   plain names   run on YOUR MAC and drive the box over ssh. Use these.
-#   box-*         run ON THE BOX, for when a step failed and you want to redo
-#                 just that one by hand after `make ssh`.
-#
-# box-* targets refuse to run on a machine with no NVIDIA device rather than
-# failing halfway through.
+# Anything more specific is a plain python or bash line in docs/COMMANDS.md.
+# Make is the workflow, not a menu.
 .DEFAULT_GOAL := help
-.PHONY: help all engine cluster observability gate sync ssh logs down test lint \
-        box-setup box-serve box-gate box-cluster box-observability box-webui box-smoke
+# `app` must be here: a directory of that name exists, so without it make
+# reports "`app' is up to date" and runs nothing.
+.PHONY: help cluster observability ssh test load logs kv app clean
 
 SHELL := /usr/bin/env bash
-SETUP := cluster/setup
-PY    ?= python3
+SETUP := infra/cluster/setup
+PY    ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-define gpu_only
-@command -v nvidia-smi >/dev/null || { \
-  echo "  '$@' runs on the GPU box, not here."; \
-  echo "  Either:  make $(subst box-,,$@)     # from here, over ssh"; \
-  echo "      or:  make ssh   # then on the box:  make $@"; exit 1; }
-endef
+# control/ holds gateway, router and edge; cluster/ holds observability and
+# kernels. Both are import roots — same as tests/pytest.ini.
+export PYTHONPATH := $(CURDIR)/infra/control:$(CURDIR)/infra/cluster
 
 help:
 	@echo ""
-	@echo "  Dodona — make <target>.  Everything below runs from your Mac."
+	@echo "  Dodona"
 	@echo ""
-	@echo "  ── bring it up ───────────────────────────────────────────────"
-	@echo "   engine           one worker on the whole card + Open WebUI + tunnel  [stage 0-1]"
-	@echo "   cluster          k3s + HAMi + 1 prefill + 2 decode, three slices     [stage 2]"
-	@echo "   observability    Prometheus + Grafana + DCGM                         [stage 3]"
-	@echo "   all              engine, then cluster, then observability"
+	@echo "   make cluster        k3s + HAMi + KEDA + fleet + gateway + capacity checks"
+	@echo "   make observability  Prometheus + Grafana + DCGM"
+	@echo "   make ssh            tunnel — Grafana :31495, app :30030, fleet :30800"
+	@echo "   make app            voice app — LiveKit + worker + UI on :3000"
+	@echo "   make test           run the control plane here, no GPU needed"
+	@echo "   make load           load test ON THE BOX  (ARGS=\"--sessions 32\")"
+	@echo "   make logs           pod logs  (ARGS=\"decode --follow\")"
+	@echo "   make kv             did the KV hop move bytes? connector + counters"
+	@echo "   make clean          wipe the box: workloads, helm, k3s, engines"
 	@echo ""
-	@echo "  ── day to day ────────────────────────────────────────────────"
-	@echo "   gate             the four stage-0 checks — run before believing anything"
-	@echo "   sync             rsync the project to the box"
-	@echo "   ssh              tunnel + a shell on the box"
-	@echo "   logs             tail the engine log"
-	@echo "   down             stop the engine and Open WebUI"
-	@echo "   test             pytest        lint    compile + check doc links"
+	@echo "  First run:  cp .env.example .env   # set BOX and SSH_KEY"
+	@echo "              make cluster && make observability && make ssh"
 	@echo ""
-	@echo "  ── on the box, to redo one step (make ssh first) ─────────────"
-	@echo "   box-setup  box-serve  box-gate  box-cluster"
-	@echo "   box-observability  box-webui  box-smoke"
+	@echo "  Redo from scratch:  make clean && make cluster"
 	@echo ""
-	@echo "  Stages and gates: RUNBOOK.md     Every command: COMMANDS.md"
+	@echo "  Both bring-up targets are safe to re-run."
+	@echo "  Stopping, logs, load, one-off tools: COMMANDS.md"
 	@echo ""
 
-# ── from your Mac, driving the box over ssh ───────────────────────────────
-engine:        ; @bash $(SETUP)/up.sh --stage 1
-cluster:       ; @bash $(SETUP)/up.sh --stage 2 --only
-observability: ; @bash $(SETUP)/up.sh --stage 3 --only
-all:           ; @bash $(SETUP)/up.sh --stage 3
-gate:          ; @bash $(SETUP)/up.sh --gate
-sync:          ; @bash $(SETUP)/sync_to_lambda.sh
-ssh:           ; @bash $(SETUP)/ssh.sh
-logs:          ; @bash $(SETUP)/up.sh --logs
-down:          ; @bash $(SETUP)/up.sh --down
+# venv first, so this works on a fresh clone with nothing installed.
+cluster:
+	@[ -d .venv ] || { python3 -m venv .venv && .venv/bin/pip install -qU pip \
+	  && .venv/bin/pip install -qr requirements.txt; }
+	@bash $(SETUP)/up.sh cluster
 
+observability:
+	@bash $(SETUP)/up.sh observability
+
+ssh:
+	@bash $(SETUP)/up.sh tunnel
+
+# On the box, so no tunnel sits in the latency path. Bundles land in
+# infra/metrics/<run>/load.json. Override anything:  make load ARGS="--sessions 32"
+LOAD_ARGS ?= --sessions 8 --seed 1 --run baseline
+load:
+	@bash $(SETUP)/up.sh load $(if $(ARGS),$(ARGS),$(LOAD_ARGS))
+
+# Keeps the HuggingFace cache; those weights are on disk, not the GPU.
+# Prints and exits so it can be piped:  make logs | grep -i hcas
+logs:
+	@bash $(SETUP)/up.sh logs $(ARGS)
+
+# The one diagnostic that is always wanted and always buried in a log.
+kv:
+	@bash $(SETUP)/up.sh kv
+
+app: ## the voice app — LiveKit, the agent worker, and the UI
+	@bash app/run.sh
+
+clean:
+	@bash $(SETUP)/up.sh clean
+
+# No GPU required. Compiles, checks every doc link, runs the suite, then
+# exercises the gateway and guardrail behaviours end to end.
 test:
+	@$(PY) -m compileall -q infra tests && echo "  modules compile"
+	@$(PY) $(SETUP)/check_docs.py
 	@if [ -x .venv/bin/pytest ]; then .venv/bin/pytest tests/ -q; \
 	 elif $(PY) -c "import pytest" 2>/dev/null; then $(PY) -m pytest tests/ -q; \
-	 else echo "  no pytest. python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"; exit 1; fi
-
-lint:
-	@$(PY) -m compileall -q control cluster tests && echo "  modules compile"
-	@$(PY) $(SETUP)/check_docs.py
-
-# ── on the box ────────────────────────────────────────────────────────────
-box-setup:
-	$(gpu_only)
-	@bash $(SETUP)/lambda_setup.sh
-
-box-serve:
-	$(gpu_only)
-	@bash $(SETUP)/lambda_vllm.sh
-
-# 5c and 5d decide whether the capacity arithmetic still holds. Worth re-running.
-box-gate:
-	$(gpu_only)
-	@$(PY) $(SETUP)/gate.py
-
-box-cluster:
-	$(gpu_only)
-	@bash $(SETUP)/lambda_cluster.sh
-
-box-observability:
-	$(gpu_only)
-	@bash $(SETUP)/day2_observability.sh
-
-box-webui:
-	$(gpu_only)
-	@docker rm -f open-webui >/dev/null 2>&1 || true
-	@docker run -d --name open-webui -p 3000:8080 \
-	  -e OPENAI_API_BASE_URL=http://host.docker.internal:8000/v1 \
-	  -e OPENAI_API_KEY=dummy -e WEBUI_AUTH=False \
-	  --add-host=host.docker.internal:host-gateway \
-	  -v open-webui:/app/backend/data \
-	  ghcr.io/open-webui/open-webui:main >/dev/null
-	@echo "  Open WebUI on :3000 — http://127.0.0.1:3000 through the tunnel"
-
-box-smoke:
-	$(gpu_only)
-	@bash $(SETUP)/smoke_lambda.sh
-	@bash $(SETUP)/smoke_overflow.sh
+	 else echo "  no pytest — python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"; exit 1; fi
+	@echo "  gateway behaviours:"
+	@for b in $$($(PY) -m gateway.harness --list | awk '{print $$1}'); do \
+	   $(PY) -m gateway.harness --behavior $$b >/dev/null 2>&1 \
+	     && printf "    ok    %s\n" $$b || printf "    FAIL  %s\n" $$b; done
+	@echo "  guardrails:"
+	@for b in $$($(PY) -m edge.harness --list | awk '{print $$1}'); do \
+	   $(PY) -m edge.harness --behavior $$b >/dev/null 2>&1 \
+	     && printf "    ok    %s\n" $$b || printf "    FAIL  %s\n" $$b; done

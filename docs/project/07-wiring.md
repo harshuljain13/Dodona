@@ -115,8 +115,8 @@ one tool call per reply above.
 
 ## The access path
 
-Lambda's firewall allows only SSH, so everything goes through one tunnel
-(`cluster/setup/ssh.sh`). Open only `127.0.0.1` URLs, never the public IP.
+Most GPU hosts allow only SSH inbound, so everything goes through one tunnel
+(`infra/cluster/setup/ssh.sh`). Open only `127.0.0.1` URLs, never the public IP.
 
 | URL | What |
 |---|---|
@@ -124,7 +124,7 @@ Lambda's firewall allows only SSH, so everything goes through one tunnel
 | `http://127.0.0.1:30030` | Open WebUI, for the live demo |
 | `http://127.0.0.1:31495` | Grafana |
 
-The agent runs on the laptop, not in the cluster. That adds laptop-to-Lambda
+The agent runs on the laptop, not in the cluster. That adds laptop-to-box
 round-trip time to every call, which inflates wall-clock per question and does
 **not** affect TTFT or KV pressure. Said here so the wall-clock numbers in the
 report are read correctly.

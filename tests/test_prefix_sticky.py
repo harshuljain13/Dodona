@@ -9,7 +9,7 @@ from router.kvbus import KVBus
 from router.pools import FakeWorker
 from gateway.types import Request, Shed
 
-TRACES = Path(__file__).resolve().parents[1] / "metrics" / "traces"
+TRACES = Path(__file__).resolve().parents[1] / "infra" / "metrics" / "traces"
 
 def _load(name: str) -> list[Request]:
     out: list[Request] = []

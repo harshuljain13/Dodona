@@ -2,6 +2,12 @@
 .env
 .env.local
 .env.*.local
+# Editors and `sed -i` leave these beside the real thing, holding the same keys.
+# `.env` was ignored and `.env.bak` was not, which is the whole problem.
+.env.bak
+.env.*.bak
+.env.save
+.env.orig
 **/secrets/*.env
 !**/secrets/*.env.example
 
@@ -31,3 +37,14 @@ __pycache__/
 
 # Serena MCP project state — tool-local
 .serena/
+
+# Trace output from a run, not source.
+# Anchored to the repo root because it contains a slash — it has to
+# follow the directory when metrics/ moves.
+infra/metrics/traces/requests.jsonl
+
+# Notebook checkpoints, not source.
+.ipynb_checkpoints/
+
+# Derived in 02-capacity, not source.
+benchmarking/slos-derived.json

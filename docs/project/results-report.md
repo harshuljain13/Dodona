@@ -121,7 +121,7 @@ Predictions from [`01-capacity.md`](01-capacity.md), not edited.
 
 ## Part 3 — Benchmarks
 
-Fixed trace, same across runs, via `cluster/app/locustfile.py`. This section
+Fixed trace, same across runs, via `benchmarking/locustfile.py`. This section
 exists to characterise the fleet; Part 4 is the one that uses real traffic.
 
 | Pattern | Shape | Purpose |
@@ -218,4 +218,4 @@ Grafana, 30-minute windows, one pair per load level.
 | Generate a report | `admitperf report results/<exp>/<run>/decisions.jsonl` |
 | Compare two runs | `admitperf compare <baseline> <policy>` |
 
-Bundles under [`../results/`](../../metrics/README.md).
+Bundles under [`../results/`](../../infra/metrics/README.md).

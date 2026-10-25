@@ -54,7 +54,7 @@ else will work until it passes.
 kubectl -n monitoring get pods,svc
 ```
 
-Is the observability stack up. It is installed by `day2_observability.sh`
+Is the observability stack up. It is installed by `observability.sh`
 (Step 22), *not* by the cluster bring-up — missing pods usually means Step 22
 was skipped.
 
@@ -230,14 +230,14 @@ not prove the hop did not happen.
 ## Load generation
 
 ```
-locust -f app/locustfile.py --host http://127.0.0.1:8080
+locust -f benchmarking/locustfile.py --host http://127.0.0.1:8080
 ```
 
 Run on: Mac, after `pip install -r requirements-load.txt`. UI on `:8089`.
 `--host` must stay `127.0.0.1:8080` — that is the tunnel.
 
 ```
-locust -f app/locustfile.py --host http://127.0.0.1:8080 \
+locust -f benchmarking/locustfile.py --host http://127.0.0.1:8080 \
   --headless -u 4 -r 2 -t 60s
 ```
 
@@ -245,7 +245,7 @@ Headless, 4 users, spawn rate 2, one minute — the Step 28 settings without the
 browser. Good for repeating a run.
 
 ```
-ORCH_URL=http://127.0.0.1:8080/v1 python -m app.crew_flood --rounds 48 --workers 8
+ORCH_URL=http://127.0.0.1:8080/v1 python3 -m benchmarking.crew_flood --rounds 48 --workers 8
 ```
 
 Threaded burst rather than steady load. This is what moves the queue-depth and
@@ -324,6 +324,6 @@ higher — a request asking for more is not rejected, just quietly capped.
 | Sticky / overflow stay 0 | Expected unless those paths fire |
 | Browser chat missing from dashboards | `OPENAI_API_BASE_URL` points at vLLM, not orch-serve |
 | Model picker empty | `curl http://127.0.0.1:8080/v1/models` |
-| Locust all failures | `--host` must be `http://127.0.0.1:8080`, not the Lambda IP |
+| Locust all failures | `--host` must be `http://127.0.0.1:8080`, not the box IP |
 | Flood of 429 under load | Working as intended — tenant cap is 10 000 tokens/min |
 | Requests 400 before routing | Guardrails. See the table above |

@@ -82,7 +82,7 @@ to another process by writing a JSON record about it.
 
 ### Orchestration — real, and exactly as expected
 
-`control/gateway/queue.py`:
+`infra/control/gateway/queue.py`:
 
 ```python
 if handoff.decode is handoff.prefill:
@@ -97,12 +97,12 @@ Three steps, and the `src == dst` short-circuit the brief asks for. ✅
 
 ### Placement — real
 
-`control/router/router.py` picks both ends with different scorers — prefill on
+`infra/control/router/router.py` picks both ends with different scorers — prefill on
 prefix-cache locality, decode on load. ✅
 
 ### Transfer — **bookkeeping, not bytes**
 
-`control/router/kvbus.py`:
+`infra/control/router/kvbus.py`:
 
 ```python
 def transfer(self, src: str, dst: str, req: Request) -> dict:
@@ -230,7 +230,8 @@ infrastructure for the timeline.
 **A pays immediately.** `vllm-prefill` currently holds 10.6 GiB and has served
 zero requests — `prompt_tokens_total = 0`. Routing across all three replicas
 takes the decode pool from 9.8 to ~14.6 concurrent sequences, which also helps
-the saturation problem in [`LEARNINGS.md` #8](../../LEARNINGS.md).
+the saturation problem: 32 agent sessions peaked at 0.54 KV usage, well short
+of the 0.90 an admission policy needs to fire.
 
 **B is the one that makes the documents true.** Part 6's recompute-vs-transfer
 comparison is currently a fiction — it compares against a transfer that does not

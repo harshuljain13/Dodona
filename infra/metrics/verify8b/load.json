@@ -1,0 +1,348 @@
+{
+  "args": {
+    "url": "http://127.0.0.1:8080",
+    "prom_url": "http://127.0.0.1:31490",
+    "model": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    "sessions": 8,
+    "max_tokens": 200,
+    "tool_gap": 0.2,
+    "timeout": 600,
+    "seed": 1,
+    "run": "verify8b"
+  },
+  "wall_s": 10.560808897018433,
+  "signal": [
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5090757354475277,
+    0.5092843730440225,
+    0.5092843730440225,
+    0.5092843730440225
+  ],
+  "results": [
+    {
+      "session": 0,
+      "turn": 1,
+      "prompt_chars": 8611,
+      "status": 200,
+      "latency_s": 1.650766134262085,
+      "completion_tokens": 64,
+      "prompt_tokens": 1960,
+      "error": ""
+    },
+    {
+      "session": 2,
+      "turn": 1,
+      "prompt_chars": 8620,
+      "status": 200,
+      "latency_s": 1.824385166168213,
+      "completion_tokens": 87,
+      "prompt_tokens": 1963,
+      "error": ""
+    },
+    {
+      "session": 3,
+      "turn": 1,
+      "prompt_chars": 8633,
+      "status": 200,
+      "latency_s": 2.4412882328033447,
+      "completion_tokens": 200,
+      "prompt_tokens": 1963,
+      "error": ""
+    },
+    {
+      "session": 4,
+      "turn": 1,
+      "prompt_chars": 8630,
+      "status": 200,
+      "latency_s": 2.5071799755096436,
+      "completion_tokens": 200,
+      "prompt_tokens": 1961,
+      "error": ""
+    },
+    {
+      "session": 7,
+      "turn": 1,
+      "prompt_chars": 8612,
+      "status": 200,
+      "latency_s": 2.5516653060913086,
+      "completion_tokens": 200,
+      "prompt_tokens": 1962,
+      "error": ""
+    },
+    {
+      "session": 5,
+      "turn": 1,
+      "prompt_chars": 8616,
+      "status": 200,
+      "latency_s": 2.696498155593872,
+      "completion_tokens": 200,
+      "prompt_tokens": 1961,
+      "error": ""
+    },
+    {
+      "session": 1,
+      "turn": 1,
+      "prompt_chars": 8612,
+      "status": 200,
+      "latency_s": 2.72225284576416,
+      "completion_tokens": 200,
+      "prompt_tokens": 1962,
+      "error": ""
+    },
+    {
+      "session": 6,
+      "turn": 1,
+      "prompt_chars": 8611,
+      "status": 200,
+      "latency_s": 2.7474091053009033,
+      "completion_tokens": 200,
+      "prompt_tokens": 1960,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 2,
+      "prompt_chars": 11833,
+      "status": 200,
+      "latency_s": 1.9249680042266846,
+      "completion_tokens": 200,
+      "prompt_tokens": 2338,
+      "error": ""
+    },
+    {
+      "session": 2,
+      "turn": 2,
+      "prompt_chars": 11842,
+      "status": 200,
+      "latency_s": 1.8901419639587402,
+      "completion_tokens": 200,
+      "prompt_tokens": 2341,
+      "error": ""
+    },
+    {
+      "session": 3,
+      "turn": 2,
+      "prompt_chars": 11855,
+      "status": 200,
+      "latency_s": 2.0189950466156006,
+      "completion_tokens": 200,
+      "prompt_tokens": 2341,
+      "error": ""
+    },
+    {
+      "session": 4,
+      "turn": 2,
+      "prompt_chars": 11852,
+      "status": 200,
+      "latency_s": 2.1502089500427246,
+      "completion_tokens": 200,
+      "prompt_tokens": 2339,
+      "error": ""
+    },
+    {
+      "session": 7,
+      "turn": 2,
+      "prompt_chars": 11834,
+      "status": 200,
+      "latency_s": 2.135561943054199,
+      "completion_tokens": 200,
+      "prompt_tokens": 2340,
+      "error": ""
+    },
+    {
+      "session": 5,
+      "turn": 2,
+      "prompt_chars": 11838,
+      "status": 200,
+      "latency_s": 2.0470499992370605,
+      "completion_tokens": 200,
+      "prompt_tokens": 2339,
+      "error": ""
+    },
+    {
+      "session": 1,
+      "turn": 2,
+      "prompt_chars": 11834,
+      "status": 200,
+      "latency_s": 2.0623128414154053,
+      "completion_tokens": 200,
+      "prompt_tokens": 2340,
+      "error": ""
+    },
+    {
+      "session": 6,
+      "turn": 2,
+      "prompt_chars": 11833,
+      "status": 200,
+      "latency_s": 2.0544071197509766,
+      "completion_tokens": 200,
+      "prompt_tokens": 2338,
+      "error": ""
+    },
+    {
+      "session": 3,
+      "turn": 3,
+      "prompt_chars": 59878,
+      "status": 200,
+      "latency_s": 2.066438913345337,
+      "completion_tokens": 74,
+      "prompt_tokens": 7949,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 3,
+      "prompt_chars": 59856,
+      "status": 200,
+      "latency_s": 3.200214147567749,
+      "completion_tokens": 200,
+      "prompt_tokens": 7946,
+      "error": ""
+    },
+    {
+      "session": 2,
+      "turn": 3,
+      "prompt_chars": 59865,
+      "status": 200,
+      "latency_s": 3.195972204208374,
+      "completion_tokens": 200,
+      "prompt_tokens": 7949,
+      "error": ""
+    },
+    {
+      "session": 4,
+      "turn": 3,
+      "prompt_chars": 59875,
+      "status": 200,
+      "latency_s": 2.880335807800293,
+      "completion_tokens": 200,
+      "prompt_tokens": 7947,
+      "error": ""
+    },
+    {
+      "session": 7,
+      "turn": 3,
+      "prompt_chars": 59857,
+      "status": 200,
+      "latency_s": 2.980163097381592,
+      "completion_tokens": 200,
+      "prompt_tokens": 7948,
+      "error": ""
+    },
+    {
+      "session": 5,
+      "turn": 3,
+      "prompt_chars": 59861,
+      "status": 200,
+      "latency_s": 3.0569050312042236,
+      "completion_tokens": 200,
+      "prompt_tokens": 7947,
+      "error": ""
+    },
+    {
+      "session": 1,
+      "turn": 3,
+      "prompt_chars": 59857,
+      "status": 200,
+      "latency_s": 3.1300711631774902,
+      "completion_tokens": 200,
+      "prompt_tokens": 7948,
+      "error": ""
+    },
+    {
+      "session": 6,
+      "turn": 3,
+      "prompt_chars": 59856,
+      "status": 200,
+      "latency_s": 3.1355347633361816,
+      "completion_tokens": 200,
+      "prompt_tokens": 7946,
+      "error": ""
+    },
+    {
+      "session": 3,
+      "turn": 4,
+      "prompt_chars": 59907,
+      "status": 200,
+      "latency_s": 1.9705836772918701,
+      "completion_tokens": 200,
+      "prompt_tokens": 7955,
+      "error": ""
+    },
+    {
+      "session": 0,
+      "turn": 4,
+      "prompt_chars": 59885,
+      "status": 200,
+      "latency_s": 1.9232420921325684,
+      "completion_tokens": 200,
+      "prompt_tokens": 7952,
+      "error": ""
+    },
+    {
+      "session": 2,
+      "turn": 4,
+      "prompt_chars": 59894,
+      "status": 200,
+      "latency_s": 1.9291431903839111,
+      "completion_tokens": 200,
+      "prompt_tokens": 7955,
+      "error": ""
+    },
+    {
+      "session": 4,
+      "turn": 4,
+      "prompt_chars": 59904,
+      "status": 200,
+      "latency_s": 1.9187779426574707,
+      "completion_tokens": 200,
+      "prompt_tokens": 7953,
+      "error": ""
+    },
+    {
+      "session": 7,
+      "turn": 4,
+      "prompt_chars": 59886,
+      "status": 200,
+      "latency_s": 1.8836562633514404,
+      "completion_tokens": 200,
+      "prompt_tokens": 7954,
+      "error": ""
+    },
+    {
+      "session": 5,
+      "turn": 4,
+      "prompt_chars": 59890,
+      "status": 200,
+      "latency_s": 1.8386070728302002,
+      "completion_tokens": 200,
+      "prompt_tokens": 7953,
+      "error": ""
+    },
+    {
+      "session": 1,
+      "turn": 4,
+      "prompt_chars": 59886,
+      "status": 200,
+      "latency_s": 1.8102688789367676,
+      "completion_tokens": 200,
+      "prompt_tokens": 7954,
+      "error": ""
+    },
+    {
+      "session": 6,
+      "turn": 4,
+      "prompt_chars": 59885,
+      "status": 200,
+      "latency_s": 1.8123140335083008,
+      "completion_tokens": 200,
+      "prompt_tokens": 7952,
+      "error": ""
+    }
+  ]
+}

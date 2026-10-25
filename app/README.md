@@ -1,60 +1,63 @@
-# app/ — the Dodona voice agent
+# app/
 
-Talks **only** to our serve path. Completions that skip guard / admit / place /
-queue do not count, so there is no direct route from here to a worker.
+The voice agent. **Everything here runs on the laptop. The only thing that
+leaves it is the completion**, and that goes to the gateway on
+`127.0.0.1:8080` — through guard, admit, place and queue — because a completion
+that skips the serve path tells us nothing about the infrastructure this
+project exists to measure.
 
-| | |
+```
+browser (:3000)           mic → 24 kHz PCM, one websocket
+AgentShip service (:8090) /voice + /v1 + the agent
+  voice cascade           deepgram nova-3 · silero VAD · deepgram aura-2
+  Dodona agent            LangGraph, web_search + scrape_url
+    └─ completions ─────▶ the gateway, :8080
+```
+
+| File | What it is |
 |---|---|
-| `dodona.yaml` | the agent spec — model, prompt, tools, `api_base` |
-| `questions.jsonl` | the fixed question set, so runs are comparable |
-| `run.py` | drives N concurrent sessions, writes per-question traces |
-| `voice.py` | the Deepgram loop — STT in, TTS out |
+| `dodona.yaml` | the agent. Engine, prompt, tools, and the `voice:` block that builds the cascade |
+| `run.sh` | what `make app` runs: the service, then the UI |
+| `web/` | Next.js — the orb, the transcript, and the mic |
 
-**Status: not written.** Stages 1 and 9 of
-[`../RUNBOOK.md`](../RUNBOOK.md).
+## Run it
 
-## Shape
-
-```yaml
-model: openai/Qwen2.5-7B-Instruct-AWQ
-params:
-  api_base: "http://127.0.0.1:8080/v1"
-  temperature: 0.3
-  top_p: 0.8
-  max_tokens: 1024
-tools: [web_search, scrape_url, http_request, calculator]
+```bash
+make ssh        # the tunnel, so :8080 reaches the GPU
+make app        # service + UI, then open http://localhost:3000
 ```
 
-`openai/<model>` because LiteLLM's `openai` provider speaks to any
-OpenAI-compatible endpoint, and our gateway is one.
+## What it needs
 
-## Two settings that are choices, not defaults
+`DEEPGRAM_API_KEY` for the ears and the mouth, and `FIRECRAWL_API_KEY` for what
+the agent reads. Both in `.env`.
 
-Both change the traffic shape, so a reader would otherwise mis-attribute what
-they cause.
+The Python deps are in `requirements-app.txt`, not `requirements.txt` — a laptop
+that only drives load should not have to build the speech stack. First `make
+app` installs them into `.venv`, and `npm install`s the UI, so there is no
+separate setup step.
 
-- **`scrape_url` truncated to 12k tokens**, so a turn-4 request fits inside
-  `max_model_len` 16,384. Without it a long article plus three turns of history
-  overruns the context and vLLM refuses — and an engine context refusal looks
-  nothing like an admission refusal in the decision log.
-- **One tool call per reply.** The `hermes` parser returns the *entire batch* as
-  text when any single call in it is malformed, losing the valid calls with it.
+No Docker. Nothing in the app is a container.
 
-## Voice
+## Why these choices
 
-Deepgram for both directions, off-GPU. The agent speaks an acknowledgement
-immediately (**time-to-first-audio < 1 s**) and narrates the researched answer
-when it lands (**10–30 s**). Those are two different SLOs on one request; see
-[`../PROJECT.md`](../PROJECT.md#two-slos-on-one-request).
+**AgentShip owns the whole cascade.** `framework: pipecat` means the `voice:`
+block in `dodona.yaml` is what actually builds the session — greeting,
+`tts_speed`, `endpoint_silence_ms`, `allow_interruptions`, `fallback_text` are
+read, not decorative.
 
-A listener talking over the answer **aborts** mid-generation, which makes the
-`aborted` KV-release path common rather than exotic. Part 5 covers who frees it.
+This used to be LiveKit, and the reason it is not is worth keeping: WebRTC earns
+its keep across a network, and this audio never leaves the host. What it cost
+was a container, a token route, an ICE path to get wrong, and a half-implemented
+adapter — `LiveKitAdapter.run()` raises `NotImplementedError`, so only `host()`
+and `witness()` existed and a worker had to hand-build the session beside the
+spec. On the pipecat path there is nothing to hand-build.
 
-## Prove it on a hosted model first
+**One socket, two payload kinds.** Audio is binary 16-bit PCM at 24 kHz; events
+are JSON text on the same connection. 24 kHz because that is what the
+synthesiser produces and it will not resample — play it back at 16 kHz and the
+agent sounds slow and deep, with nothing reporting an error.
 
-```
-python run.py --questions questions.jsonl --concurrency 1 --model openai/gpt-4o-mini
-```
-
-Deliberate: a broken agent and a broken gateway produce the same symptom, and
-separating them after the box is rented costs an hour.
+**The page is told the state of the cluster before anyone clicks.** If the
+gateway is unreachable the UI says so and the agent says so out loud when it
+joins, rather than answering with silence.

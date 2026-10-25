@@ -219,7 +219,7 @@ flowchart LR
         TUN["ssh -L x7<br/>Locust · crew_flood · REPL"]
     end
 
-    subgraph BOX["Lambda GPU box [Deployment Node]"]
+    subgraph BOX["GPU box [Deployment Node]"]
         subgraph K3S["k3s"]
             SCHED["hami-scheduler<br/>[kube-system]"]
             PODS["all nine containers"]

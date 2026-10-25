@@ -1,0 +1,34 @@
+server:
+  persistentVolume:
+    enabled: false
+  # NodePort so notebooks can run PromQL directly. Scraping pod /metrics gives
+  # you one instantaneous sample; Prometheus has the series, and PromQL
+  # computes quantiles over histograms properly rather than sorting ten numbers
+  # in Python.
+  service:
+    type: NodePort
+    nodePort: 31490
+  global:
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    evaluation_interval: 15s
+
+extraScrapeConfigs: |
+  - job_name: keda
+    static_configs:
+      - targets:
+          - keda-operator.keda.svc.cluster.local:8080
+  - job_name: hami
+    static_configs:
+      - targets:
+          - hami-device-plugin-monitor.kube-system.svc.cluster.local:31992
+          - hami-scheduler.kube-system.svc.cluster.local:31993
+
+alertmanager:
+  enabled: false
+kube-state-metrics:
+  enabled: true
+prometheus-node-exporter:
+  enabled: true
+prometheus-pushgateway:
+  enabled: false

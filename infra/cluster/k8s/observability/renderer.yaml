@@ -1,0 +1,38 @@
+# Server-side panel rendering, so a notebook can embed the ACTUAL Grafana panel
+# instead of a matplotlib lookalike. Without this /render returns 500.
+#
+# A separate deployment rather than the grafana-image-renderer plugin: the
+# plugin downloads chromium into the Grafana pod on every restart.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-renderer
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: grafana-renderer }
+  template:
+    metadata:
+      labels: { app: grafana-renderer }
+    spec:
+      containers:
+        - name: renderer
+          image: grafana/grafana-image-renderer:latest
+          ports: [{ containerPort: 8081 }]
+          env:
+            - { name: HTTP_PORT, value: "8081" }
+            # One browser at a time. This is a lab box and chromium is happy to
+            # take every core it can see.
+            - { name: RENDERING_MODE, value: "default" }
+          resources:
+            limits: { memory: 1Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-renderer
+  namespace: monitoring
+spec:
+  selector: { app: grafana-renderer }
+  ports: [{ port: 8081, targetPort: 8081 }]
