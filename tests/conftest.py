@@ -11,18 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 TRACES = ROOT / "infra" / "metrics"
 K8S = ROOT / "infra" / "cluster" / "k8s"
 
-#: Model names reach the guardrail allowlist through the environment, and
-#: guardrails.py falls back to a 3B name when they are unset — which is what
-#: these tests assert against. A developer who has run `source .env`, as
-#: PREREQUISITES tells them to, would otherwise see three failures about model
-#: names that have nothing to do with their change.
-MODEL_ENV = ("TEXT_MODEL", "VISION_MODEL", "LOCAL_MODEL")
-
-#: Pointing at a real fleet. Stripped so an in-process test uses FakeWorker
-#: rather than dialling a port that happens to be in someone's .env. ORCH_URL
-#: is here because the Lab posts to it and reports "orch unreachable" when it
-#: is set and nothing answers.
-FLEET_ENV = ("PREFILL_URLS", "DECODE_URLS", "OVERFLOW_BASE_URL", "OVERFLOW_API_KEY", "ORCH_URL")
+# One list, shared with the Makefile's harness loops — see env_isolation.py for
+# why a pytest fixture is not enough.
+from env_isolation import FLEET_ENV, LAB_ENV, MODEL_ENV
 
 
 def fleet_is_answering() -> bool:
@@ -51,10 +42,8 @@ def fleet_is_answering() -> bool:
 
 @pytest.fixture(autouse=True)
 def _reset_metrics(request: pytest.FixtureRequest) -> None:
-    os.environ.pop("TRACE_PATH", None)
-    os.environ.pop("MOONCAKE_URL", None)
-    os.environ.pop("KV_BACKEND", None)
-    os.environ.pop("LAB_SPLIT", None)
+    for key in LAB_ENV:
+        os.environ.pop(key, None)
     saved: dict[str, str | None] = {}
     # Always: a test's verdict must not depend on whether a shell sourced .env.
     for key in MODEL_ENV:
