@@ -7,9 +7,11 @@ import pytest
 from router.pools import VLLMWorker
 from gateway.types import Request
 
+from conftest import fleet_is_answering
+
 pytestmark = getattr(pytest.mark, "lambda")
 
-@pytest.mark.skipif(not os.environ.get("PREFILL_URLS"), reason="PREFILL_URLS not set")
+@pytest.mark.skipif(not fleet_is_answering(), reason="no vLLM answering on PREFILL_URLS")
 def test_vllm_short_prompt_snapshot() -> None:
     url = os.environ["PREFILL_URLS"].split(",")[0].strip()
     worker = VLLMWorker("lambda-0", url)
