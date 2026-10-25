@@ -59,9 +59,25 @@ esac
 #
 # So the slice is reproduced by arithmetic: ask for SLICE_MIB of whatever card
 # we are on, rather than a fixed fraction of an unknown one.
-SLICE_MIB="${SLICE_MIB:-12288}"
+# SLICE_MIB=0 (the default) means "take the whole card", which is right when
+# each worker has its own GPU. Capping only makes sense when workers SHARE a
+# card, or when the model is small enough that a whole card gives it a KV pool
+# so large the policy's threshold is unreachable.
+#
+# Getting this backwards fails in two opposite ways, both quiet:
+#   too high — 0.90 of 80 GiB with a 7B is a ~66 GiB KV pool, the signal never
+#              reaches 0.90, and every run comes back INERT
+#   too low  — 12 GiB with a 32B is less than the weights, and vLLM will not
+#              start at all
+SLICE_MIB="${SLICE_MIB:-0}"
+WHOLE_CARD_UTIL="${WHOLE_CARD_UTIL:-0.90}"
+
 util_for() {
   local total="$1"
+  if [[ "$SLICE_MIB" == "0" ]]; then
+    printf '%s' "$WHOLE_CARD_UTIL"
+    return
+  fi
   awk -v s="$SLICE_MIB" -v t="$total" 'BEGIN { u = s / t; if (u > 0.92) u = 0.92; printf "%.3f", u }'
 }
 
@@ -126,7 +142,8 @@ sleep 1
 start_worker() {
   local name="$1" port="$2" dev="$3"
   local util; util="$(util_for "${GPU_MIB[$dev]}")"
-  note "$name  GPU $dev  ${GPU_MIB[$dev]} MiB  util $util  (~${SLICE_MIB} MiB)"
+  local budget; budget=$(awk -v u="$util" -v t="${GPU_MIB[$dev]}" 'BEGIN { printf "%.0f", u * t }')
+  note "$name  GPU $dev  ${GPU_MIB[$dev]} MiB card  util $util  ->  ${budget} MiB for weights + KV"
   # `env` rather than a VAR=x prefix: a prefix on a *function* call leaks into
   # the calling shell in bash, so the gateway started later would inherit
   # CUDA_VISIBLE_DEVICES from the last worker.
