@@ -2,6 +2,7 @@
 #
 #   make fleet-lambda   k3s + HAMi + KEDA + the fleet + gateway  (needs a host)
 #   make fleet-runpod   the same fleet as processes, no k3s     (any box)
+#   make fleet-runpod-status  model, KV pressure, GPU placement, restarts
 #   make fleet-runpod-logs  follow the detached fleet's log
 #   make fleet-runpod-down  stop it
 #   make observability  Prometheus + Grafana + DCGM
@@ -19,7 +20,7 @@
 .DEFAULT_GOAL := help
 # `app` must be here: a directory of that name exists, so without it make
 # reports "`app' is up to date" and runs nothing.
-.PHONY: help fleet-lambda fleet-runpod fleet-runpod-down fleet-runpod-logs observability ssh test load logs kv app doctor clean
+.PHONY: help fleet-lambda fleet-runpod fleet-runpod-down fleet-runpod-logs fleet-runpod-status observability ssh test load logs kv app doctor clean
 
 SHELL := /usr/bin/env bash
 SETUP := infra/cluster/setup
@@ -36,6 +37,7 @@ help:
 	@echo "   make fleet-lambda   k3s + HAMi + KEDA + fleet + gateway   (needs a host)"
 	@echo "   make fleet-runpod   THE ONE COMMAND on a container box:"
 	@echo "                       sync, install, start the fleet, open the tunnel"
+	@echo "   make fleet-runpod-status  is it healthy? model, KV, GPUs, restarts"
 	@echo "   make fleet-runpod-logs  follow it          (it runs detached)"
 	@echo "   make fleet-runpod-down  stop it"
 	@echo "   make observability  Prometheus + Grafana + DCGM"
@@ -84,6 +86,12 @@ fleet-runpod-down:
 # The fleet runs detached, so its output is a file on the box, not your terminal.
 fleet-runpod-logs:
 	@bash $(SETUP)/up.sh fleet-runpod-logs
+
+# Asks each worker what model it serves, how full its KV cache is, which card it
+# is on, and whether there is exactly one fleet. Listening ports answer none of
+# those, and every one of them has been wrong while the ports looked fine.
+fleet-runpod-status:
+	@bash $(SETUP)/up.sh fleet-runpod-status
 
 observability:
 	@bash $(SETUP)/up.sh observability
