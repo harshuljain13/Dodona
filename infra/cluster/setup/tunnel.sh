@@ -23,6 +23,10 @@ SSH_KEY="${SSH_KEY:-${LAMBDA_SSH_KEY:-}}"
 # RunPod and most container hosts put sshd on a high port, not 22.
 SSH_PORT="${SSH_PORT:-22}"
 
+# 8000 is the whole-card engine (`make engine`), which the Lambda path uses for
+# its comparison measurement and which does not move. Forwarding the PORT_BASE
+# block REPLACED it once, and `make ssh` silently stopped reaching it.
+#
 # The worker ports, which move with the fleet. `make fleet-runpod` shifts them
 # when something on the box already holds one — RunPod's Jupyter template runs
 # nginx on :8001 — and a tunnel still forwarding 8000 would reach nothing while
@@ -46,6 +50,7 @@ exec ssh -i "$SSH_KEY" \
   -o ExitOnForwardFailure=yes \
   -o ServerAliveInterval=30 \
   -o ServerAliveCountMax=6 \
+  -L 8000:127.0.0.1:8000 \
   -L $PORT_BASE:127.0.0.1:$PORT_BASE \
   -L $((PORT_BASE + 1)):127.0.0.1:$((PORT_BASE + 1)) \
   -L $((PORT_BASE + 2)):127.0.0.1:$((PORT_BASE + 2)) \

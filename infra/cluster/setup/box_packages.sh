@@ -51,7 +51,12 @@ step "vllm (~10 GB)"     pip install -q "vllm>=0.28"
 # Prometheus and Grafana, as binaries. The Kubernetes path gets them from Helm,
 # which needs a cluster — so without this the process path had no observability
 # at all, and KV pressure is something you watch rather than read about.
-bash "$PROJECT_ROOT/infra/local/observability.sh" || true
+# Only for the process fleet. `make engine` serves one worker on the whole card
+# for a comparison measurement and has no dashboards to feed — pulling ~400 MB
+# of binaries it will never run is a cost with no return.
+if [[ "${WITH_OBSERVABILITY:-0}" == "1" ]]; then
+  bash "$PROJECT_ROOT/infra/local/observability.sh" || true
+fi
 
 say "verify"
 python -c "
