@@ -108,7 +108,11 @@ fi
 for name in prometheus grafana; do
   port=9090; [[ "$name" == grafana ]] && port=31495
   if curl -sf -m 3 "localhost:$port" >/dev/null 2>&1; then
-    ok "$(printf '%-9s :%-6s answering' "$name" "$port")"
+    if [[ "$name" == grafana ]]; then
+      ok "$(printf '%-9s :%-6s answering   login: admin / %s' "$name" "$port" "${GRAFANA_PASSWORD:-admin}")"
+    else
+      ok "$(printf '%-9s :%-6s answering' "$name" "$port")"
+    fi
   else
     note "$(printf '%-9s :%-6s not running — dashboards unavailable' "$name" "$port")"
   fi

@@ -2,6 +2,7 @@
 #
 #   make fleet-lambda   k3s + HAMi + KEDA + the fleet + gateway  (needs a host)
 #   make fleet-runpod   the same fleet as processes, no k3s     (any box)
+#   make fleet-runpod-ssh   tunnel — gateway, grafana, prometheus, workers
 #   make fleet-runpod-status  model, KV pressure, GPU placement, restarts
 #   make fleet-runpod-logs  follow the detached fleet's log
 #   make fleet-runpod-down  stop it
@@ -20,7 +21,7 @@
 .DEFAULT_GOAL := help
 # `app` must be here: a directory of that name exists, so without it make
 # reports "`app' is up to date" and runs nothing.
-.PHONY: help fleet-lambda fleet-runpod fleet-runpod-down fleet-runpod-logs fleet-runpod-status observability ssh test load logs kv app doctor clean
+.PHONY: help fleet-lambda fleet-runpod fleet-runpod-down fleet-runpod-logs fleet-runpod-status fleet-runpod-ssh observability ssh test load logs kv app doctor clean
 
 SHELL := /usr/bin/env bash
 SETUP := infra/cluster/setup
@@ -37,6 +38,7 @@ help:
 	@echo "   make fleet-lambda   k3s + HAMi + KEDA + fleet + gateway   (needs a host)"
 	@echo "   make fleet-runpod   THE ONE COMMAND on a container box:"
 	@echo "                       sync, install, start the fleet, open the tunnel"
+	@echo "   make fleet-runpod-ssh   tunnel — gateway, grafana, prometheus"
 	@echo "   make fleet-runpod-status  is it healthy? model, KV, GPUs, restarts"
 	@echo "   make fleet-runpod-logs  follow it          (it runs detached)"
 	@echo "   make fleet-runpod-down  stop it"
@@ -92,6 +94,11 @@ fleet-runpod-logs:
 # those, and every one of them has been wrong while the ports looked fine.
 fleet-runpod-status:
 	@bash $(SETUP)/up.sh fleet-runpod-status
+
+# `make ssh` forwards the Kubernetes NodePorts, which do not exist here — that
+# is why :30030 Open WebUI never answered. This forwards what actually runs.
+fleet-runpod-ssh:
+	@bash $(SETUP)/up.sh fleet-runpod-ssh
 
 observability:
 	@bash $(SETUP)/up.sh observability

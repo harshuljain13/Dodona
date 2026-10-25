@@ -6,6 +6,7 @@
 #   up.sh fleet-runpod-down      stop a process fleet (fleet-runpod)
 #   up.sh fleet-runpod-logs      follow the detached fleet's log
 #   up.sh fleet-runpod-status    what the fleet is actually doing
+#   up.sh fleet-runpod-ssh       tunnel for the process fleet's ports
 #   up.sh observability   Prometheus + Grafana + DCGM
 #   up.sh tunnel          forward the box's ports to this Mac
 #   up.sh engine          ONE worker on the whole card, for comparison only
@@ -207,6 +208,32 @@ cmd_engine() {
 # It installs vLLM, which `make fleet-lambda` does not need: there the pods bring
 # their own in the image. Here the workers are processes on the box.
 cmd_fleet_runpod() {
+  local base="${PORT_BASE:-8100}"
+  local model="${LOCAL_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}"
+
+  # Say what is about to happen and where. Seven components land on a rented
+  # box and none of them on this Mac, which is not obvious from a command run
+  # on this Mac — and knowing which host owns what is the difference between
+  # reading a log and guessing at one.
+  announce "fleet-runpod  —  the plan"
+  printf '    %-12s %s\n' "this Mac"  "ssh only. The tunnel at the end."
+  printf '    %-12s %s\n' "the box"   "$BOX  —  everything below, under ~/$REMOTE_DIR"
+  echo
+  printf '    %-10s %-26s %s\n' "install" "python venv + vLLM"      "~/$REMOTE_DIR/.venv"
+  printf '    %-10s %-26s %s\n' ""        "prometheus, grafana"     "/usr/local/bin"
+  echo
+  printf '    %-10s %-26s %s\n' "start"   "mooncake   :50051"       "the KV hop ledger"
+  printf '    %-10s %-26s %s\n' ""        "prefill    :$base  GPU 0"  "builds the prompt KV"
+  printf '    %-10s %-26s %s\n' ""        "decode-0   :$((base+1))  GPU 1"  "generates"
+  printf '    %-10s %-26s %s\n' ""        "decode-1   :$((base+2))  GPU 2"  "generates"
+  printf '    %-10s %-26s %s\n' ""        "gateway    :8080"        "guard · admit · place · queue"
+  printf '    %-10s %-26s %s\n' ""        "prometheus :9090"        "scrapes all of the above"
+  printf '    %-10s %-26s %s\n' ""        "grafana    :31495"       "the dashboards"
+  echo
+  printf '    %-10s %s\n' "model" "$model"
+  printf '    %-10s %s\n' "logs"  "~/$REMOTE_DIR/infra/metrics/local/  —  make fleet-runpod-logs"
+  echo
+
   sync_project
   show_card
   WITH_OBSERVABILITY=1 install_packages
@@ -271,8 +298,34 @@ cmd_fleet_runpod() {
   echo
 
   # And the tunnel, in the foreground, which is the thing to leave open.
-  announce "tunnel  —  forwarding to this Mac. Leave this open."
-  open_tunnel
+  cmd_fleet_runpod_ssh
+}
+
+# The process fleet's own tunnel. `up.sh tunnel` forwards the Kubernetes
+# NodePorts — 30030 Open WebUI, 30800/30801 the fleet Services — none of which
+# exist here, so it advertised addresses that could never answer. This forwards
+# exactly what fleet-runpod starts, and says what each one is.
+cmd_fleet_runpod_ssh() {
+  local base="${PORT_BASE:-8100}"
+  announce "tunnel  —  the process fleet. Leave this open."
+  echo "    gateway      http://127.0.0.1:8080/v1"
+  echo "    grafana      http://127.0.0.1:31495      admin / ${GRAFANA_PASSWORD:-admin}"
+  echo "    prometheus   http://127.0.0.1:9090"
+  echo "    workers      $base (prefill)  $((base+1)) $((base+2)) (decode)"
+  echo "    mooncake     http://127.0.0.1:50051/metrics"
+  echo
+  exec ssh -i "$SSH_KEY" -p "$SSH_PORT" \
+    -o StrictHostKeyChecking=accept-new \
+    -o ExitOnForwardFailure=yes \
+    -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
+    -L 8080:127.0.0.1:8080 \
+    -L "$base:127.0.0.1:$base" \
+    -L "$((base+1)):127.0.0.1:$((base+1))" \
+    -L "$((base+2)):127.0.0.1:$((base+2))" \
+    -L 9090:127.0.0.1:9090 \
+    -L 31495:127.0.0.1:31495 \
+    -L 50051:127.0.0.1:50051 \
+    -t "$BOX" "mkdir -p ~/$REMOTE_DIR; cd ~/$REMOTE_DIR; exec bash -l"
 }
 
 # Asks the fleet what it is doing rather than reading ports. Syncs first: the
@@ -433,7 +486,7 @@ cmd_check() {
 main() {
   local command="${1:-}"
   case "$command" in
-    fleet-lambda|fleet-runpod|fleet-runpod-down|fleet-runpod-logs|fleet-runpod-status|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
+    fleet-lambda|fleet-runpod|fleet-runpod-down|fleet-runpod-logs|fleet-runpod-status|fleet-runpod-ssh|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
     # Print the header block by shape, not by line number: `sed -n '2,14p'`
     # dropped `clean` off the end the moment two commands were added, and the
     # test that catches it is the only reason anyone noticed.
@@ -447,6 +500,7 @@ main() {
     fleet-runpod-down)    cmd_fleet_down ;;
     fleet-runpod-logs)    cmd_logs_fleet ;;
     fleet-runpod-status)  cmd_fleet_status ;;
+    fleet-runpod-ssh)     cmd_fleet_runpod_ssh ;;
     observability) cmd_observability ;;
     engine)        cmd_engine ;;
     tunnel)        open_tunnel ;;
