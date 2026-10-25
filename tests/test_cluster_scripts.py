@@ -26,7 +26,7 @@ SHELL_SCRIPTS = sorted(SETUP.glob("*.sh"))
 #: menu. `clean` is the one addition to the original four: a rented GPU has to
 #: be returnable, and teardown cannot be expressed by any of the others.
 MAKE_TARGETS = {"fleet-lambda", "fleet-runpod", "fleet-runpod-down",
-                "fleet-runpod-logs", "fleet-runpod-status", "fleet-runpod-ssh", "observability", "ssh", "test", "load",
+                "fleet-runpod-logs", "fleet-runpod-status", "fleet-runpod-ssh", "fleet-runpod-smoke-test", "observability", "ssh", "test", "load",
                 "logs", "kv", "app", "doctor", "clean"}
 
 

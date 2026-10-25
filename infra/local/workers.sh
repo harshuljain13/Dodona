@@ -259,6 +259,14 @@ wait_for gateway "http://127.0.0.1:8080"
 # ── observability ──────────────────────────────────────────────────────────
 # Optional on purpose. Without it the fleet still serves and the run still
 # produces its bundle; you simply cannot watch it happen.
+# GPU telemetry, under the DCGM metric names the dashboards query. The
+# Kubernetes path gets these from a dcgm-exporter DaemonSet, which a rented pod
+# cannot run — so without this the `cluster` dashboard, the one that shows
+# whether the card is busy, had no data at all.
+say "gpu exporter  —  :9400  (DCGM_FI_DEV_* from nvidia-smi)"
+supervise gpu-exporter "$PY" "$ROOT/infra/local/gpu_exporter.py" --port 9400
+sleep 1
+
 if command -v prometheus >/dev/null 2>&1; then
   say "prometheus  —  :9090"
   # Render the template with the ports this fleet actually used. A static
@@ -280,9 +288,18 @@ fi
 
 if command -v grafana-server >/dev/null 2>&1 || command -v grafana >/dev/null 2>&1; then
   say "grafana  —  :31495   login: admin / ${GRAFANA_PASSWORD:-admin}"
+  # Build the provisioning tree Grafana actually expects: subdirectories named
+  # dashboards/ and datasources/. Rendered under $LOGS so the repo copy stays a
+  # template and the running config always has real paths in it.
+  GF_PROV="$LOGS/grafana-provisioning"
+  mkdir -p "$GF_PROV/dashboards" "$GF_PROV/datasources"
+  cp -f "$ROOT/infra/local/grafana/datasources/prometheus.yml" "$GF_PROV/datasources/"
+  sed "s|__DASHBOARDS__|$ROOT/infra/cluster/k8s/observability/dashboards|" \
+    "$ROOT/infra/local/grafana/dashboards/dodona.yml.tmpl" \
+    > "$GF_PROV/dashboards/dodona.yml"
+
   supervise grafana env \
-    DODONA_ROOT="$ROOT" \
-    GF_PATHS_PROVISIONING="$ROOT/infra/local/grafana" \
+    GF_PATHS_PROVISIONING="$GF_PROV" \
     GF_SECURITY_ADMIN_PASSWORD="${GRAFANA_PASSWORD:-admin}" \
     GF_SERVER_HTTP_PORT=31495 \
     bash -c 'command -v grafana-server >/dev/null && exec grafana-server || exec grafana server'

@@ -7,6 +7,7 @@
 #   up.sh fleet-runpod-logs      follow the detached fleet's log
 #   up.sh fleet-runpod-status    what the fleet is actually doing
 #   up.sh fleet-runpod-ssh       tunnel for the process fleet's ports
+#   up.sh fleet-runpod-smoke-test  prove it works, end to end
 #   up.sh observability   Prometheus + Grafana + DCGM
 #   up.sh tunnel          forward the box's ports to this Mac
 #   up.sh engine          ONE worker on the whole card, for comparison only
@@ -301,6 +302,13 @@ cmd_fleet_runpod() {
   cmd_fleet_runpod_ssh
 }
 
+# Proves the fleet works rather than that it started. Syncs first, like every
+# other remote command.
+cmd_fleet_smoke() {
+  sync_project >/dev/null 2>&1 || true
+  on_box 'bash infra/local/smoke.sh'
+}
+
 # The process fleet's own tunnel. `up.sh tunnel` forwards the Kubernetes
 # NodePorts — 30030 Open WebUI, 30800/30801 the fleet Services — none of which
 # exist here, so it advertised addresses that could never answer. This forwards
@@ -486,7 +494,7 @@ cmd_check() {
 main() {
   local command="${1:-}"
   case "$command" in
-    fleet-lambda|fleet-runpod|fleet-runpod-down|fleet-runpod-logs|fleet-runpod-status|fleet-runpod-ssh|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
+    fleet-lambda|fleet-runpod|fleet-runpod-down|fleet-runpod-logs|fleet-runpod-status|fleet-runpod-ssh|fleet-runpod-smoke-test|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
     # Print the header block by shape, not by line number: `sed -n '2,14p'`
     # dropped `clean` off the end the moment two commands were added, and the
     # test that catches it is the only reason anyone noticed.
@@ -501,6 +509,7 @@ main() {
     fleet-runpod-logs)    cmd_logs_fleet ;;
     fleet-runpod-status)  cmd_fleet_status ;;
     fleet-runpod-ssh)     cmd_fleet_runpod_ssh ;;
+    fleet-runpod-smoke-test) cmd_fleet_smoke ;;
     observability) cmd_observability ;;
     engine)        cmd_engine ;;
     tunnel)        open_tunnel ;;

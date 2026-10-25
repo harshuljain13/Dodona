@@ -26,6 +26,7 @@ declare -a TARGETS=(
   "vllm serve"                    # ...and any started a different way
   "$ROOT/.venv/bin/python -m gateway.serve"
   "$ROOT/.venv/bin/python -m router.mooncake"
+  "gpu_exporter.py"
   # Matched loosely on purpose: started by hand with a relative --config.file,
   # the anchored pattern missed it and fleet-down reported "all stopped" while
   # prometheus kept holding :9090.
