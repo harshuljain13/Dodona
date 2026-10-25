@@ -1,0 +1,16 @@
+# The one datasource every dashboard expects.
+#
+# `uid: prometheus` is not arbitrary — the ten dashboard JSONs reference their
+# datasource by uid, and a mismatch renders every panel empty with no error
+# worth reading. The Helm path sets the same uid, which is why the same files
+# work on both paths without editing.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://127.0.0.1:9090
+    isDefault: true
+    editable: false

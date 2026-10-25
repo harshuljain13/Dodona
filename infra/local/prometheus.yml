@@ -1,0 +1,46 @@
+# Prometheus for the no-orchestrator path — `make workers`.
+#
+# The Kubernetes path discovers targets: a ServiceMonitor matches pods by label
+# and the list changes as KEDA scales. There is nothing to discover here. Three
+# workers on fixed ports, named by the role they play, because the dashboards
+# and the admission policy both read `phase`.
+#
+# `phase` is not cosmetic: keda-decode.yaml queries
+# `avg(vllm:kv_cache_usage_perc{phase="decode"})` and admit reads the same
+# series. Mislabel a worker and the policy reads the wrong card's pressure.
+
+global:
+  scrape_interval: 5s      # admission decides on seconds; a 15s default would
+  evaluation_interval: 5s  # smooth away the spike the whole experiment is about
+
+scrape_configs:
+  - job_name: vllm
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["127.0.0.1:8000"]
+        labels: { phase: prefill, pod: prefill }
+      - targets: ["127.0.0.1:8001"]
+        labels: { phase: decode, pod: decode-0 }
+      - targets: ["127.0.0.1:8002"]
+        labels: { phase: decode, pod: decode-1 }
+
+  # guard / admit / place / queue counters, and the decision log's gate series.
+  - job_name: gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["127.0.0.1:8080"]
+        labels: { job_role: control-plane }
+
+  # The hop ledger: count, tokens, bytes. Flat zero here is the honest answer
+  # when decode re-prefills, which it does.
+  - job_name: mooncake
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["127.0.0.1:50051"]
+
+  # GPU utilisation, memory and temperature. Only present if you run DCGM
+  # yourself; the k8s path installs it as a DaemonSet. Prometheus logs a target
+  # down and carries on, so leaving this in costs nothing.
+  - job_name: dcgm
+    static_configs:
+      - targets: ["127.0.0.1:9400"]

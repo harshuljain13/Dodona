@@ -1,6 +1,7 @@
 # Dodona.
 #
-#   make cluster        k3s + HAMi + KEDA + the fleet + the gateway
+#   make cluster        k3s + HAMi + KEDA + the fleet + the gateway (needs a host)
+#   make workers        the same fleet as processes, no orchestrator (any box)
 #   make observability  Prometheus + Grafana + DCGM
 #   make ssh            tunnel — Grafana, the app and the fleet in your browser
 #   make doctor         is .env complete? run this before the first bring-up
@@ -16,7 +17,7 @@
 .DEFAULT_GOAL := help
 # `app` must be here: a directory of that name exists, so without it make
 # reports "`app' is up to date" and runs nothing.
-.PHONY: help cluster observability ssh test load logs kv app doctor clean
+.PHONY: help cluster workers observability ssh test load logs kv app doctor clean
 
 SHELL := /usr/bin/env bash
 SETUP := infra/cluster/setup
@@ -30,7 +31,8 @@ help:
 	@echo ""
 	@echo "  Dodona"
 	@echo ""
-	@echo "   make cluster        k3s + HAMi + KEDA + fleet + gateway + capacity checks"
+	@echo "   make cluster        k3s + HAMi + KEDA + fleet + gateway   (needs a host)"
+	@echo "   make workers        same fleet as processes, no k8s    (runs in a container)"
 	@echo "   make observability  Prometheus + Grafana + DCGM"
 	@echo "   make ssh            tunnel — Grafana :31495, app :30030, fleet :30800"
 	@echo "   make doctor         is .env complete? before the first bring-up"
@@ -55,6 +57,15 @@ cluster:
 	@[ -d .venv ] || { python3 -m venv .venv && .venv/bin/pip install -qU pip \
 	  && .venv/bin/pip install -qr requirements.txt; }
 	@bash $(SETUP)/up.sh cluster
+
+# One vLLM per GPU, the gateway in front, no orchestrator. For boxes that are
+# containers — which is most rented GPUs — where `make cluster` cannot install
+# k3s. Same control plane, same dashboards, same reports; what it drops is
+# HAMi's enforced slices and KEDA.
+#
+# Runs ON THE BOX. From the Mac: make ssh, then bash infra/local/workers.sh
+workers:
+	@bash infra/local/workers.sh
 
 observability:
 	@bash $(SETUP)/up.sh observability
