@@ -252,37 +252,50 @@ cmd_fleet_runpod() {
   # this is minutes. Show what it is waiting for rather than a silent hang.
   local port="${PORT_BASE:-8100}"
   echo "    loading — the first run downloads the weights, so this takes a while"
+  echo
 
-  # One ssh per poll, not two, and a hard ConnectTimeout: without it a stalled
-  # connection hangs the loop with no output at all, which is exactly how this
-  # looked stuck while the fleet was already serving.
+  # Ask the components, do not read a log.
+  #
+  # This tailed fleet.log twice and printed blank lines both times — once
+  # because log rotation renamed the file out from under the writer, once
+  # because the fleet had not written to it yet. A progress display whose
+  # failure mode is "looks identical to a hang" is worse than none.
+  #
+  # Each poll asks which ports answer and prints a line per change, so a
+  # component appearing is visible the moment it happens.
   local probe=(ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new
                -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=2
                -o BatchMode=yes)
-  local waited=0 last="" line=""
+  local waited=0 last="" state=""
   while (( waited < 2400 )); do
-    # Ask both questions in one round trip. "UP" is the last line when the
-    # gateway answers, so the loop needs no second connection to find out.
-    line="$("${probe[@]}" "$BOX" "cd ~/$REMOTE_DIR 2>/dev/null || exit 0; \
-      grep -av '^\s*$' infra/metrics/local/fleet.log 2>/dev/null | tail -1 | tr -d '\r'; \
-      curl -sf -m 3 localhost:8080/v1/models >/dev/null 2>&1 && echo UP" 2>/dev/null || true)"
+    state="$("${probe[@]}" "$BOX" "
+      for p in 50051 9400 $base $((base+1)) $((base+2)) 8080 9090 31495; do
+        curl -sf -m 2 \"localhost:\$p/metrics\" >/dev/null 2>&1 ||
+        curl -sf -m 2 \"localhost:\$p/v1/models\" >/dev/null 2>&1 ||
+        curl -sf -m 2 \"localhost:\$p/api/health\" >/dev/null 2>&1 && printf 'y' || printf 'n'
+      done" 2>/dev/null || true)"
 
-    local progress="${line%UP}"
-    progress="$(printf '%s' "$progress" | tail -1)"
-    # Blank lines told you nothing; only print when it actually changed.
-    if [[ -n "${progress// /}" && "$progress" != "$last" ]]; then
-      printf '    %s\n' "$(printf '%s' "$progress" | sed 's/\x1b\[[0-9;]*m//g; s/^ *//')"
-      last="$progress"
+    # Eight characters, one per component, in start order.
+    local names=(mooncake gpu prefill decode-0 decode-1 gateway prometheus grafana)
+    local shown="" i=0
+    for n in "${names[@]}"; do
+      case "${state:$i:1}" in
+        y) shown+="$n ✓  " ;;
+        *) shown+="$n ·  " ;;
+      esac
+      i=$(( i + 1 ))
+    done
+
+    if [[ "$shown" != "$last" ]]; then
+      printf '    [%2dm%02ds]  %s\n' $(( waited / 60 )) $(( waited % 60 )) "$shown"
+      last="$shown"
+    elif (( waited % 60 == 0 && waited > 0 )); then
+      # Even with nothing new, say something each minute. A 32B takes minutes
+      # per worker, and silence is indistinguishable from death.
+      printf '    [%2dm%02ds]  %s\n' $(( waited / 60 )) $(( waited % 60 )) "$shown"
     fi
 
-    [[ "$line" == *UP ]] && { announce "fleet up"; break; }
-
-    # Say something every 30s regardless. Three workers loading a 32B produce
-    # long gaps with nothing to report, and a silent terminal is indentical to
-    # a hung one from where you are sitting.
-    if (( waited > 0 && waited % 30 == 0 )); then
-      printf '    still loading — %dm%02ds\r' $(( waited / 60 )) $(( waited % 60 ))
-    fi
+    [[ "${state:5:1}" == "y" ]] && { echo; announce "fleet up"; break; }
     sleep 5
     waited=$(( waited + 5 ))
   done
@@ -306,7 +319,7 @@ cmd_fleet_runpod() {
 # other remote command.
 cmd_fleet_smoke() {
   sync_project >/dev/null 2>&1 || true
-  on_box 'bash infra/local/smoke.sh'
+  on_box "$(workers_env) GRAFANA_PASSWORD=$(printf %q "${GRAFANA_PASSWORD:-admin}") bash infra/local/smoke.sh"
 }
 
 # The process fleet's own tunnel. `up.sh tunnel` forwards the Kubernetes
@@ -341,7 +354,7 @@ cmd_fleet_runpod_ssh() {
 # reports a broken repo instead of a fleet.
 cmd_fleet_status() {
   sync_project >/dev/null 2>&1 || true
-  on_box 'bash infra/local/status.sh'
+  on_box "$(workers_env) GRAFANA_PASSWORD=$(printf %q "${GRAFANA_PASSWORD:-admin}") bash infra/local/status.sh"
 }
 
 # The fleet runs detached, so its output is a file rather than your terminal.
@@ -383,13 +396,14 @@ workers_env() {
 # No equivalent on the Kubernetes path: there `make clean` deletes the
 # workloads and k3s goes with them. Raw processes have no such owner.
 cmd_fleet_down() {
+  # PORT_BASE, so the port report at the end names the right ones.
   # Sync first. down.sh is a file on the box, and the box only has whatever the
   # last sync left there — so a newly added script is "No such file or
   # directory", which reads as a broken repo rather than a stale one. Every
   # other command that runs a remote script syncs before it; this one did not.
   sync_project
   announce "fleet-down  —  stopping the process fleet"
-  on_box 'bash infra/local/down.sh'
+  on_box "$(workers_env) bash infra/local/down.sh"
 }
 
 cmd_observability() {
