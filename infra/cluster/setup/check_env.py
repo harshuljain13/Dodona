@@ -35,7 +35,6 @@ REQUIRED = {
     "HF_TOKEN": "the model download fails partway through bring-up",
     "DEEPGRAM_API_KEY": "`make app` refuses to start (typing still works)",
     "FIRECRAWL_API_KEY": "both agent tools return 401 and it answers from memory, sounding certain",
-    "OPENAI_API_KEY": "LiteLLM refuses to call our own gateway; the agent's first turn fails",
 }
 
 #: Absent is a choice here, not a mistake, so these are reported and never fail.
@@ -93,7 +92,7 @@ def main() -> int:
         if not value:
             print(f"  MISSING   {name:<20} {consequence}")
             bad += 1
-        elif PLACEHOLDER.search(value) and name != "OPENAI_API_KEY":
+        elif PLACEHOLDER.search(value):
             # Worth separating from missing: it reads as filled in, and fails
             # later at the point of use rather than here.
             print(f"  TEMPLATE  {name:<20} still the placeholder from .env.example")

@@ -58,17 +58,7 @@ placeholder value, so the job is finding that line and filling in the right-hand
 side. Edit as you go: leaving it to the end means transcribing six secrets from
 a scratchpad, which is how one of them ends up wrong.
 
-It arrives with sensible values for everything that is not a secret, including
-one that looks odd and is not:
-
-```bash
-export OPENAI_API_KEY=not-used-the-gateway-is-ours
-```
-
-The agent reaches *our* gateway through LiteLLM's `openai` provider, because the
-gateway speaks the OpenAI wire format. LiteLLM refuses to call any `openai/*`
-model without a key even when the endpoint is ours and ignores it. Leave it as
-it is; the gateway checks nothing.
+It arrives with sensible values for everything that is not a secret.
 
 ## 3 · A RunPod account, and credits
 
@@ -250,10 +240,9 @@ export SSH_PORT=22122
 export HF_TOKEN=hf_xxxx
 export DEEPGRAM_API_KEY=xxxx
 export FIRECRAWL_API_KEY=fc-xxxx
-
-# already correct in .env.example — do not change it
-export OPENAI_API_KEY=not-used-the-gateway-is-ours
 ```
+
+Six values. Everything else in `.env` already holds a working default.
 
 Then let the repo check it for you:
 
@@ -340,7 +329,7 @@ exporter, again with `AGENTSHIP_OTEL_ALLOW_SAAS=1`.
 |---|---|---|
 | Cannot launch a pod at all | Zero balance, or a credit code that did not apply | Step 3 — check the balance, not the code |
 | Any command: "No `.env`" | The file is a copy you make, not one that ships | Step 2 |
-| `No API credentials for model 'openai/Qwen...'` | LiteLLM wants a key for any `openai/*` model, even ours | `OPENAI_API_KEY` — step 2 |
+| `No API credentials for model 'openai/Qwen...'` | LiteLLM wants a key for any `openai/*` model, even our own gateway. `make app` sets a fake one for you | Only seen running the agent outside `make app` |
 | `Permission denied (publickey)` | Key added to RunPod *after* the box launched | Step 5, then destroy and relaunch — keys inject at start |
 | `Connection refused` | Using port 22 on RunPod | Use the port from Direct TCP |
 | `make ssh` connects but `127.0.0.1` is dead | Using the `ssh.runpod.io` proxy | Use Direct TCP |
