@@ -44,9 +44,11 @@ This page assumes you have a filled-in `.env`.
 Two checks worth running before anything else:
 
 ```bash
-chmod 600 "$SSH_KEY"   # ssh silently refuses a world-readable key
-grep -c . .env         # sanity: non-empty
+make doctor            # every value .env must carry, and what its absence breaks
 ```
+
+`.env` is a file, not your shell. Anything below that uses `$BOX` or `$SSH_KEY`
+directly needs `source .env` first; the `make` targets read it themselves.
 
 The box is three values — `BOX`, `SSH_KEY`, `SSH_PORT` — and nothing else in the
 repo is provider-specific. `LAMBDA` and `LAMBDA_SSH_KEY` are the older names and
