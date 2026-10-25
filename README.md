@@ -15,7 +15,6 @@
   <a href="https://github.com/langchain-ai/langgraph"><img src="https://img.shields.io/badge/LangGraph-1C3C3C?style=flat-square" alt="LangGraph"></a>
   <a href="https://deepgram.com"><img src="https://img.shields.io/badge/Deepgram-13B981?style=flat-square" alt="Deepgram"></a>
   <a href="https://superlinked.com"><img src="https://img.shields.io/badge/Superlinked-6366F1?style=flat-square" alt="Superlinked"></a>
-  <a href="https://lambdalabs.com"><img src="https://img.shields.io/badge/Lambda-111827?style=flat-square" alt="Lambda"></a>
   <img src="https://img.shields.io/badge/Python%203.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
 </p>
 
@@ -47,14 +46,30 @@ Dodona makes it on purpose, and writes down what it saw.
   'clusterBkg':'#0F1218','clusterBorder':'#263142','edgeLabelBackground':'#0B0B0B'
 }}}%%
 flowchart TD
-    subgraph CL["Clients"]
+    subgraph CL["The app · all of it on this laptop"]
+      direction TB
       L(["<b>Listener</b><br/>speaks"])
-      DG["<b>Deepgram</b><br/>STT · TTS · off-GPU"]
-      AG["<b>AgentShip</b> + LangGraph<br/>web_search · scrape_url · cite"]
-      UI["<b>Open WebUI</b><br/>hand testing"]
-      L --> DG
-      DG <--> AG
+      WEB["<b>Web UI</b> · Next.js :3000<br/>mic → 24 kHz PCM, one socket"]
+      subgraph AS["<b>AgentShip</b> · :8090 · one process"]
+        direction TB
+        VC["<b>voice cascade</b><br/>stt · vad · tts<br/><i>built from the spec</i>"]
+        AG["<b>Dodona agent</b> · LangGraph<br/>web_search · scrape_url"]
+        VC <--> AG
+      end
+      L -->|"mic"| WEB
+      WEB <-->|"/voice"| VC
     end
+
+    subgraph EXT["Off this machine · not the GPU"]
+      direction TB
+      DG["<b>Deepgram</b><br/>nova-3 · aura-2"]
+      WB["<b>Firecrawl</b><br/>what the tools read"]
+    end
+
+    VC <-->|"speech ⇄ text"| DG
+    AG <-->|"search · scrape"| WB
+
+    UI["<b>Open WebUI</b><br/>hand testing · in-cluster :30030<br/>no agent, no tools"]
 
     subgraph GW["Control plane · <b>orch-serve</b>"]
       GD["<b>guard</b><br/>malformed → 400"]
@@ -109,12 +124,12 @@ flowchart TD
     KD -.->|"scales"| D0
 
     class L,RF actor
-    class DG,AG,UI ext
-    class GD,PL,HP ours
+    class DG,WB,UI ext
+    class GD,PL,HP,WEB ours
     class AD gate
     class PF,D0,D1 engine
     class MC store
-    class AP lib
+    class AP,AG,VC lib
     class OV gate
     class SL overflow
     class PM,GF,KD obs
@@ -182,6 +197,7 @@ in this repo hardcodes them.
 
 | | |
 |---|---|
+| [**PREREQUISITES.md**](PREREQUISITES.md) | Accounts, keys, the SSH key and the GPU box — eight numbered steps, done once before `make cluster` |
 | [**PROJECT.md**](docs/PROJECT.md) | The problem in full, the decision behind every choice, the C4 architecture levels, alternatives rejected, risks |
 | [**SUBMISSION.md**](docs/SUBMISSION.md) | The design answered part by part, with a decision tree per part |
 | [**COMMANDS.md**](docs/COMMANDS.md) | Every command in order, marked `[Mac]` or `[GPU]` |
@@ -214,11 +230,13 @@ root holds this README and the Makefile, nothing else.
 
 ## Quick start
 
-Needs an NVIDIA card you can ssh to, and Python 3.11+ locally.
+Needs an NVIDIA card you can ssh to **and have root on**, and Python 3.11+
+locally. Accounts, keys and the box, in order, are
+[**PREREQUISITES.md**](PREREQUISITES.md) — about twenty minutes, once.
 
 ```bash
 git clone https://github.com/harshuljain13/Dodona.git && cd Dodona
-cp .env.example .env     # set BOX and SSH_KEY
+cp .env.example .env     # set BOX, SSH_KEY, SSH_PORT — see PREREQUISITES.md
 make cluster && make observability && make ssh
 ```
 
@@ -232,7 +250,7 @@ ssh — there is no separate login step.
 | `make cluster` | syncs the project, then k3s + HAMi + KEDA, **1 prefill + 1 decode** across slices, the gateway in front of them, and **the capacity checks against a running pod** |
 | `make observability` | Prometheus + Grafana + DCGM |
 | `make ssh` | the tunnel. Leave it open — every URL below is `127.0.0.1` |
-| `make app` | the voice app — LiveKit, the agent worker and the UI on `localhost:3000`. Talks to the GPU through the gateway, so `make ssh` first |
+| `make app` | the voice app — the AgentShip service and the UI on `localhost:3000`. Talks to the GPU through the gateway, so `make ssh` first |
 | `make test` | the control plane, locally, **with no GPU** |
 
 Both bring-up targets are safe to re-run. Stopping, logs, load generation and
@@ -297,4 +315,5 @@ number that no longer matches the hardware, and a claim no scrape supports.
 [AgentShip](https://github.com/Agent-Ship/agent-ship) ·
 [Deepgram](https://deepgram.com) ·
 [Lambda](https://lambdalabs.com) ·
+[RunPod](https://runpod.io) ·
 [llm-inference-experiments](https://github.com/harshuljain13/llm-inference-experiments)

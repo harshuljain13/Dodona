@@ -23,7 +23,7 @@ and links out.
 | 6 | admit — AdmitPerf integrated | ⚠️ wired and switchable, **`ADMISSION_POLICY` unset**, so the gate is off |
 | 7 | place — prefix-sticky, power-of-two | ⚠️ running, but **not exercised**: one decode replica, 0 of 12,230 picks sticky |
 | 8 | hop — Mooncake prefill → decode | ❌ **configured and does not transfer.** `Num successful transfers = 0` on both pools |
-| 9 | the agent | ✅ **2026-10-18** — `app/`, voice over LiveKit, answered by the gateway |
+| 9 | the agent | ✅ **2026-10-18** — `app/`, voice over AgentShip's own cascade, answered by the gateway |
 | 10 | the runs | ⚠️ 01-health and 02-baseline pass; 03-capacity needs re-measuring |
 
 **As deployed:** NVIDIA **H100 PCIe 80GB (sm90, 81,559 MiB)** · vLLM **0.31.0** ·
@@ -238,7 +238,7 @@ so the contention we measure is purely LLM-side.
 
 ## The configuration, in one block
 
-**1 × A100-40GB on one Lambda node. `Qwen2.5-7B-Instruct-AWQ` at int4. TP=1,
+**1 × A100-40GB on one rented GPU node. `Qwen2.5-7B-Instruct-AWQ` at int4. TP=1,
 three workers on three HAMi slices: one prefill and two decode.
 `max_model_len` 16,384, `max_num_seqs` 64. Mooncake for the hop. Overflow is the
 a smaller model on Superlinked, hard-capped.**

@@ -39,7 +39,6 @@ sequenceDiagram
     participant C as fleet.sh
     participant G as _require_gpu.sh
     participant K as k3s.sh
-    participant A as lambda_apply_slices.sh
     participant API as Kubernetes
 
     U->>C: bash setup/fleet.sh
@@ -49,22 +48,21 @@ sequenceDiagram
     K->>K: install k3s, --default-runtime nvidia
     K->>API: helm install HAMi (kube-system)
     K->>API: helm install KEDA (keda ns)
-    C->>A: bash
-    A->>A: read nvidia-smi memory.total
+    C->>C: read nvidia-smi memory.total
     alt GPU > 50000 MiB
-        A->>API: apply manifest, gpumem rewritten 22528 / 27648
+        C->>API: apply manifest, gpumem rewritten 22528 / 27648
     else
-        A->>API: apply manifest as-is, two x 16384
+        C->>API: apply manifest as-is, two x 16384
     end
-    A->>API: apply orch-serve, keda-prefill, keda-decode, open-webui
-    A->>API: wait for workloads
+    C->>API: apply orch-serve, keda-prefill, keda-decode, open-webui
+    C->>API: wait for workloads
 ```
 
 | File | Creates |
 |---|---|
 | `setup/_require_gpu.sh` | Nothing — refuses to run off the GPU box |
 | `setup/k3s.sh` | k3s, HAMi scheduler, KEDA operator |
-| `setup/lambda_apply_slices.sh` | vllm-prefill, vllm-decode, mooncake, orch-serve, ScaledObjects, Open WebUI |
+| `setup/fleet.sh` | vllm-prefill, vllm-decode, mooncake, orch-serve, ScaledObjects, Open WebUI |
 | `setup/observability.sh` | Prometheus, Grafana, dashboards, DCGM — **separate, Step 22** |
 
 Observability is deliberately not part of bring-up. That is why `kubectl -n
