@@ -106,6 +106,11 @@ clean:
 
 # No GPU required. Compiles, checks every doc link, runs the suite, then
 # exercises the gateway and guardrail behaviours end to end.
+# The harnesses are separate processes, so tests/conftest.py cannot strip these
+# for them. Same list, read from the same file — see tests/env_isolation.py.
+HERMETIC = env $(shell $(PY) -c "import sys; sys.path.insert(0,'tests'); \
+  import env_isolation as e; print(' '.join('-u ' + v for v in e.ALL_ENV))")
+
 test:
 	@$(PY) -m compileall -q infra tests && echo "  modules compile"
 	@$(PY) $(SETUP)/check_docs.py
@@ -113,10 +118,10 @@ test:
 	 elif $(PY) -c "import pytest" 2>/dev/null; then $(PY) -m pytest tests/ -q; \
 	 else echo "  no pytest — python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"; exit 1; fi
 	@echo "  gateway behaviours:"
-	@for b in $$($(PY) -m gateway.harness --list | awk '{print $$1}'); do \
-	   $(PY) -m gateway.harness --behavior $$b >/dev/null 2>&1 \
+	@for b in $$($(HERMETIC) $(PY) -m gateway.harness --list | awk '{print $$1}'); do \
+	   $(HERMETIC) $(PY) -m gateway.harness --behavior $$b >/dev/null 2>&1 \
 	     && printf "    ok    %s\n" $$b || printf "    FAIL  %s\n" $$b; done
 	@echo "  guardrails:"
-	@for b in $$($(PY) -m edge.harness --list | awk '{print $$1}'); do \
-	   $(PY) -m edge.harness --behavior $$b >/dev/null 2>&1 \
+	@for b in $$($(HERMETIC) $(PY) -m edge.harness --list | awk '{print $$1}'); do \
+	   $(HERMETIC) $(PY) -m edge.harness --behavior $$b >/dev/null 2>&1 \
 	     && printf "    ok    %s\n" $$b || printf "    FAIL  %s\n" $$b; done
