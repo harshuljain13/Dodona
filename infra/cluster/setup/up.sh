@@ -222,6 +222,7 @@ cmd_workers() {
 WORKERS_ENV=(
   LOCAL_MODEL TEXT_MODEL VISION_MODEL      # which model, and the guard allowlist
   SLICE_MIB WHOLE_CARD_UTIL                # the memory budget per worker
+  PORT_BASE                                # a rented box is not empty
   MAX_MODEL_LEN MAX_NUM_SEQS SCHEDULING_POLICY
   KV_BACKEND LAB_TOPOLOGY LAB_SPLIT
   HF_TOKEN                                 # gated weights
