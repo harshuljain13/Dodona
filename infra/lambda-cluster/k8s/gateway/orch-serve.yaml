@@ -36,7 +36,7 @@ spec:
             # control/ holds gateway, router and edge; cluster/ holds
             # observability. Both are import roots, same as tests/pytest.ini.
             - name: PYTHONPATH
-              value: /lab/infra/control:/lab/infra/cluster
+              value: /lab/infra/control:/lab/infra/lambda-cluster
             - name: SERVE_HOST
               value: "0.0.0.0"
             # Service DNS, resolved inside the cluster. Two distinct values is
@@ -52,7 +52,7 @@ spec:
             # model, and a capability split would ask decode for VISION_MODEL.
             - name: LAB_SPLIT
               value: phase
-            # Must match infra/cluster/k8s/fleet/*.yaml --served-model-name, or vLLM
+            # Must match infra/lambda-cluster/k8s/fleet/*.yaml --served-model-name, or vLLM
             # 400s on every request with an unknown model.
             - name: TEXT_MODEL
               value: Qwen/Qwen2.5-7B-Instruct-AWQ

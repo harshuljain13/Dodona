@@ -9,11 +9,11 @@ arithmetic is wrong, not the cluster.
 
 Exits non-zero if any check fails, so up.sh can stop on it.
 
-    python3 infra/cluster/setup/gate.py [--port 8000] [--log engine.log]
+    python3 infra/lambda-cluster/setup/gate.py [--port 8000] [--log engine.log]
 
 Optional, to assert a specific prediction rather than just report:
 
-    EXPECT_KV_KIB=56 EXPECT_OVERHEAD_GIB=6.0 python3 infra/cluster/setup/gate.py
+    EXPECT_KV_KIB=56 EXPECT_OVERHEAD_GIB=6.0 python3 infra/lambda-cluster/setup/gate.py
 """
 from __future__ import annotations
 

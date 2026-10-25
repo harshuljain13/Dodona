@@ -18,7 +18,7 @@ Not a reimplementation of DCGM. DCGM reports hundreds of fields including
 profiling counters nvidia-smi cannot reach; this covers the three the
 dashboards use, and says so rather than pretending to be the real exporter.
 
-    python3 infra/local/gpu_exporter.py [--port 9400]
+    python3 infra/runpod-cluster/gpu_exporter.py [--port 9400]
 
 Stdlib only, so it needs nothing installed and cannot drift with a dependency.
 """

@@ -25,12 +25,12 @@
 .PHONY: help fleet-lambda fleet-runpod fleet-runpod-down fleet-runpod-logs fleet-runpod-status fleet-runpod-ssh fleet-runpod-smoke-test observability ssh test load logs kv app doctor clean
 
 SHELL := /usr/bin/env bash
-SETUP := infra/cluster/setup
+SETUP := infra/setup
 PY    ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
 # control/ holds gateway, router and edge; cluster/ holds observability and
 # kernels. Both are import roots — same as tests/pytest.ini.
-export PYTHONPATH := $(CURDIR)/infra/control:$(CURDIR)/infra/cluster
+export PYTHONPATH := $(CURDIR)/infra/control:$(CURDIR)/infra/lambda-cluster
 
 help:
 	@echo ""

@@ -23,12 +23,12 @@
 
 # Bash, not sh: arrays and [[ ]]. Under dash load_env is a syntax error.
 if [ -z "${BASH_VERSION:-}" ]; then
-  echo "up.sh needs bash:  bash infra/cluster/setup/up.sh fleet-lambda   (or: make fleet-lambda)" >&2
+  echo "up.sh needs bash:  bash infra/setup/up.sh fleet-lambda   (or: make fleet-lambda)" >&2
   exit 1
 fi
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"   # repo root, above infra/
+PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"   # repo root, above infra/
 cd "$PROJECT_ROOT"
 
 REMOTE_DIR="dodona"        # where sync.sh puts the project on the box
@@ -77,7 +77,7 @@ stop_engine() {
 
 sync_project() {
   announce "sync  —  Mac → $BOX:~/$REMOTE_DIR"
-  bash infra/cluster/setup/sync.sh
+  bash infra/setup/sync.sh
 }
 
 # Asked before anything is synced or installed, because the answer invalidates
@@ -116,7 +116,7 @@ show_card() {
 install_packages() {
   # No announce here: box_packages.sh prints its own heading and a per-step
   # status, and two "==> packages" lines in a row read as a repeated step.
-  on_box_tty "WITH_OBSERVABILITY=${WITH_OBSERVABILITY:-0} bash infra/cluster/setup/box_packages.sh"
+  on_box_tty "WITH_OBSERVABILITY=${WITH_OBSERVABILITY:-0} bash infra/setup/box_packages.sh"
 }
 
 # Holds the whole card, to measure the model's real footprint before slicing.
@@ -124,7 +124,7 @@ start_engine() {
   announce "engine  —  $MODEL on :8000, whole card"
   stop_engine
   on_box "source .venv/bin/activate && \
-    LOCAL_MODEL='$MODEL' setsid nohup bash infra/cluster/setup/engine.sh \
+    LOCAL_MODEL='$MODEL' setsid nohup bash infra/setup/engine.sh \
     </dev/null >$ENGINE_LOG 2>&1 & \
     sleep 1; echo '    started, logging to ~/$REMOTE_DIR/$ENGINE_LOG'"
 }
@@ -140,12 +140,12 @@ wait_for_engine() {
     printf '.'; sleep 5
   done
   printf '\n'
-  fail "Engine did not answer in 15 min.  bash infra/cluster/setup/up.sh logs"
+  fail "Engine did not answer in 15 min.  bash infra/setup/up.sh logs"
 }
 
 check_capacity() {
   announce "capacity  —  checks against the running engine"
-  on_box "python3 infra/cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG" || fail \
+  on_box "python3 infra/lambda-cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG" || fail \
 "    The capacity check failed, which means the arithmetic is wrong rather than
     the cluster. Read docs/project/01-capacity.md before going further."
 }
@@ -155,12 +155,12 @@ start_fleet() {
   # Harmless if nothing is running: the slices need every byte of the card, so
   # any whole-card engine from `up.sh engine` has to go first.
   stop_engine
-  on_box_tty 'bash infra/cluster/setup/fleet.sh'
+  on_box_tty 'bash infra/lambda-cluster/setup/fleet.sh'
 }
 
 start_observability() {
   announce "observability  —  Prometheus + Grafana + DCGM"
-  on_box_tty 'bash infra/cluster/setup/observability.sh'
+  on_box_tty 'bash infra/lambda-cluster/setup/observability.sh'
 }
 
 open_tunnel() {
@@ -171,7 +171,7 @@ open_tunnel() {
     http://127.0.0.1:8080    gateway      /metrics, /v1/chat/completions
     http://127.0.0.1:30800   vLLM prefill (30801 decode) — bypasses the gateway
 PORTS
-  exec bash infra/cluster/setup/tunnel.sh
+  exec bash infra/lambda-cluster/setup/tunnel.sh
 }
 
 # ── commands ───────────────────────────────────────────────────────────────
@@ -245,7 +245,7 @@ cmd_fleet_runpod() {
   # "open another terminal" is the step everyone misses. `make fleet-runpod-down`
   # stops it, which is why detaching is safe now and was not before.
   on_box "mkdir -p infra/metrics/local && \
-    setsid nohup $(workers_env) bash infra/local/workers.sh \
+    setsid nohup $(workers_env) bash infra/runpod-cluster/workers.sh \
       > infra/metrics/local/fleet.log 2>&1 < /dev/null & echo started"
 
   # Weights download on the first run and three workers load in sequence, so
@@ -319,7 +319,7 @@ cmd_fleet_runpod() {
 # other remote command.
 cmd_fleet_smoke() {
   sync_project >/dev/null 2>&1 || true
-  on_box "$(workers_env) GRAFANA_PASSWORD=$(printf %q "${GRAFANA_PASSWORD:-admin}") bash infra/local/smoke.sh"
+  on_box "$(workers_env) GRAFANA_PASSWORD=$(printf %q "${GRAFANA_PASSWORD:-admin}") bash infra/runpod-cluster/smoke.sh"
 }
 
 # The process fleet's own tunnel. `up.sh tunnel` forwards the Kubernetes
@@ -354,7 +354,7 @@ cmd_fleet_runpod_ssh() {
 # reports a broken repo instead of a fleet.
 cmd_fleet_status() {
   sync_project >/dev/null 2>&1 || true
-  on_box "$(workers_env) GRAFANA_PASSWORD=$(printf %q "${GRAFANA_PASSWORD:-admin}") bash infra/local/status.sh"
+  on_box "$(workers_env) GRAFANA_PASSWORD=$(printf %q "${GRAFANA_PASSWORD:-admin}") bash infra/runpod-cluster/status.sh"
 }
 
 # The fleet runs detached, so its output is a file rather than your terminal.
@@ -403,7 +403,7 @@ cmd_fleet_down() {
   # other command that runs a remote script syncs before it; this one did not.
   sync_project
   announce "fleet-down  —  stopping the process fleet"
-  on_box "$(workers_env) bash infra/local/down.sh"
+  on_box "$(workers_env) bash infra/runpod-cluster/down.sh"
 }
 
 cmd_observability() {
@@ -419,7 +419,7 @@ cmd_observability() {
 cmd_down() {
   announce "stopping the whole-card engine"
   "${SSH[@]}" "$BOX" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; echo stopped'
-  echo "    Pods keep running:  sudo k3s kubectl delete -f infra/cluster/k8s/fleet/"
+  echo "    Pods keep running:  sudo k3s kubectl delete -f infra/lambda-cluster/k8s/fleet/"
   echo "    The box is still billing. Stop the instance in your provider's console."
 }
 
@@ -473,7 +473,7 @@ cmd_load() {
 cmd_clean() {
   sync_project
   announce "clean  —  deleting workloads, helm releases, k3s, stray engines"
-  on_box_tty 'bash infra/cluster/setup/clean.sh'
+  on_box_tty 'bash infra/lambda-cluster/setup/clean.sh'
 }
 
 # Everything about the KV connector, in one place. The init lines are at pod
@@ -501,8 +501,8 @@ cmd_kv() {
 # Sync first: this runs the copy on the box, and a stale one checks nothing.
 cmd_check() {
   rsync -az -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new" \
-    infra/cluster/setup/gate.py "$BOX:~/$REMOTE_DIR/infra/cluster/setup/gate.py"
-  on_box "python3 infra/cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG"
+    infra/lambda-cluster/setup/gate.py "$BOX:~/$REMOTE_DIR/infra/lambda-cluster/setup/gate.py"
+  on_box "python3 infra/lambda-cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG"
 }
 
 main() {

@@ -9,7 +9,7 @@ from gateway.metrics import METRICS
 
 ROOT = Path(__file__).resolve().parents[1]
 TRACES = ROOT / "infra" / "metrics"
-K8S = ROOT / "infra" / "cluster" / "k8s"
+K8S = ROOT / "infra" / "lambda-cluster" / "k8s"
 
 # One list, shared with the Makefile's harness loops — see env_isolation.py for
 # why a pytest fixture is not enough.

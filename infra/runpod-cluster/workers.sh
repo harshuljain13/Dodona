@@ -49,7 +49,7 @@ PY="${PY:-$ROOT/.venv/bin/python}"
 # `python -m router.mooncake` is ModuleNotFoundError; without the second,
 # engine.sh's bare `vllm` is "command not found" even though pip installed it
 # into .venv/bin.
-export PYTHONPATH="$ROOT/infra/control:$ROOT/infra/cluster${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$ROOT/infra/control:$ROOT/infra/lambda-cluster${PYTHONPATH:+:$PYTHONPATH}"
 export PATH="$ROOT/.venv/bin:$PATH"
 
 say()  { printf '\033[1;36m==> %s\033[0m\n' "$*"; }
@@ -236,7 +236,7 @@ start_worker() {
   # CUDA_VISIBLE_DEVICES from the last worker.
   supervise "$name" env \
     CUDA_VISIBLE_DEVICES="$dev" PORT="$port" UTIL="$util" \
-    bash "$ROOT/infra/cluster/setup/engine.sh"
+    bash "$ROOT/infra/setup/engine.sh"
 }
 
 say "engines  —  $GPUS GPU(s), 1 prefill + 2 decode"
@@ -264,7 +264,7 @@ wait_for gateway "http://127.0.0.1:8080"
 # cannot run — so without this the `cluster` dashboard, the one that shows
 # whether the card is busy, had no data at all.
 say "gpu exporter  —  :9400  (DCGM_FI_DEV_* from nvidia-smi)"
-supervise gpu-exporter "$PY" "$ROOT/infra/local/gpu_exporter.py" --port 9400
+supervise gpu-exporter "$PY" "$ROOT/infra/runpod-cluster/gpu_exporter.py" --port 9400
 sleep 1
 
 if command -v prometheus >/dev/null 2>&1; then
@@ -276,7 +276,7 @@ if command -v prometheus >/dev/null 2>&1; then
   sed -e "s/__PREFILL__/$PREFILL_PORT/" \
       -e "s/__DECODE0__/$DECODE0_PORT/" \
       -e "s/__DECODE1__/$DECODE1_PORT/" \
-      "$ROOT/infra/local/prometheus.yml.tmpl" > "$PROM_CFG"
+      "$ROOT/infra/runpod-cluster/prometheus.yml.tmpl" > "$PROM_CFG"
   supervise prometheus prometheus \
     --config.file="$PROM_CFG" \
     --storage.tsdb.path="$LOGS/prometheus" \
@@ -294,7 +294,7 @@ if command -v grafana-server >/dev/null 2>&1 || command -v grafana >/dev/null 2>
   GF_PROV="$LOGS/grafana-provisioning"
   GF_DASH="$LOGS/grafana-dashboards"
   mkdir -p "$GF_PROV/dashboards" "$GF_PROV/datasources" "$GF_DASH"
-  cp -f "$ROOT/infra/local/grafana/datasources/prometheus.yml" "$GF_PROV/datasources/"
+  cp -f "$ROOT/infra/runpod-cluster/grafana/datasources/prometheus.yml" "$GF_PROV/datasources/"
 
   # Only the dashboards that can have data here.
   #
@@ -306,13 +306,13 @@ if command -v grafana-server >/dev/null 2>&1 || command -v grafana >/dev/null 2>
   # panels." They stay in the repo; they are correct for fleet-lambda.
   rm -f "$GF_DASH"/*.json
   for d in fleet overview gateway router vllm mooncake errors; do
-    src="$ROOT/infra/cluster/k8s/observability/dashboards/$d.json"
+    src="$ROOT/infra/lambda-cluster/k8s/observability/dashboards/$d.json"
     [[ -f "$src" ]] && cp -f "$src" "$GF_DASH/"
   done
   note "dashboards: $(ls "$GF_DASH" | wc -l | tr -d ' ') provisioned (k8s-only ones skipped)"
 
   sed "s|__DASHBOARDS__|$GF_DASH|" \
-    "$ROOT/infra/local/grafana/dashboards/dodona.yml.tmpl" \
+    "$ROOT/infra/runpod-cluster/grafana/dashboards/dodona.yml.tmpl" \
     > "$GF_PROV/dashboards/dodona.yml"
 
   supervise grafana env \

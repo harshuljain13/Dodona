@@ -18,9 +18,12 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-SETUP = ROOT / "infra" / "cluster" / "setup"
+#: Shared drivers — used by both the lambda and runpod paths.
+SETUP = ROOT / "infra" / "setup"
+#: Kubernetes-only: k3s, HAMi, KEDA, the capacity gate, the tunnel.
+LAMBDA_SETUP = ROOT / "infra" / "lambda-cluster" / "setup"
 
-SHELL_SCRIPTS = sorted(SETUP.glob("*.sh"))
+SHELL_SCRIPTS = sorted(list(SETUP.glob("*.sh")) + list(LAMBDA_SETUP.glob("*.sh")))
 
 #: What `make` offers. Deliberately small — the Makefile is the workflow, not a
 #: menu. `clean` is the one addition to the original four: a rented GPU has to
@@ -47,11 +50,22 @@ def test_script_parses_under_bash(script: Path) -> None:
 
 
 def _referenced_scripts(text: str) -> set[str]:
-    return set(re.findall(r"infra/cluster/setup/([A-Za-z0-9_]+\.(?:sh|py))", text))
+    """Scripts named by path, from either home.
+
+    They live in two places now: infra/setup/ drives both paths, and
+    infra/lambda-cluster/setup/ is Kubernetes-only. A reference is valid if the
+    file exists in either.
+    """
+    return set(re.findall(
+        r"infra/(?:setup|lambda-cluster/setup|runpod-cluster)/([A-Za-z0-9_]+\.(?:sh|py))", text))
+
+
+def _script_exists(name: str) -> bool:
+    return any((d / name).exists() for d in (SETUP, LAMBDA_SETUP, ROOT / "infra" / "runpod-cluster"))
 
 
 @pytest.mark.parametrize(
-    "caller", [ROOT / "Makefile", SETUP / "up.sh", SETUP / "fleet.sh",
+    "caller", [ROOT / "Makefile", SETUP / "up.sh", LAMBDA_SETUP / "fleet.sh",
                ROOT / "docs" / "COMMANDS.md"],
     ids=lambda p: p.name,
 )
@@ -61,7 +75,7 @@ def test_every_referenced_script_exists(caller: Path) -> None:
     It happened to nine scripts at once, and the only symptom was a remote
     `No such file or directory` partway through a twenty-minute bring-up.
     """
-    missing = sorted(n for n in _referenced_scripts(caller.read_text()) if not (SETUP / n).exists())
+    missing = sorted(n for n in _referenced_scripts(caller.read_text()) if not _script_exists(n))
     assert not missing, f"{caller.name} calls scripts that do not exist: {missing}"
 
 
@@ -69,7 +83,7 @@ def test_guard_refuses_on_a_machine_with_no_gpu() -> None:
     """The guard is the only thing stopping Helm running on a laptop."""
     if shutil.which("nvidia-smi"):
         pytest.skip("this machine has a GPU, so the guard is expected to pass")
-    done = subprocess.run(["bash", str(SETUP / "_require_gpu.sh")], capture_output=True, text=True)
+    done = subprocess.run(["bash", str(LAMBDA_SETUP / "_require_gpu.sh")], capture_output=True, text=True)
     assert done.returncode != 0
     assert "GPU box" in done.stdout or "nvidia-smi" in done.stdout
 
@@ -77,7 +91,7 @@ def test_guard_refuses_on_a_machine_with_no_gpu() -> None:
 def test_guard_is_sourced_by_every_script_that_touches_the_cluster() -> None:
     """A new script that forgets the guard can helm the laptop."""
     for name in ("k3s.sh", "fleet.sh", "observability.sh"):
-        assert "_require_gpu.sh" in (SETUP / name).read_text(), f"{name} has no guard"
+        assert "_require_gpu.sh" in (SETUP / name if (SETUP / name).exists() else LAMBDA_SETUP / name).read_text(), f"{name} has no guard"
 
 
 def test_up_sh_rejects_an_unknown_command_without_needing_env() -> None:
@@ -115,7 +129,7 @@ def test_makefile_puts_both_import_roots_on_the_pythonpath() -> None:
 
 def test_prometheus_scrapes_the_jobs_the_dashboards_query() -> None:
     """An empty Grafana panel and a missing scrape job look identical."""
-    values = (ROOT / "infra" / "cluster" / "k8s" / "observability" / "prometheus-values.yaml").read_text()
+    values = (ROOT / "infra" / "lambda-cluster" / "k8s" / "observability" / "prometheus-values.yaml").read_text()
     jobs = set(re.findall(r"job_name:\s*([\w-]+)", values))
     assert {"keda", "hami"} <= jobs, f"missing scrape jobs, found: {sorted(jobs)}"
 
@@ -133,9 +147,9 @@ def test_fleet_restarts_the_gateway_so_mounted_code_takes_effect() -> None:
     control-plane code changes the files on disk while the pod keeps running
     what it loaded at startup. Every edit would silently not take.
     """
-    fleet = (SETUP / "fleet.sh").read_text()
+    fleet = (LAMBDA_SETUP / "fleet.sh").read_text()
     assert "rollout restart deploy/orch-serve" in fleet
-    manifest = (ROOT / "infra" / "cluster" / "k8s" / "gateway" / "orch-serve.yaml").read_text()
+    manifest = (ROOT / "infra" / "lambda-cluster" / "k8s" / "gateway" / "orch-serve.yaml").read_text()
     assert "hostPath" in manifest, "if the gateway stops mounting code, drop the restart"
 
 
@@ -197,7 +211,7 @@ def test_the_guard_refuses_a_container_not_just_a_laptop() -> None:
     failed with "Failed to connect to bus", naming systemd rather than the
     container it was trapped in.
     """
-    guard = (SETUP / "_require_gpu.sh").read_text()
+    guard = (LAMBDA_SETUP / "_require_gpu.sh").read_text()
     assert "/proc/1/comm" in guard, "the guard must test PID 1, not systemctl --version"
     assert "container" in guard.lower()
 
@@ -214,7 +228,7 @@ def test_scripts_that_cd_to_the_repo_root_actually_land_there() -> None:
     """A `cd` that is one level out fails late and blames the wrong thing.
 
     box_packages.sh computed PROJECT_ROOT two levels up from
-    infra/cluster/setup/, which is infra/. pip then reported
+    infra/lambda-cluster/setup/, which is infra/. pip then reported
     "Could not open requirements file: requirements.txt" — a message about pip,
     on a box, after a sync, with nothing pointing at the `cd`. The venv would
     have been built in infra/ too, where nothing else looks for it.
@@ -251,9 +265,9 @@ def test_workers_sets_up_its_own_environment_on_the_box() -> None:
     crash-looped, and both messages blamed the thing being run rather than the
     environment it was run in.
     """
-    src = (ROOT / "infra" / "local" / "workers.sh").read_text()
+    src = (ROOT / "infra" / "runpod-cluster" / "workers.sh").read_text()
     assert "export PYTHONPATH=" in src, "workers.sh must set PYTHONPATH itself"
-    assert "infra/control" in src and "infra/cluster" in src, "both import roots"
+    assert "infra/control" in src and "infra/lambda-cluster" in src, "both import roots"
     assert "export PATH=" in src and ".venv/bin" in src, "the venv must be on PATH for vllm"
 
 
@@ -267,7 +281,7 @@ def test_port_probe_survives_a_free_port() -> None:
 
     Extract the function and run it under the same flags the script uses.
     """
-    src = (ROOT / "infra" / "local" / "workers.sh").read_text()
+    src = (ROOT / "infra" / "runpod-cluster" / "workers.sh").read_text()
     start = src.index("port_holder() {")
     body = src[start:src.index("\n}", start) + 2]
     # 59999 is almost certainly free; if it is not, the probe should still
@@ -293,7 +307,7 @@ def test_status_is_read_only() -> None:
     bans backticks outright and the substitutions that would mutate, rather
     than the words themselves.
     """
-    src = (ROOT / "infra" / "local" / "status.sh").read_text()
+    src = (ROOT / "infra" / "runpod-cluster" / "status.sh").read_text()
     code = [ln for ln in src.splitlines() if not ln.lstrip().startswith("#")]
 
     for line in code:

@@ -5,7 +5,7 @@ Two sets, and the split matters.
 | | Covers | Index |
 |---|---|---|
 | [**`project/`**](project/) | **This project's decisions.** Capacity arithmetic, per-part design, the run protocol, the results report. Ours, and it carries the predictions | below |
-| [**`cluster/`**](../infra/cluster/README.md) | **How the stack works.** Gateway, router, KV bus, observability, infrastructure — file by file. Documents code, so it stays accurate as the code does | [`infra/cluster/README.md`](../infra/cluster/README.md) |
+| [**`cluster/`**](../infra/lambda-cluster/README.md) | **How the stack works.** Gateway, router, KV bus, observability, infrastructure — file by file. Documents code, so it stays accurate as the code does | [`infra/lambda-cluster/README.md`](../infra/lambda-cluster/README.md) |
 
 Start from [`../README.md`](../README.md), then
 [`../SUBMISSION.md`](SUBMISSION.md), then come here.

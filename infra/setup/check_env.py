@@ -7,7 +7,7 @@ deep inside a weight download, or LiteLLM announcing "No API credentials" as
 though a cloud account were missing. Each of those names its own symptom and
 not its cause.
 
-    python3 infra/cluster/setup/check_env.py     (or: make doctor)
+    python3 infra/setup/check_env.py     (or: make doctor)
 
 Run on: Mac, before the first bring-up. Reads `.env` and touches nothing else.
 
@@ -77,7 +77,7 @@ def resolve(values: dict[str, str], name: str) -> str:
 
 
 def main() -> int:
-    root = os.path.join(os.path.dirname(__file__), "..", "..", "..")
+    root = os.path.join(os.path.dirname(__file__), "..", "..")
     path = os.path.join(root, ".env")
     if not os.path.exists(path):
         print("  no .env — copy it first:  cp .env.example .env")
