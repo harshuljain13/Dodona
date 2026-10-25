@@ -266,11 +266,14 @@ git clone https://github.com/harshuljain13/Dodona.git && cd Dodona
 cp .env.example .env     # set BOX, SSH_KEY, SSH_PORT — see PREREQUISITES.md
 make doctor              # is .env complete?
 
-make fleet-lambda             # a host  — k3s + HAMi + KEDA
-make fleet-runpod             # a container — the same fleet as processes
-
-make observability && make ssh
+make fleet-runpod        # a container box — ONE command, start to tunnel
+make fleet-lambda        # a host — then: make observability && make ssh
 ```
+
+`make fleet-runpod` syncs, installs vLLM, starts the fleet **detached** on the
+box, waits for the gateway to answer, then opens the tunnel in your terminal.
+One command, one terminal. `make fleet-down` stops it, `make logs-fleet`
+follows it.
 
 **Which of the two depends on your box, not your preference.** `make fleet-lambda`
 installs k3s as a systemd service; most rented GPUs are containers, where that

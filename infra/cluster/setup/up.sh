@@ -4,6 +4,7 @@
 #   up.sh fleet-lambda    k3s + HAMi + KEDA → fleet → gateway → capacity check
 #   up.sh fleet-runpod    the same fleet as processes — no k3s, for container boxes
 #   up.sh fleet-down      stop a process fleet (fleet-runpod)
+#   up.sh logs-fleet      follow the detached fleet's log
 #   up.sh observability   Prometheus + Grafana + DCGM
 #   up.sh tunnel          forward the box's ports to this Mac
 #   up.sh engine          ONE worker on the whole card, for comparison only
@@ -206,9 +207,56 @@ cmd_fleet_runpod() {
   sync_project
   show_card
   install_packages
-  announce "workers  —  1 vLLM per GPU, gateway, mooncake, observability"
-  echo "    Ctrl-C stops everything. Leave this open."
-  on_box_tty "$(workers_env) bash infra/local/workers.sh"
+  announce "fleet  —  1 vLLM per GPU, gateway, mooncake"
+
+  # Detached, not attached. Held in the foreground this blocks the terminal, so
+  # the tunnel needs a second one — and a workshop instruction that begins
+  # "open another terminal" is the step everyone misses. `make fleet-down`
+  # stops it, which is why detaching is safe now and was not before.
+  on_box "mkdir -p infra/metrics/local && \
+    setsid nohup $(workers_env) bash infra/local/workers.sh \
+      > infra/metrics/local/fleet.log 2>&1 < /dev/null & echo started"
+
+  # Weights download on the first run and three workers load in sequence, so
+  # this is minutes. Show what it is waiting for rather than a silent hang.
+  local port="${PORT_BASE:-8100}"
+  echo "    loading — first run downloads the weights, so this takes a while"
+  local waited=0 last=""
+  while (( waited < 2400 )); do
+    local now
+    now="$("${SSH[@]}" "$BOX" "cd ~/$REMOTE_DIR && tail -1 infra/metrics/local/fleet.log 2>/dev/null | tr -d '\r'" 2>/dev/null || true)"
+    if [[ -n "$now" && "$now" != "$last" ]]; then
+      printf '    %s\n' "${now#    }"
+      last="$now"
+    fi
+    if "${SSH[@]}" "$BOX" "curl -sf -m 2 localhost:8080/v1/models >/dev/null 2>&1"; then
+      announce "fleet up"
+      break
+    fi
+    sleep 10
+    waited=$(( waited + 10 ))
+  done
+
+  if ! "${SSH[@]}" "$BOX" "curl -sf -m 2 localhost:8080/v1/models >/dev/null 2>&1"; then
+    fail "  the gateway never answered.
+  Logs:  make logs-fleet
+  Stop:  make fleet-down"
+  fi
+
+  echo "    gateway   127.0.0.1:8080/v1"
+  echo "    workers   $port  $((port+1))  $((port+2))"
+  echo "    logs      make logs-fleet          stop   make fleet-down"
+  echo
+
+  # And the tunnel, in the foreground, which is the thing to leave open.
+  announce "tunnel  —  forwarding to this Mac. Leave this open."
+  open_tunnel
+}
+
+# The fleet runs detached, so its output is a file rather than your terminal.
+cmd_logs_fleet() {
+  load_env >/dev/null 2>&1 || true
+  on_box "tail -n 80 -f infra/metrics/local/fleet.log"
 }
 
 #: What the fleet needs from .env, carried to the box explicitly.
@@ -355,7 +403,7 @@ cmd_check() {
 main() {
   local command="${1:-}"
   case "$command" in
-    fleet-lambda|fleet-runpod|fleet-down|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
+    fleet-lambda|fleet-runpod|fleet-down|logs-fleet|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
     # Print the header block by shape, not by line number: `sed -n '2,14p'`
     # dropped `clean` off the end the moment two commands were added, and the
     # test that catches it is the only reason anyone noticed.
@@ -367,6 +415,7 @@ main() {
     fleet-lambda)  cmd_fleet_lambda ;;
     fleet-runpod)  cmd_fleet_runpod ;;
     fleet-down)    cmd_fleet_down ;;
+    logs-fleet)    cmd_logs_fleet ;;
     observability) cmd_observability ;;
     engine)        cmd_engine ;;
     tunnel)        open_tunnel ;;
