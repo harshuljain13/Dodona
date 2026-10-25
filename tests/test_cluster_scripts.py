@@ -163,3 +163,25 @@ def test_grep_in_a_substitution_cannot_abort_the_script(script: Path) -> None:
     assert not offenders, (
         f"{script.name}: grep can abort the script, add `|| true`:\n  "
         + "\n  ".join(offenders))
+
+
+def test_every_value_doctor_requires_exists_in_env_example() -> None:
+    """`make doctor` demanding a line `.env.example` never had is a dead end.
+
+    The prerequisites tell people to find each line in their `.env` and fill in
+    the right-hand side. That only works if the line is there to find — and
+    HF_TOKEN was not, so the one value with no template entry was also the one
+    whose absence stopped a bring-up part way through a weight download.
+    """
+    import re
+
+    checker = (SETUP / "check_env.py").read_text()
+    block = re.search(r"^REQUIRED = \{(.*?)^\}", checker, re.S | re.M)
+    assert block, "REQUIRED moved — this test can no longer see what doctor wants"
+    required = set(re.findall(r'"([A-Z_]+)":', block.group(1)))
+    assert required, "REQUIRED parsed as empty, so this test would pass vacuously"
+
+    template = (ROOT / ".env.example").read_text()
+    declared = set(re.findall(r"^(?:export )?([A-Z_][A-Z0-9_]*)=", template, re.M))
+    missing = sorted(required - declared)
+    assert not missing, f"required by `make doctor`, absent from .env.example: {missing}"

@@ -23,6 +23,14 @@ cd "$(dirname "$0")/.."
 
 : "${DEEPGRAM_API_KEY:?set DEEPGRAM_API_KEY in .env — see app/README.md}"
 
+# Not a credential, and not something to ask anyone for. The agent reaches our
+# own gateway through LiteLLM's `openai` provider because the gateway speaks the
+# OpenAI wire format, and LiteLLM refuses to call any openai/* model without a
+# key even when the endpoint is ours and ignores it. Unset, the agent's first
+# turn dies with "No API credentials for model 'openai/Qwen...'", which reads as
+# a missing cloud account. The gateway checks nothing, so any string does.
+export OPENAI_API_KEY="${OPENAI_API_KEY:-not-used-the-gateway-is-ours}"
+
 AGENTSHIP_PORT="${AGENTSHIP_PORT:-8090}"   # 8000 is the whole-card engine, 8080 the gateway
 say() { printf '\033[1;36m==> %s\033[0m\n' "$1"; }
 
