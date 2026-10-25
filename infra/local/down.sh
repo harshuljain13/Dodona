@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Stop a process fleet started by workers.sh.
 #
-#   make fleet-down      (this script, run on the GPU box)
+#   make fleet-runpod-down      (this script, run on the GPU box)
 #
 # The Kubernetes path never needed this: `make clean` deletes the workloads and
 # k3s goes with them. A supervisor of raw processes has no such owner, so

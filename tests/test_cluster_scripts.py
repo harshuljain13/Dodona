@@ -25,9 +25,9 @@ SHELL_SCRIPTS = sorted(SETUP.glob("*.sh"))
 #: What `make` offers. Deliberately small — the Makefile is the workflow, not a
 #: menu. `clean` is the one addition to the original four: a rented GPU has to
 #: be returnable, and teardown cannot be expressed by any of the others.
-MAKE_TARGETS = {"fleet-lambda", "fleet-runpod", "fleet-down", "logs-fleet",
-                "observability", "ssh", "test", "load", "logs", "kv", "app",
-                "doctor", "clean"}
+MAKE_TARGETS = {"fleet-lambda", "fleet-runpod", "fleet-runpod-down",
+                "fleet-runpod-logs", "observability", "ssh", "test", "load",
+                "logs", "kv", "app", "doctor", "clean"}
 
 
 def test_there_are_shell_scripts_to_check() -> None:
