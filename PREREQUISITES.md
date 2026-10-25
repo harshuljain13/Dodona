@@ -8,6 +8,10 @@ two things overlap here.
 mean to work; the API keys in 7–9 come after it deliberately, so they get sorted
 while the box boots rather than before it has started.
 
+**Six of the steps below end with a line to paste into `.env`.** Paste each one
+as you get it — step 10 checks you have all of them, but it is a lot easier to
+notice a missing key while you are still on the page that issues it.
+
 | | Step | When | Puts into `.env` |
 |---|---|---|---|
 | 1 | [Your laptop](#1--your-laptop) | any time | — |
@@ -46,8 +50,10 @@ cp .env.example .env
 
 **`.env` does not exist until you copy it, and nothing works without it.**
 `.env.example` is the template, committed and safe; `.env` is yours, gitignored,
-and never leaves the laptop. Open it now and keep it open — most steps below
-fill in one line.
+and never leaves the laptop. **Open it now in an editor and keep it open** —
+steps 3 to 9 each hand you one line to paste into it, and step 10 checks the
+set. Leaving this until the end means transcribing six secrets from a
+scratchpad, which is how one of them ends up wrong.
 
 It arrives with sensible values for everything that is not a secret, including
 one that looks odd and is not:
@@ -217,6 +223,43 @@ that has been blindfolded.
 
 ## 10 · Check yourself
 
+### First — is `.env` actually filled in?
+
+Every step above handed you one line. This is all of them together, and it is
+the file the next command reads:
+
+```bash
+# the box — step 6 (and SSH_KEY from step 4)
+export BOX=root@194.26.196.4
+export SSH_KEY=$HOME/.ssh/id_ed25519
+export SSH_PORT=22122
+
+# the keys — steps 7, 8, 9
+export HF_TOKEN=hf_xxxx
+export DEEPGRAM_API_KEY=xxxx
+export FIRECRAWL_API_KEY=fc-xxxx
+
+# already correct in .env.example — do not change it
+export OPENAI_API_KEY=not-used-the-gateway-is-ours
+```
+
+Check them without printing a single secret:
+
+```bash
+set -a; source .env; set +a
+for v in BOX SSH_KEY SSH_PORT HF_TOKEN DEEPGRAM_API_KEY FIRECRAWL_API_KEY OPENAI_API_KEY; do
+  [ -n "${!v}" ] && echo "  ok      $v" || echo "  MISSING $v"
+done
+[ -f "$SSH_KEY" ] && echo "  ok      SSH_KEY points at a real file" \
+                  || echo "  MISSING no key at $SSH_KEY"
+```
+
+Seven `ok` lines and nothing else. **A value left as its placeholder counts as
+set**, so if something fails later with a key that "is definitely there", check
+you replaced the `xxxx` rather than adding a line beside it.
+
+### Then — the laptop and the box
+
 ```bash
 make test                           # the control plane, locally, with NO GPU
 ssh $BOX -p $SSH_PORT nvidia-smi    # the box
@@ -224,6 +267,7 @@ ssh $BOX -p $SSH_PORT nvidia-smi    # the box
 
 | Check | Means |
 |---|---|
+| Seven `ok` lines above | `.env` is complete |
 | `make test` prints all `ok` | Laptop is ready |
 | `nvidia-smi` prints a GPU | Box is ready |
 
