@@ -12,7 +12,7 @@
 # the three seconds it takes to kill the next one.
 set -uo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 
 say()  { printf '\033[1;36m==> %s\033[0m\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
@@ -21,11 +21,16 @@ note() { printf '    %s\n' "$*"; }
 #: this repo's path where possible, so a vLLM someone else is running on the
 #: same box is left alone.
 declare -a TARGETS=(
-  "infra/runpod-cluster/workers.sh"        # the supervisors — first, always
-  "$ROOT/.venv/bin/vllm"          # the three engines
+  # Just the filename, not the path. Renaming infra/local to
+  # infra/runpod-cluster changed the command line of every supervisor already
+  # running, so a path-anchored pattern stopped matching them: fleet-down
+  # reported "all stopped" while they kept looping on a path --delete had
+  # removed. A process started under the old layout still has to be killable.
+  "workers.sh"                    # the supervisors — first, always
+  "/.venv/bin/vllm"               # the three engines, whatever ROOT was
   "vllm serve"                    # ...and any started a different way
-  "$ROOT/.venv/bin/python -m gateway.serve"
-  "$ROOT/.venv/bin/python -m router.mooncake"
+  "python -m gateway.serve"
+  "python -m router.mooncake"
   "gpu_exporter.py"
   # Matched loosely on purpose: started by hand with a relative --config.file,
   # the anchored pattern missed it and fleet-down reported "all stopped" while
@@ -52,7 +57,7 @@ sleep 2
 
 # Report what is left rather than claiming success. A worker that ignored TERM
 # is more useful named than assumed gone.
-left="$(pgrep -fa "vllm serve|gateway.serve|router.mooncake|infra/runpod-cluster/workers.sh" 2>/dev/null || true)"
+left="$(pgrep -fa "vllm serve|gateway.serve|router.mooncake|infra/runpod-cluster/setup/workers.sh" 2>/dev/null || true)"
 if [[ -n "$left" ]]; then
   note ""
   note "still running:"

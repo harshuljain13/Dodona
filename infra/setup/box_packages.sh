@@ -55,7 +55,7 @@ step "vllm (~10 GB)"     pip install -q "vllm>=0.28"
 # for a comparison measurement and has no dashboards to feed — pulling ~400 MB
 # of binaries it will never run is a cost with no return.
 if [[ "${WITH_OBSERVABILITY:-0}" == "1" ]]; then
-  bash "$PROJECT_ROOT/infra/runpod-cluster/observability.sh" || true
+  bash "$PROJECT_ROOT/infra/runpod-cluster/setup/observability.sh" || true
 fi
 
 say "verify"

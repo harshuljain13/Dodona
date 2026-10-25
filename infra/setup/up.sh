@@ -245,7 +245,7 @@ cmd_fleet_runpod() {
   # "open another terminal" is the step everyone misses. `make fleet-runpod-down`
   # stops it, which is why detaching is safe now and was not before.
   on_box "mkdir -p infra/metrics/local && \
-    setsid nohup $(workers_env) bash infra/runpod-cluster/workers.sh \
+    setsid nohup $(workers_env) bash infra/runpod-cluster/setup/workers.sh \
       > infra/metrics/local/fleet.log 2>&1 < /dev/null & echo started"
 
   # Weights download on the first run and three workers load in sequence, so
@@ -295,13 +295,23 @@ cmd_fleet_runpod() {
       printf '    [%2dm%02ds]  %s\n' $(( waited / 60 )) $(( waited % 60 )) "$shown"
     fi
 
-    [[ "${state:5:1}" == "y" ]] && { echo; announce "fleet up"; break; }
+    # All three workers AND the gateway. Breaking on the gateway alone is how
+    # `make fleet-runpod` reported success with every worker dead: the gateway
+    # serves /v1/models from its own allowlist, so it answers with or without a
+    # pool behind it.
+    if [[ "${state:2:1}" == "y" && "${state:3:1}" == "y" \
+       && "${state:4:1}" == "y" && "${state:5:1}" == "y" ]]; then
+      echo; announce "fleet up"; break
+    fi
     sleep 5
     waited=$(( waited + 5 ))
   done
 
-  if ! "${SSH[@]}" "$BOX" "curl -sf -m 2 localhost:8080/v1/models >/dev/null 2>&1"; then
-    fail "  the gateway never answered.
+  # Same test as the loop, so a timeout and a success cannot disagree about
+  # what "up" means.
+  if [[ "${state:2:1}" != "y" || "${state:3:1}" != "y" \
+     || "${state:4:1}" != "y" || "${state:5:1}" != "y" ]]; then
+    fail "  the fleet did not come up — the last line above shows which part.
   Logs:  make fleet-runpod-logs
   Stop:  make fleet-runpod-down"
   fi
@@ -319,7 +329,7 @@ cmd_fleet_runpod() {
 # other remote command.
 cmd_fleet_smoke() {
   sync_project >/dev/null 2>&1 || true
-  on_box "$(workers_env) GRAFANA_PASSWORD=$(printf %q "${GRAFANA_PASSWORD:-admin}") bash infra/runpod-cluster/smoke.sh"
+  on_box "$(workers_env) GRAFANA_PASSWORD=$(printf %q "${GRAFANA_PASSWORD:-admin}") bash infra/runpod-cluster/setup/smoke.sh"
 }
 
 # The process fleet's own tunnel. `up.sh tunnel` forwards the Kubernetes
@@ -354,7 +364,7 @@ cmd_fleet_runpod_ssh() {
 # reports a broken repo instead of a fleet.
 cmd_fleet_status() {
   sync_project >/dev/null 2>&1 || true
-  on_box "$(workers_env) GRAFANA_PASSWORD=$(printf %q "${GRAFANA_PASSWORD:-admin}") bash infra/runpod-cluster/status.sh"
+  on_box "$(workers_env) GRAFANA_PASSWORD=$(printf %q "${GRAFANA_PASSWORD:-admin}") bash infra/runpod-cluster/setup/status.sh"
 }
 
 # The fleet runs detached, so its output is a file rather than your terminal.
@@ -403,7 +413,7 @@ cmd_fleet_down() {
   # other command that runs a remote script syncs before it; this one did not.
   sync_project
   announce "fleet-down  —  stopping the process fleet"
-  on_box "$(workers_env) bash infra/runpod-cluster/down.sh"
+  on_box "$(workers_env) bash infra/runpod-cluster/setup/down.sh"
 }
 
 cmd_observability() {

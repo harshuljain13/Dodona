@@ -12,7 +12,7 @@
 # Exit code is the number of failures, so it is usable as a gate.
 set -uo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 [[ -f .env ]] && set -a && source .env && set +a
 

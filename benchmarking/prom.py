@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DASHBOARDS = REPO_ROOT / "infra" / "cluster" / "k8s" / "observability" / "dashboards"
+DASHBOARDS = REPO_ROOT / "infra" / "lambda-cluster" / "k8s" / "observability" / "dashboards"
 
 PROM_URL = "http://127.0.0.1:31490"
 GRAFANA_URL = "http://127.0.0.1:31495"

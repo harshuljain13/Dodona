@@ -61,7 +61,7 @@ def _referenced_scripts(text: str) -> set[str]:
 
 
 def _script_exists(name: str) -> bool:
-    return any((d / name).exists() for d in (SETUP, LAMBDA_SETUP, ROOT / "infra" / "runpod-cluster"))
+    return any((d / name).exists() for d in (SETUP, LAMBDA_SETUP, ROOT / "infra" / "runpod-cluster" / "setup"))
 
 
 @pytest.mark.parametrize(
@@ -265,7 +265,7 @@ def test_workers_sets_up_its_own_environment_on_the_box() -> None:
     crash-looped, and both messages blamed the thing being run rather than the
     environment it was run in.
     """
-    src = (ROOT / "infra" / "runpod-cluster" / "workers.sh").read_text()
+    src = (ROOT / "infra" / "runpod-cluster" / "setup" / "workers.sh").read_text()
     assert "export PYTHONPATH=" in src, "workers.sh must set PYTHONPATH itself"
     assert "infra/control" in src and "infra/lambda-cluster" in src, "both import roots"
     assert "export PATH=" in src and ".venv/bin" in src, "the venv must be on PATH for vllm"
@@ -281,7 +281,7 @@ def test_port_probe_survives_a_free_port() -> None:
 
     Extract the function and run it under the same flags the script uses.
     """
-    src = (ROOT / "infra" / "runpod-cluster" / "workers.sh").read_text()
+    src = (ROOT / "infra" / "runpod-cluster" / "setup" / "workers.sh").read_text()
     start = src.index("port_holder() {")
     body = src[start:src.index("\n}", start) + 2]
     # 59999 is almost certainly free; if it is not, the probe should still
@@ -307,7 +307,7 @@ def test_status_is_read_only() -> None:
     bans backticks outright and the substitutions that would mutate, rather
     than the words themselves.
     """
-    src = (ROOT / "infra" / "runpod-cluster" / "status.sh").read_text()
+    src = (ROOT / "infra" / "runpod-cluster" / "setup" / "status.sh").read_text()
     code = [ln for ln in src.splitlines() if not ln.lstrip().startswith("#")]
 
     for line in code:

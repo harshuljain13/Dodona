@@ -1,4 +1,4 @@
-# cluster/ — how the engine comes up
+# lambda-cluster/ — Kubernetes on a host
 
 Built in order. **[`../RUNBOOK.md`](../../docs/RUNBOOK.md) is the thing you execute** —
 ten stages, each with a gate you check before starting the next.

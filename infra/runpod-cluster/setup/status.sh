@@ -13,7 +13,7 @@
 # command — that bug cost an afternoon in workers.sh.
 set -uo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 [[ -f .env ]] && set -a && source .env && set +a
 
@@ -128,7 +128,7 @@ nvidia-smi --query-gpu=index,memory.used,memory.total --format=csv,noheader,noun
 
 # ── is there exactly one fleet ─────────────────────────────────────────────
 say "processes"
-sup=$(pgrep -fc "infra/runpod-cluster/workers.sh" 2>/dev/null); sup=${sup:-0}
+sup=$(pgrep -fc "infra/runpod-cluster/setup/workers.sh" 2>/dev/null); sup=${sup:-0}
 vll=$(pgrep -fc "vllm serve" 2>/dev/null); vll=${vll:-0}
 gpu_procs=$(nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null | grep -c .)
 
