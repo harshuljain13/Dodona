@@ -324,9 +324,22 @@ make test
 exercises ten gateway behaviours and six guardrails. It never touches the
 cluster, so it works on a plane.
 
-**You are done.** Bring-up is [`make cluster`](README.md). Teardown is
-`make clean` and then **destroying the box** — the second half is the one that
-stops the bill.
+**You are done.** Bring-up is one of two commands, and your box decides which:
+
+```bash
+cat /proc/1/comm          # on the box, via the ssh line above
+```
+
+| It says | Run | Why |
+|---|---|---|
+| `systemd` | `make cluster` | a host — k3s can install itself |
+| anything else | `make workers` | a container — same fleet as processes, no k3s |
+
+`make cluster` checks this itself and refuses before syncing, so guessing wrong
+costs seconds rather than a part-finished install.
+
+Teardown is `make clean` and then **destroying the box** — the second half is
+the one that stops the bill.
 
 ---
 

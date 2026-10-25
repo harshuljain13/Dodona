@@ -4,8 +4,11 @@
 # torch and vLLM import and can see the device. No Kubernetes here.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PROJECT_ROOT="$(cd "$ROOT/.." && pwd)"
+# This script is at infra/cluster/setup/, so the repo root is three levels up,
+# not two. It was two — PROJECT_ROOT landed on infra/, pip looked for
+# infra/requirements.txt, and the venv would have been built there as well,
+# where workers.sh does not look for it. Found on the first real box.
+PROJECT_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$PROJECT_ROOT"
 
 echo "== GPU =="

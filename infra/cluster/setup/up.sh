@@ -2,6 +2,7 @@
 # Drive the GPU box from your Mac. Normally called by the Makefile.
 #
 #   up.sh cluster         k3s + HAMi + KEDA → fleet → gateway → capacity check
+#   up.sh workers         the same fleet as processes — no k3s, for container boxes
 #   up.sh observability   Prometheus + Grafana + DCGM
 #   up.sh tunnel          forward the box's ports to this Mac
 #   up.sh engine          ONE worker on the whole card, for comparison only
@@ -193,6 +194,21 @@ cmd_engine() {
   echo "    This holds the whole card. Run 'make cluster' to replace it with the fleet."
 }
 
+# The fleet without an orchestrator, for boxes that are containers — which is
+# most rented GPUs. Deliberately does NOT call require_a_host: being a container
+# is the reason this command exists.
+#
+# It installs vLLM, which `make cluster` does not need: there the pods bring
+# their own in the image. Here the workers are processes on the box.
+cmd_workers() {
+  sync_project
+  show_card
+  install_packages
+  announce "workers  —  1 vLLM per GPU, gateway, mooncake, observability"
+  echo "    Ctrl-C stops everything. Leave this open."
+  on_box_tty 'bash infra/local/workers.sh'
+}
+
 cmd_observability() {
   require_a_host
   sync_project
@@ -295,13 +311,14 @@ cmd_check() {
 main() {
   local command="${1:-}"
   case "$command" in
-    cluster|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
+    cluster|workers|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
     -h|--help|"") sed -n '2,14p' "$0"; exit 0 ;;
     *) fail "unknown command: $command   (try: up.sh --help)" ;;
   esac
   load_env
   case "$command" in
     cluster)       cmd_cluster ;;
+    workers)       cmd_workers ;;
     observability) cmd_observability ;;
     engine)        cmd_engine ;;
     tunnel)        open_tunnel ;;

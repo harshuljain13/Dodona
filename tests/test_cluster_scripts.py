@@ -207,3 +207,34 @@ def test_the_guard_refuses_a_container_not_just_a_laptop() -> None:
     for command in ("cmd_cluster", "cmd_observability"):
         body = up.split(f"{command}() {{", 1)[1].split("\n}", 1)[0]
         assert "require_a_host" in body, f"{command} does not check for a host first"
+
+
+def test_scripts_that_cd_to_the_repo_root_actually_land_there() -> None:
+    """A `cd` that is one level out fails late and blames the wrong thing.
+
+    box_packages.sh computed PROJECT_ROOT two levels up from
+    infra/cluster/setup/, which is infra/. pip then reported
+    "Could not open requirements file: requirements.txt" — a message about pip,
+    on a box, after a sync, with nothing pointing at the `cd`. The venv would
+    have been built in infra/ too, where nothing else looks for it.
+
+    So: evaluate each script's own root expression and insist it lands on a
+    directory holding the files it then reads.
+    """
+    import re
+
+    for name, marker in (("box_packages.sh", "requirements.txt"),):
+        script = SETUP / name
+        src = script.read_text()
+        match = re.search(r'^PROJECT_ROOT="(.+)"$', src, re.M)
+        assert match, f"{name}: no PROJECT_ROOT to check"
+        # Run the expression with $0 bound to the script, exactly as it runs.
+        done = subprocess.run(
+            ["bash", "-c", f'printf "%s" "{match.group(1)}"', str(script)],
+            capture_output=True, text=True,
+        )
+        assert done.returncode == 0, f"{name}: root expression failed: {done.stderr}"
+        landed = Path(done.stdout.strip())
+        assert (landed / marker).is_file(), (
+            f"{name} cd's to {landed}, which has no {marker}"
+        )

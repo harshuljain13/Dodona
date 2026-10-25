@@ -63,9 +63,13 @@ cluster:
 # k3s. Same control plane, same dashboards, same reports; what it drops is
 # HAMi's enforced slices and KEDA.
 #
-# Runs ON THE BOX. From the Mac: make ssh, then bash infra/local/workers.sh
+# Drives the box over ssh, like every other target here — syncs, installs vLLM
+# (which `make cluster` does not need: there the pods bring their own), then
+# starts the workers. Leave it running; Ctrl-C stops the fleet.
 workers:
-	@bash infra/local/workers.sh
+	@[ -d .venv ] || { python3 -m venv .venv && .venv/bin/pip install -qU pip \
+	  && .venv/bin/pip install -qr requirements.txt; }
+	@bash $(SETUP)/up.sh workers
 
 observability:
 	@bash $(SETUP)/up.sh observability
