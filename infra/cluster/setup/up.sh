@@ -206,7 +206,36 @@ cmd_workers() {
   install_packages
   announce "workers  —  1 vLLM per GPU, gateway, mooncake, observability"
   echo "    Ctrl-C stops everything. Leave this open."
-  on_box_tty 'bash infra/local/workers.sh'
+  on_box_tty "$(workers_env) bash infra/local/workers.sh"
+}
+
+#: What the fleet needs from .env, carried to the box explicitly.
+#:
+#: sync.sh excludes .env on purpose — "the box has the code but not your
+#: secrets" — so nothing in it reaches a worker. The first real run downloaded a
+#: 7B because LOCAL_MODEL was unset and engine.sh fell back to its default,
+#: while .env on the Mac said 32B. Every other choice was invisible the same
+#: way, including SLICE_MIB, which decides whether a run is INERT.
+#:
+#: Named individually rather than shipping the file: the box is rented, and it
+#: has no business holding a Deepgram key.
+WORKERS_ENV=(
+  LOCAL_MODEL TEXT_MODEL VISION_MODEL      # which model, and the guard allowlist
+  SLICE_MIB WHOLE_CARD_UTIL                # the memory budget per worker
+  MAX_MODEL_LEN MAX_NUM_SEQS SCHEDULING_POLICY
+  KV_BACKEND LAB_TOPOLOGY LAB_SPLIT
+  HF_TOKEN                                 # gated weights
+)
+
+# Build `env K=V ...` for the values that are actually set, quoted for the
+# remote shell. Unset stays unset, so each script's own default still applies.
+workers_env() {
+  local out="env" name value
+  for name in "${WORKERS_ENV[@]}"; do
+    value="${!name:-}"
+    [[ -n "$value" ]] && out+=" $name=$(printf %q "$value")"
+  done
+  printf '%s' "$out"
 }
 
 cmd_observability() {
