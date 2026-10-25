@@ -21,7 +21,7 @@
 set -euo pipefail
 set -m
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 [[ -f .env ]] && set -a && source .env && set +a
 
@@ -264,7 +264,7 @@ wait_for gateway "http://127.0.0.1:8080"
 # cannot run — so without this the `cluster` dashboard, the one that shows
 # whether the card is busy, had no data at all.
 say "gpu exporter  —  :9400  (DCGM_FI_DEV_* from nvidia-smi)"
-supervise gpu-exporter "$PY" "$ROOT/infra/runpod-cluster/gpu_exporter.py" --port 9400
+supervise gpu-exporter "$PY" "$ROOT/infra/runpod-cluster/observability/gpu_exporter.py" --port 9400
 sleep 1
 
 if command -v prometheus >/dev/null 2>&1; then
@@ -276,7 +276,7 @@ if command -v prometheus >/dev/null 2>&1; then
   sed -e "s/__PREFILL__/$PREFILL_PORT/" \
       -e "s/__DECODE0__/$DECODE0_PORT/" \
       -e "s/__DECODE1__/$DECODE1_PORT/" \
-      "$ROOT/infra/runpod-cluster/prometheus.yml.tmpl" > "$PROM_CFG"
+      "$ROOT/infra/runpod-cluster/observability/prometheus.yml.tmpl" > "$PROM_CFG"
   supervise prometheus prometheus \
     --config.file="$PROM_CFG" \
     --storage.tsdb.path="$LOGS/prometheus" \
@@ -294,7 +294,7 @@ if command -v grafana-server >/dev/null 2>&1 || command -v grafana >/dev/null 2>
   GF_PROV="$LOGS/grafana-provisioning"
   GF_DASH="$LOGS/grafana-dashboards"
   mkdir -p "$GF_PROV/dashboards" "$GF_PROV/datasources" "$GF_DASH"
-  cp -f "$ROOT/infra/runpod-cluster/grafana/datasources/prometheus.yml" "$GF_PROV/datasources/"
+  cp -f "$ROOT/infra/runpod-cluster/observability/grafana/datasources/prometheus.yml" "$GF_PROV/datasources/"
 
   # Only the dashboards that can have data here.
   #
@@ -312,7 +312,7 @@ if command -v grafana-server >/dev/null 2>&1 || command -v grafana >/dev/null 2>
   note "dashboards: $(ls "$GF_DASH" | wc -l | tr -d ' ') provisioned (k8s-only ones skipped)"
 
   sed "s|__DASHBOARDS__|$GF_DASH|" \
-    "$ROOT/infra/runpod-cluster/grafana/dashboards/dodona.yml.tmpl" \
+    "$ROOT/infra/runpod-cluster/observability/grafana/dashboards/dodona.yml.tmpl" \
     > "$GF_PROV/dashboards/dodona.yml"
 
   supervise grafana env \
