@@ -264,7 +264,20 @@ locally. Accounts, keys and the box, in order, are
 ```bash
 git clone https://github.com/harshuljain13/Dodona.git && cd Dodona
 cp .env.example .env     # set BOX, SSH_KEY, SSH_PORT — see PREREQUISITES.md
-make cluster && make observability && make ssh
+make doctor              # is .env complete?
+
+make cluster             # a host  — k3s + HAMi + KEDA
+make workers             # a container — the same fleet as processes
+
+make observability && make ssh
+```
+
+**Which of the two depends on your box, not your preference.** `make cluster`
+installs k3s as a systemd service; most rented GPUs are containers, where that
+cannot work. It checks and tells you before syncing anything:
+
+```
+root@… is a container, not a host — PID 1 is docker-init.
 ```
 
 Then open **http://127.0.0.1:30030** and talk to it.
