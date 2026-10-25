@@ -243,20 +243,11 @@ export FIRECRAWL_API_KEY=fc-xxxx
 export OPENAI_API_KEY=not-used-the-gateway-is-ours
 ```
 
-Check them without printing a single secret:
-
-```bash
-set -a; source .env; set +a
-for v in BOX SSH_KEY SSH_PORT HF_TOKEN DEEPGRAM_API_KEY FIRECRAWL_API_KEY OPENAI_API_KEY; do
-  [ -n "${!v}" ] && echo "  ok      $v" || echo "  MISSING $v"
-done
-[ -f "$SSH_KEY" ] && echo "  ok      SSH_KEY points at a real file" \
-                  || echo "  MISSING no key at $SSH_KEY"
-```
-
-Seven `ok` lines and nothing else. **A value left as its placeholder counts as
-set**, so if something fails later with a key that "is definitely there", check
-you replaced the `xxxx` rather than adding a line beside it.
+Read it down the page and check each one is a real value. **The thing to look
+for is a leftover `xxxx`** — a placeholder still sitting there, or a key pasted
+on a new line beside the original rather than replacing it. Both look filled in
+at a glance and fail later, at the point of use, with an error that does not
+mention `.env`.
 
 ### Then — the laptop and the box
 
@@ -267,7 +258,7 @@ ssh $BOX -p $SSH_PORT nvidia-smi    # the box
 
 | Check | Means |
 |---|---|
-| Seven `ok` lines above | `.env` is complete |
+| No `xxxx` left in `.env` | Nothing is still a placeholder |
 | `make test` prints all `ok` | Laptop is ready |
 | `nvidia-smi` prints a GPU | Box is ready |
 
