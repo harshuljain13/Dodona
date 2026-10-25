@@ -112,7 +112,7 @@ numbers exist.
 - **TTFT comes from vLLM, not the client.** The gateway synthesises SSE from a
   completed response, so client-side TTFT measures the whole generation. See
   [Part 7](07-wiring.md#the-fix).
-- **Wall-clock per question includes laptop-to-Lambda round trips**, because the
+- **Wall-clock per question includes laptop-to-box round trips**, because the
   agent runs on the laptop. It does not affect TTFT or KV pressure.
 - **Overflow budget exhaustion looks like overflow not helping.** The run summary
   must say when the budget ran out.

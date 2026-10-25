@@ -324,6 +324,6 @@ higher — a request asking for more is not rejected, just quietly capped.
 | Sticky / overflow stay 0 | Expected unless those paths fire |
 | Browser chat missing from dashboards | `OPENAI_API_BASE_URL` points at vLLM, not orch-serve |
 | Model picker empty | `curl http://127.0.0.1:8080/v1/models` |
-| Locust all failures | `--host` must be `http://127.0.0.1:8080`, not the Lambda IP |
+| Locust all failures | `--host` must be `http://127.0.0.1:8080`, not the box IP |
 | Flood of 429 under load | Working as intended — tenant cap is 10 000 tokens/min |
 | Requests 400 before routing | Guardrails. See the table above |

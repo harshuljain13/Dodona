@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Copy the whole project from your Mac to ~/dodona on the GPU box, over rsync/SSH.
-# Run on: Mac. Reads LAMBDA and LAMBDA_SSH_KEY from .env and exits 1 without them.
+# Run on: Mac. Reads BOX, SSH_KEY and SSH_PORT from .env and exits 1 without them.
 # Excludes .venv, __pycache__, .pytest_cache — source only, no environments.
 set -euo pipefail
 
@@ -14,14 +14,21 @@ if [[ -f "$PROJECT_ROOT/.env" ]]; then
   set +a
 fi
 
-if [[ -z "${LAMBDA:-}" || -z "${LAMBDA_SSH_KEY:-}" || ! -f "$LAMBDA_SSH_KEY" ]]; then
-  echo "Set LAMBDA and LAMBDA_SSH_KEY in .env" >&2
+# LAMBDA / LAMBDA_SSH_KEY are the older names and still work — the project ran
+# on Lambda first, and nothing about it was Lambda-specific except these.
+BOX="${BOX:-${LAMBDA:-}}"
+SSH_KEY="${SSH_KEY:-${LAMBDA_SSH_KEY:-}}"
+# RunPod and most container hosts put sshd on a high port, not 22.
+SSH_PORT="${SSH_PORT:-22}"
+
+if [[ -z "$BOX" || -z "$SSH_KEY" || ! -f "$SSH_KEY" ]]; then
+  echo "Set BOX and SSH_KEY in .env" >&2
   exit 1
 fi
 
-echo "Sync Mac → $LAMBDA:~/dodona/"
-ssh -i "$LAMBDA_SSH_KEY" -o StrictHostKeyChecking=accept-new "$LAMBDA" "mkdir -p ~/dodona"
-rsync -avz -e "ssh -i $LAMBDA_SSH_KEY -o StrictHostKeyChecking=accept-new" \
+echo "Sync Mac → $BOX:~/dodona/  (port $SSH_PORT)"
+ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new "$BOX" "mkdir -p ~/dodona"
+rsync -avz -e "ssh -i $SSH_KEY -p $SSH_PORT -o StrictHostKeyChecking=accept-new" \
   --exclude '.venv' \
   --exclude '__pycache__' \
   --exclude '.pytest_cache' \
@@ -29,5 +36,5 @@ rsync -avz -e "ssh -i $LAMBDA_SSH_KEY -o StrictHostKeyChecking=accept-new" \
   --exclude '.git' \
   --exclude 'metrics/*' \
   ./ \
-  "$LAMBDA:~/dodona/"
+  "$BOX:~/dodona/"
 echo "Synced."

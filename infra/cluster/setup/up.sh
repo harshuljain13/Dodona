@@ -40,13 +40,19 @@ load_env() {
 
   BOX="${BOX:-${LAMBDA:-}}"
   SSH_KEY="${SSH_KEY:-${LAMBDA_SSH_KEY:-}}"
+  # RunPod and most container hosts put sshd on a high port, not 22. Exported so
+  # sync.sh and tunnel.sh, which are separate processes, see the same value.
+  export SSH_PORT="${SSH_PORT:-22}"
   MODEL="${LOCAL_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}"
 
   [[ -n "$BOX"     ]] || fail "Set BOX in .env, e.g. BOX=ubuntu@203.0.113.4"
   [[ -n "$SSH_KEY" ]] || fail "Set SSH_KEY in .env to your private key path"
   [[ -f "$SSH_KEY" ]] || fail "No such key: $SSH_KEY"
 
-  SSH=(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30)
+  # Same reason: the two scripts below are spawned, not sourced.
+  export BOX SSH_KEY
+
+  SSH=(ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30)
 }
 
 # Run a command on the box, in the project directory.

@@ -15,7 +15,7 @@ common way to waste ten minutes.
 ## The short version
 
 ```bash
-cp .env.example .env     # set BOX and SSH_KEY
+cp .env.example .env     # set BOX, SSH_KEY, SSH_PORT
 make cluster             # then: make observability && make ssh
 ```
 
@@ -37,22 +37,20 @@ when something fails and you need to run one piece at a time.
 
 ## Step 0 — `.env` `[Mac]`
 
-```bash
-cd ~/work/projects/experiments_and_courses/llm-inference/dodona
-cp .env.example .env
-```
+Cloning the repo, getting the keys and booking the box are
+**[PREREQUISITES.md](../PREREQUISITES.md)** — done once, and not repeated here.
+This page assumes you have a filled-in `.env`.
 
-Edit `.env` and set at minimum:
-
-```bash
-export LAMBDA=ubuntu@YOUR_LAMBDA_IP
-export LAMBDA_SSH_KEY=$HOME/.ssh/YOUR_LAMBDA_KEY
-```
+Two checks worth running before anything else:
 
 ```bash
-chmod 600 "$LAMBDA_SSH_KEY"          # ssh refuses a world-readable key
-grep -c . .env                       # sanity: non-empty
+chmod 600 "$SSH_KEY"   # ssh silently refuses a world-readable key
+grep -c . .env         # sanity: non-empty
 ```
+
+The box is three values — `BOX`, `SSH_KEY`, `SSH_PORT` — and nothing else in the
+repo is provider-specific. `LAMBDA` and `LAMBDA_SSH_KEY` are the older names and
+still work, so an existing `.env` needs no editing.
 
 `.env` is gitignored and must never be committed.
 
@@ -77,13 +75,12 @@ Gives you a shell on the box in `~/dodona`, with these ports forwarded back:
 | Port | What | Live after |
 |---|---|---|
 | 8000 | vLLM, whole card | `make cluster`, before the fleet |
-| 3000 | Open WebUI (docker) | `make cluster` |
 | 8080 | the gateway | `make cluster` |
 | 30800, 30801 | vLLM prefill / decode NodePorts | `make cluster` |
 | 30030, 30080 | Open WebUI / gateway NodePorts | `make cluster` |
 | 31495 | Grafana | `make observability` |
 
-**Lambda's firewall allows only SSH.** Everything is reached at `127.0.0.1:<port>`
+**Most GPU hosts allow only SSH inbound.** Everything is reached at `127.0.0.1:<port>`
 on the Mac — never the public IP. Open a second terminal and run `tunnel.sh` again if
 you want a shell plus a free prompt.
 
@@ -339,7 +336,7 @@ docker stop vllm-engine open-webui && docker rm vllm-engine open-webui
 The HF cache survives in `~/.cache/huggingface`, so a restart does not
 re-download.
 
-**Stop the Lambda instance when you are done.** It bills by the hour whether or
+**Stop the GPU instance when you are done.** It bills by the hour whether or
 not anything is running.
 
 ---

@@ -6,7 +6,7 @@ file is the authority for every number in the project.**
 
 Six decisions, in order. Each narrows the next.
 
-The hardware is **1 × A100-40GB on one Lambda node**, and the binding fact about
+The hardware is **1 × A100-40GB on one rented GPU node**, and the binding fact about
 it is architectural rather than numerical: **A100 is sm80 and has no fp8 tensor
 cores.** The usual move — quantize the weights to fp8, keep the KV cache in fp16
 — does not exist here. That single fact forces step 4.

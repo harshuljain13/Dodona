@@ -8,7 +8,7 @@ Part of the [the upstream lab docs](README.md). Overview: [ARCHITECTURE.md](ARCH
 
 ## Access path — the SSH tunnel
 
-Lambda's firewall allows only SSH, so nothing is reachable directly. One
+Most GPU hosts allow only SSH inbound, so nothing is reachable directly. One
 `ssh -L` session carries everything:
 
 ```mermaid
@@ -22,7 +22,7 @@ Lambda's firewall allows only SSH, so nothing is reachable directly. One
 flowchart LR
     MAC["Mac<br/>127.0.0.1"]
     SSH["ssh -L x7<br/>setup/ssh.sh"]
-    BOX["Lambda GPU box"]
+    BOX["GPU box"]
 
     MAC --> SSH
     SSH --> BOX
