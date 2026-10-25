@@ -193,6 +193,33 @@ Measured on 1 × A100-40GB with 12 GiB slices: **4.80 GiB of KV per worker, 5.5
 sequences each, decode pool 11.** On any other card these change, and nothing
 in this repo hardcodes them.
 
+### Two ways to start it
+
+The diagram above is `make cluster` — one GPU, three HAMi slices, KEDA scaling
+decode. It needs a **host**: a machine where systemd is PID 1. Most rented GPUs
+are containers, where k3s cannot install itself at all.
+
+```
+make cluster      k3s + HAMi + KEDA, 3 slices of one card     needs a host
+make workers      1 vLLM per GPU, no orchestrator             runs in a container
+```
+
+**Everything between the listener and the engines is identical** — the same
+gateway, guard, admission policy, placement, queue, hop ledger, dashboards and
+reports. What differs is only how the workers get started, and what enforces
+their memory:
+
+| | `make cluster` | `make workers` |
+|---|---|---|
+| Worker memory | HAMi hands each pod a 12 GiB device | `SLICE_MIB` → a utilisation fraction of the real card |
+| Enforcement | hard — a worker **cannot** exceed its slice | soft — vLLM takes what it is told to |
+| Compute share | `gpucores: 28` per worker | none, unless you run CUDA MPS |
+| Scaling | KEDA, decode 1 → 2 | none — and [the reason](docs/PROJECT.md) is that scaling takes minutes while pressure spikes in seconds |
+
+HAMi exists in this project to compensate for having **one** card. With one GPU
+per worker there is nothing to slice, which is why `make workers` loses less
+than it appears to.
+
 ## Documentation
 
 | | |

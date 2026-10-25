@@ -1,0 +1,24 @@
+# Load the dashboards from where they already live.
+#
+# `path` points into the Kubernetes tree on purpose. The ten JSONs are the
+# dashboards for this project regardless of how the workers were started, and
+# copying them here would create a second set to forget to update. The k8s path
+# mounts the same directory as a ConfigMap; this one reads it off disk.
+apiVersion: 1
+
+providers:
+  - name: dodona
+    orgId: 1
+    folder: Dodona
+    type: file
+    disableDeletion: true
+    # Edits made in the UI are overwritten on restart. Deliberate: a dashboard
+    # that only exists in someone's browser is not a dashboard this repo has.
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      # $DODONA_ROOT is exported by workers.sh. Grafana interpolates env vars
+      # in provisioning files, which keeps this working whether the repo is at
+      # ~/dodona on a rented box or anywhere else.
+      path: $DODONA_ROOT/infra/cluster/k8s/observability/dashboards
+      foldersFromFilesStructure: false
