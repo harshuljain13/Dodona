@@ -185,3 +185,25 @@ def test_every_value_doctor_requires_exists_in_env_example() -> None:
     declared = set(re.findall(r"^(?:export )?([A-Z_][A-Z0-9_]*)=", template, re.M))
     missing = sorted(required - declared)
     assert not missing, f"required by `make doctor`, absent from .env.example: {missing}"
+
+
+def test_the_guard_refuses_a_container_not_just_a_laptop() -> None:
+    """A GPU container passes every other check and still cannot host a cluster.
+
+    `systemctl --version` is not the test — the binary ships in plenty of
+    images. PID 1 is. Checking the version is how a RunPod Pod was mistaken for
+    a VM, and the cost was a k3s install that wrote its unit files and then
+    failed with "Failed to connect to bus", naming systemd rather than the
+    container it was trapped in.
+    """
+    guard = (SETUP / "_require_gpu.sh").read_text()
+    assert "/proc/1/comm" in guard, "the guard must test PID 1, not systemctl --version"
+    assert "container" in guard.lower()
+
+    # And the bring-up asks before it syncs, so the answer arrives in seconds
+    # rather than after a partial install.
+    up = (SETUP / "up.sh").read_text()
+    assert "require_a_host" in up
+    for command in ("cmd_cluster", "cmd_observability"):
+        body = up.split(f"{command}() {{", 1)[1].split("\n}", 1)[0]
+        assert "require_a_host" in body, f"{command} does not check for a host first"
