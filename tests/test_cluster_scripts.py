@@ -238,3 +238,19 @@ def test_scripts_that_cd_to_the_repo_root_actually_land_there() -> None:
         assert (landed / marker).is_file(), (
             f"{name} cd's to {landed}, which has no {marker}"
         )
+
+
+def test_workers_sets_up_its_own_environment_on_the_box() -> None:
+    """The Makefile's exports do not cross an ssh connection.
+
+    `make workers` runs workers.sh on the GPU box. PYTHONPATH is exported by
+    the Makefile on the Mac and arrives nowhere, so `python -m router.mooncake`
+    was ModuleNotFoundError; `vllm` lives in .venv/bin and engine.sh calls it
+    bare, so it was "command not found" even though pip had installed it. Both
+    crash-looped, and both messages blamed the thing being run rather than the
+    environment it was run in.
+    """
+    src = (ROOT / "infra" / "local" / "workers.sh").read_text()
+    assert "export PYTHONPATH=" in src, "workers.sh must set PYTHONPATH itself"
+    assert "infra/control" in src and "infra/cluster" in src, "both import roots"
+    assert "export PATH=" in src and ".venv/bin" in src, "the venv must be on PATH for vllm"
