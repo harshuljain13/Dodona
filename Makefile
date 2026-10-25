@@ -3,6 +3,7 @@
 #   make cluster        k3s + HAMi + KEDA + the fleet + the gateway
 #   make observability  Prometheus + Grafana + DCGM
 #   make ssh            tunnel — Grafana, the app and the fleet in your browser
+#   make app            the voice app — LiveKit, the agent worker, the UI
 #   make test           run the control plane here, no GPU needed
 #   make load           run a load test ON THE BOX, pull the bundle back
 #   make logs           pod logs, scrape noise stripped
@@ -31,6 +32,7 @@ help:
 	@echo "   make cluster        k3s + HAMi + KEDA + fleet + gateway + capacity checks"
 	@echo "   make observability  Prometheus + Grafana + DCGM"
 	@echo "   make ssh            tunnel — Grafana :31495, app :30030, fleet :30800"
+	@echo "   make app            voice app — LiveKit + worker + UI on :3000"
 	@echo "   make test           run the control plane here, no GPU needed"
 	@echo "   make load           load test ON THE BOX  (ARGS=\"--sessions 32\")"
 	@echo "   make logs           pod logs  (ARGS=\"decode --follow\")"

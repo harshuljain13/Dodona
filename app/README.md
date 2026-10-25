@@ -1,69 +1,63 @@
-# app/ — the Dodona voice agent
+# app/
 
-Talk to the research agent out loud and watch what it does to the cluster.
-Everything here runs on the laptop; the one thing that leaves it is the
-completion, and that goes to the gateway on `127.0.0.1:8080` — through guard,
-admit, place and queue. A completion that skips the serve path tells us nothing
-about the infrastructure this project exists to measure.
+The voice agent. **Everything here runs on the laptop. The only thing that
+leaves it is the completion**, and that goes to the gateway on
+`127.0.0.1:8080` — through guard, admit, place and queue — because a completion
+that skips the serve path tells us nothing about the infrastructure this
+project exists to measure.
 
 ```
-browser (orb + transcript)
-   │  WebRTC
-LiveKit server            docker, 127.0.0.1:7880
-   │
-voice worker              agentship-voice, LiveKit AgentSession
-   ├── Deepgram           STT nova-3, TTS aura-2
-   └── LLM ─────────────► 127.0.0.1:8080/v1  →  tunnel  →  H100
+browser (:3000)           mic → 24 kHz PCM, one websocket
+AgentShip service (:8090) /voice + /v1 + the agent
+  voice cascade           deepgram nova-3 · silero VAD · deepgram aura-2
+  Dodona agent            LangGraph, web_search + scrape_url
+    └─ completions ─────▶ the gateway, :8080
 ```
 
-| | |
+| File | What it is |
 |---|---|
-| `dodona.yaml` | the agent — model, prompt, tools, `api_base` |
-| `voice.py` | the LiveKit worker: AgentShip in the `llm=` slot |
-| `docker-compose.yml` | LiveKit, in dev mode, bound to localhost |
-| `web/` | Next.js UI — animated orb, live transcript, token route |
+| `dodona.yaml` | the agent. Engine, prompt, tools, and the `voice:` block that builds the cascade |
+| `run.sh` | what `make app` runs: the service, then the UI |
+| `web/` | Next.js — the orb, the transcript, and the mic |
 
 ## Run it
 
 ```bash
 make ssh        # the tunnel, so :8080 reaches the GPU
-make app      # LiveKit + worker + UI, then open http://localhost:3000
+make app        # service + UI, then open http://localhost:3000
 ```
 
 ## What it needs
 
-`DEEPGRAM_API_KEY` in `.env`. One account covers both ears and mouth.
+`DEEPGRAM_API_KEY` for the ears and the mouth, and `FIRECRAWL_API_KEY` for what
+the agent reads. Both in `.env`.
 
-LiveKit runs in `--dev` mode, which uses the well-known `devkey` / `secret`
-pair. That is fine for something bound to localhost and is **not** a credential
-to reuse anywhere.
+The Python deps are in `requirements-app.txt`, not `requirements.txt` — a laptop
+that only drives load should not have to build the speech stack. First `make
+app` installs them into `.venv`, and `npm install`s the UI, so there is no
+separate setup step.
+
+No Docker. Nothing in the app is a container.
 
 ## Why these choices
 
-**Deepgram for both.** `nova-3` is purpose-built for streaming speech and is
-markedly more accurate on live audio than a batch transcriber fed one VAD
-segment at a time. A misheard question is answered confidently and wrongly,
-which is worse than a slow answer.
+**AgentShip owns the whole cascade.** `framework: pipecat` means the `voice:`
+block in `dodona.yaml` is what actually builds the session — greeting,
+`tts_speed`, `endpoint_silence_ms`, `allow_interruptions`, `fallback_text` are
+read, not decorative.
 
-**Silero for voice activity.** Local, free, no key, and it decides the one thing
-that cannot be outsourced without adding a round trip: when you stopped talking.
+This used to be LiveKit, and the reason it is not is worth keeping: WebRTC earns
+its keep across a network, and this audio never leaves the host. What it cost
+was a container, a token route, an ICE path to get wrong, and a half-implemented
+adapter — `LiveKitAdapter.run()` raises `NotImplementedError`, so only `host()`
+and `witness()` existed and a worker had to hand-build the session beside the
+spec. On the pipecat path there is nothing to hand-build.
 
-**AgentShip in the `llm=` slot only.** LiveKit has no pipeline node to drop an
-agent into — it has an `AgentSession` with `stt` / `vad` / `llm` / `tts` slots.
-So the other three are LiveKit's own plugins and the agent is the LLM. Memory,
-tracing and tools are inherited from the agent rather than reimplemented for
-audio.
+**One socket, two payload kinds.** Audio is binary 16-bit PCM at 24 kHz; events
+are JSON text on the same connection. 24 kHz because that is what the
+synthesiser produces and it will not resample — play it back at 16 kHz and the
+agent sounds slow and deep, with nothing reporting an error.
 
-## Where the time goes
-
-The SLO chain in `benchmarking/slos.py` budgets a listener's 1.5 s like this:
-
-| stage | budget |
-|---|---|
-| ASR endpoint and finalize | 300 ms |
-| **LLM TTFT** | **800 ms** |
-| TTS first chunk | 200 ms |
-| network and orchestration | 200 ms |
-
-The engine's 800 ms is the part this repo measures. Speaking to it is how you
-find out whether that budget means anything to a person waiting in silence.
+**The page is told the state of the cluster before anyone clicks.** If the
+gateway is unreachable the UI says so and the agent says so out loud when it
+joins, rather than answering with silence.

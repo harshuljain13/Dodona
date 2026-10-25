@@ -1,6 +1,6 @@
 # Dodona's voice agent: deep research, spoken, answered by OUR GPU.
 #
-#   make voice          LiveKit server + agent worker + the web UI
+#   make app            the AgentShip service + the web UI
 #
 # The only thing this file says about infrastructure is `api_base`. That points
 # at the gateway on 127.0.0.1:8080, which is the whole point of the project — a
@@ -44,9 +44,12 @@ prompt: >-
   being quick, but remember the listener is waiting in silence.
 
 voice:
-  # LiveKit hosts the session; the agent sits in its `llm=` slot. Everything in
-  # this block runs on the laptop. Only `api_base` above leaves it.
-  framework: livekit
+  # AgentShip owns the whole cascade — ears, turn-taking, mouth — and every key
+  # below is read rather than decorative. The LiveKit adapter implements only
+  # host() and witness(), so on that path this block was advisory and the agent
+  # worker hand-built a session beside it. Everything here runs on the laptop;
+  # only `api_base` above leaves it.
+  framework: pipecat
   # Deepgram for both ears and mouth: one account, and nova-3 is markedly more
   # accurate on live audio than a batch transcriber fed one VAD segment at a
   # time. A misheard question is answered confidently and wrongly.
@@ -59,5 +62,10 @@ voice:
   # What you are expected to speak. Without it the recogniser guesses per
   # utterance and gets short ones wrong.
   language: en
+  # Spoken on joining, before the listener has said anything, and through TTS
+  # only — it is not a completion, so it works whether or not the cluster is up.
+  # Without a greeting the session waits in silence, and a working agent and a
+  # dead one sound exactly alike.
+  greeting: Dodona here. Ask me something and I will go and read the sources.
   # Runs locally, costs nothing, needs no key.
   vad: silero

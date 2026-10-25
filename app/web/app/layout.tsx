@@ -1,5 +1,4 @@
 import "./globals.css";
-import "@livekit/components-styles";
 import type { ReactNode } from "react";
 
 export const metadata = {

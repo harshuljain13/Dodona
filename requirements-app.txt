@@ -1,0 +1,26 @@
+# The voice app — `make app`. Not needed to bring the cluster up or to run the
+# tests, which is why it is a separate file: a laptop that only drives load
+# should not have to build the speech stack.
+#
+#   .venv/bin/pip install -r requirements-app.txt
+
+# The agent, and the service that serves it over /v1 and /voice. Pinned
+# exactly: these are 0.0.x packages, so a minor bump can move the spec format
+# or the voice cascade under us, and a demo that worked yesterday would fail in
+# front of the room.
+agentship-sdk==0.0.4
+agentship-service==0.0.4
+# The cascade — ears, turn-taking, mouth — built from the agent's `voice:`
+# block. The [pipecat] extra is the framework that spec names.
+agentship-voice[pipecat]==0.0.4
+
+# Deepgram for both ends (nova-3 in, aura-2 out) and silero for turn-taking,
+# which runs locally and needs no key. Pipecat ships each provider as an extra;
+# without these the cascade imports but reports "not installed" at serve time.
+pipecat-ai[deepgram,silero]>=1.14
+
+# What `web_search` and `scrape_url` actually call. AgentShip imports it lazily,
+# so without it both tools return a tidy "needs the 'firecrawl-py' package"
+# payload — the agent then answers from memory and sounds no less certain, which
+# is the same failure mode as a missing key and just as quiet.
+firecrawl-py>=2.0
