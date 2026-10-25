@@ -96,6 +96,24 @@ METRIC_NAMES = {
         "orch_kv_transfer_tokens",
         "orch_kv_evict_total",
     ),
+    # Everything the process fleet (`make fleet-runpod`) can actually produce.
+    # No kube_* or container_*: there is no Kubernetes on that path, and a
+    # panel with no possible source trains you to ignore empty panels.
+    "fleet": (
+        "DCGM_FI_DEV_GPU_UTIL",
+        "DCGM_FI_DEV_FB_USED",
+        "DCGM_FI_DEV_POWER_USAGE",
+        "DCGM_FI_DEV_GPU_TEMP",
+        "vllm:kv_cache_usage_perc",
+        "vllm:num_requests_running",
+        "vllm:num_requests_waiting",
+        "vllm:prompt_tokens_total",
+        "vllm:generation_tokens_total",
+        "orch_requests_total",
+        "orch_shed_total",
+        "orch_place_total",
+        "orch_kv_transfer_total",
+    ),
     "cluster": (
         "node_cpu_seconds_total",
         "node_memory_MemAvailable_bytes",
@@ -330,7 +348,7 @@ def replicas() -> dict:
                    legend="{{pod}}", x=16, y=16, w=8, h=8),
             _panel(8, "KV free by pod", "min by (pod) (orch_replica_kv_free_ratio)", legend="{{pool}} {{pod}}", x=0, y=24, w=12, h=8),
             _panel(9, "Tokens / waiting / running", "max by (pod) (orch_replica_tokens_in_flight)", legend="tokens {{pod}}", x=12, y=24, w=12, h=8),
-            _panel(10, "Queue depth by pod", "max by (pod) (orch_replica_queue_depth)", legend="{{pod}}", x=0, y=32, w=12, h=8),
+            _panel(11, "Queue depth by pod", "max by (pod) (orch_replica_queue_depth)", legend="{{pod}}", x=0, y=32, w=12, h=8),
             _panel(11, "Waiting vs running", "max by (pod) (orch_replica_waiting)", legend="waiting {{pod}}",
                    x=12, y=32, w=12, h=8,
                    extra=[("max by (pod) (orch_replica_running)", "running {{pod}}")]),
@@ -510,11 +528,70 @@ def cluster() -> dict:
                 h=8,
                 unit="decbytes",
             ),
-            _panel(8, "DCGM GPU util %", "DCGM_FI_DEV_GPU_UTIL", legend="H100 {{UUID}}", x=0, y=22, w=8, h=8, unit="percent"),
-            _panel(9, "DCGM framebuffer used", "DCGM_FI_DEV_FB_USED * 1024 * 1024", legend="H100 FB used", x=8, y=22, w=8, h=8, unit="decbytes"),
-            _panel(10, "DCGM power", "DCGM_FI_DEV_POWER_USAGE", legend="H100 power", x=16, y=22, w=8, h=8, unit="watt"),
+            _panel(8, "DCGM GPU util %", "DCGM_FI_DEV_GPU_UTIL", legend="GPU {{gpu}}", x=0, y=22, w=8, h=8, unit="percent"),
+            _panel(9, "DCGM framebuffer used", "DCGM_FI_DEV_FB_USED * 1024 * 1024", legend="GPU {{gpu}} FB", x=8, y=22, w=8, h=8, unit="decbytes"),
+            _panel(10, "DCGM power", "DCGM_FI_DEV_POWER_USAGE", legend="GPU {{gpu}} power", x=16, y=22, w=8, h=8, unit="watt"),
         ],
         ["dodona", "cluster", "dcgm"],
+    )
+
+def fleet() -> dict:
+    """One screen for `make fleet-runpod`: the card, the cache, the decision.
+
+    The Kubernetes dashboards describe Kubernetes — nodes, pods, replicas,
+    HAMi slices, KEDA ScaledObjects. None of that exists when the workers are
+    processes, so those panels are permanently blank and teach you to stop
+    reading panels. This is the same story told with what the process path
+    actually exports.
+
+    Ordered the way the argument runs: the card is busy, so the cache fills, so
+    admission has to decide.
+    """
+    return _dash(
+        "dodona-fleet",
+        "Dodona / Fleet (no orchestrator)",
+        [
+            # The card. DCGM names, from infra/local/gpu_exporter.py — the
+            # label is `gpu` because that is what dcgm-exporter uses for the
+            # index, so these panels read the same on either path.
+            _panel(1, "GPU utilisation", "DCGM_FI_DEV_GPU_UTIL", legend="GPU {{gpu}}",
+                   x=0, y=0, w=6, h=7, unit="percent"),
+            _panel(2, "GPU memory used", "DCGM_FI_DEV_FB_USED * 1024 * 1024", legend="GPU {{gpu}}",
+                   x=6, y=0, w=6, h=7, unit="decbytes"),
+            _panel(3, "GPU power", "DCGM_FI_DEV_POWER_USAGE", legend="GPU {{gpu}}",
+                   x=12, y=0, w=6, h=7, unit="watt"),
+            # Worth a panel: a card that throttles thermally produces a latency
+            # result that has nothing to do with admission control, and nothing
+            # else on this screen would show why.
+            _panel(4, "GPU temperature", "DCGM_FI_DEV_GPU_TEMP", legend="GPU {{gpu}}",
+                   x=18, y=0, w=6, h=7, unit="celsius"),
+
+            # The cache. This is the number admit reads and the threshold it is
+            # set against, so it is the one panel the whole project turns on.
+            _panel(5, "KV cache usage — the signal admit reads",
+                   "vllm:kv_cache_usage_perc", legend="{{phase}} {{pod}}",
+                   x=0, y=7, w=16, h=8, unit="percentunit"),
+            _panel(6, "Queue depth", "vllm:num_requests_waiting", legend="{{phase}} {{pod}}",
+                   x=16, y=7, w=8, h=8),
+
+            # The decision.
+            _panel(7, "Admitted vs shed", "sum(rate(orch_requests_total[5m]))",
+                   legend="admitted", x=0, y=15, w=12, h=8,
+                   extra=[("sum(rate(orch_shed_total[5m]))", "shed")]),
+            _panel(8, "Placement by worker", "sum by (worker) (rate(orch_place_total[5m]))",
+                   legend="{{worker}}", x=12, y=15, w=12, h=8),
+
+            # Throughput and the hop, for context.
+            _panel(9, "Tokens/s by pool",
+                   "sum by (phase) (rate(vllm:prompt_tokens_total[5m]))", legend="prompt {{phase}}",
+                   x=0, y=23, w=12, h=8,
+                   extra=[("sum by (phase) (rate(vllm:generation_tokens_total[5m]))", "generated {{phase}}")]),
+            _panel(10, "In flight", "vllm:num_requests_running", legend="{{phase}} {{pod}}",
+                   x=12, y=23, w=6, h=8),
+            _panel(11, "KV hops recorded", "sum(rate(orch_kv_transfer_total[5m]))", legend="hops/s",
+                   x=18, y=23, w=6, h=8),
+        ],
+        ["dodona", "fleet", "runpod"],
     )
 
 def errors() -> dict:
@@ -605,6 +682,7 @@ DASHBOARDS = {
     "hami": hami,
     "mooncake": mooncake,
     "cluster": cluster,
+    "fleet": fleet,
     "errors": errors,
 }
 

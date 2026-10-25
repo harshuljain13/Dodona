@@ -292,9 +292,26 @@ if command -v grafana-server >/dev/null 2>&1 || command -v grafana >/dev/null 2>
   # dashboards/ and datasources/. Rendered under $LOGS so the repo copy stays a
   # template and the running config always has real paths in it.
   GF_PROV="$LOGS/grafana-provisioning"
-  mkdir -p "$GF_PROV/dashboards" "$GF_PROV/datasources"
+  GF_DASH="$LOGS/grafana-dashboards"
+  mkdir -p "$GF_PROV/dashboards" "$GF_PROV/datasources" "$GF_DASH"
   cp -f "$ROOT/infra/local/grafana/datasources/prometheus.yml" "$GF_PROV/datasources/"
-  sed "s|__DASHBOARDS__|$ROOT/infra/cluster/k8s/observability/dashboards|" \
+
+  # Only the dashboards that can have data here.
+  #
+  # cluster, replicas, hami and keda query kube_* and container_* — Kubernetes
+  # objects that do not exist when the workers are processes. Provisioning them
+  # anyway puts four permanently blank dashboards in front of you, and
+  # test_no_panel_queries_a_metric_nothing_exports already says why that is
+  # corrosive: "a panel with no possible source trains you to ignore empty
+  # panels." They stay in the repo; they are correct for fleet-lambda.
+  rm -f "$GF_DASH"/*.json
+  for d in fleet overview gateway router vllm mooncake errors; do
+    src="$ROOT/infra/cluster/k8s/observability/dashboards/$d.json"
+    [[ -f "$src" ]] && cp -f "$src" "$GF_DASH/"
+  done
+  note "dashboards: $(ls "$GF_DASH" | wc -l | tr -d ' ') provisioned (k8s-only ones skipped)"
+
+  sed "s|__DASHBOARDS__|$GF_DASH|" \
     "$ROOT/infra/local/grafana/dashboards/dodona.yml.tmpl" \
     > "$GF_PROV/dashboards/dodona.yml"
 

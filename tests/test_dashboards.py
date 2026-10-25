@@ -20,6 +20,9 @@ def test_dashboards_cover_each_layer() -> None:
         "mooncake",
         "cluster",
         "errors",
+        # One screen for the process path, built only from what it exports —
+        # no kube_* or container_*, which are permanently blank without k8s.
+        "fleet",
     }
     write_dashboards(DEST)
     for name, builder in DASHBOARDS.items():
