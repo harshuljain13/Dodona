@@ -16,8 +16,8 @@ notice a missing key while you are still on the page that issues it.
 |---|---|---|---|
 | 1 | [Your laptop](#1--your-laptop) | any time | — |
 | 2 | [The repo and your .env](#2--the-repo-and-your-env) | any time | *the file itself* |
-| 3 | [A RunPod account, and credits](#3--a-runpod-account-and-credits) | **first — it can need approval** | — |
-| 4 | [Make an SSH key](#4--make-an-ssh-key) | any time | `SSH_KEY` |
+| 3 | [Make an SSH key](#3--make-an-ssh-key) | any time | `SSH_KEY` |
+| 4 | [A RunPod account, and credits](#4--a-runpod-account-and-credits) | **early — it can need approval** | — |
 | 5 | [Add the key to RunPod](#5--add-the-key-to-runpod) | any time | — |
 | 6 | **[Launch the GPU box](#6--launch-the-gpu-box)** | **when you mean to use it** | `BOX`, `SSH_PORT` |
 | 7 | [HuggingFace](#7--huggingface) | while it boots | `HF_TOKEN` |
@@ -60,11 +60,36 @@ a scratchpad, which is how one of them ends up wrong.
 
 It arrives with sensible values for everything that is not a secret.
 
-## 3 · A RunPod account, and credits
+## 3 · Make an SSH key
 
-**Do this first, and do it early.** It is the only step that can block on
-somebody else: verification, a payment method, or a credit grant being applied
-can take hours, and none of it can be hurried on the day.
+**A dedicated key, not your existing one.** `ssh-keygen` overwrites without
+much ceremony, and `~/.ssh/id_ed25519` is the default name on most laptops — so
+generating "a key for this" is how people silently destroy the one GitHub, a
+work bastion or another provider was trusting. `-f` avoids the whole question:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/dodona_ed25519 -C "dodona"
+cat ~/.ssh/dodona_ed25519.pub        # the PUBLIC half — the one you paste
+```
+
+Press Enter at the passphrase prompts, or set one; either works.
+
+Two halves, and the difference matters. The `.pub` file is public and goes to
+RunPod in step 5. The file *without* `.pub` is private, never leaves this
+laptop, and is what `.env` points at — already the default in `.env.example`:
+
+```bash
+export SSH_KEY=$HOME/.ssh/dodona_ed25519
+```
+
+Prefer to reuse a key you already have? Point `SSH_KEY` at it and skip the
+`ssh-keygen` line. Just do not run `ssh-keygen` without `-f`.
+
+## 4 · A RunPod account, and credits
+
+**Do this early.** It is the only step that can block on somebody else:
+verification, a payment method, or a credit grant being applied can take hours,
+and none of it can be hurried on the day.
 
 1. Create an account at [runpod.io](https://runpod.io) and verify the email.
 2. **Claim your credits.** Billing → redeem whatever code you were given, and
@@ -80,28 +105,11 @@ hour**, and nothing here needs more than a few hours. You are charged from the
 moment the box starts — see step 6 — and charging stops when you **destroy** it,
 not when you stop using it.
 
-Using Lambda, EC2 or your own hardware instead? Skip to step 4; everything that
+Stay in the console once you are done here: step 5 is the next thing in it, and
+you already have the key it wants.
+
+Using Lambda, EC2 or your own hardware instead? Skip to step 5; everything that
 follows is three values in `.env` and none of it is RunPod-specific.
-
-## 4 · Make an SSH key
-
-Already have `~/.ssh/id_ed25519.pub`? Skip to step 5.
-
-```bash
-ssh-keygen -t ed25519 -C "dodona"   # Enter three times; a passphrase is fine
-cat ~/.ssh/id_ed25519.pub           # the PUBLIC half — the one you paste
-```
-
-Two halves, and the difference matters: the `.pub` file is public and goes to
-RunPod in the next step; the file *without* `.pub` is private, never leaves your
-laptop, and is the one `.env` points at:
-
-```bash
-export SSH_KEY=$HOME/.ssh/id_ed25519
-```
-
-(That is already the default in `.env.example`. Change it only if your key has
-a different name.)
 
 ## 5 · Add the key to RunPod
 
@@ -110,8 +118,8 @@ box *at start*, so a box that booted without one cannot be given one afterwards
 — there is no way in to add it. The only fix is to destroy it and launch again,
 which is the single most common ten minutes lost on setup.
 
-1. Copy the output of `cat ~/.ssh/id_ed25519.pub` — the whole line, starting
-   `ssh-ed25519` and ending with the comment.
+1. Copy the output of `cat ~/.ssh/dodona_ed25519.pub` — the whole line,
+   starting `ssh-ed25519` and ending with the comment.
 2. RunPod → **Account Settings → SSH Public Keys** → paste it → save.
 
 It is an account-level setting, not a per-pod one: every box you launch from now
@@ -154,7 +162,7 @@ card split three ways.
 3. Open **Connect** and copy the **Direct TCP** line:
 
    ```
-   ssh root@194.26.196.4 -p 22122 -i ~/.ssh/id_ed25519
+   ssh root@194.26.196.4 -p 22122 -i ~/.ssh/dodona_ed25519
    ```
 
    It gives you both remaining values. In `.env`:
@@ -231,9 +239,9 @@ Every step above gave you one line of it. Here is the whole file's worth in one
 place, so you can see at a glance whether anything is still blank:
 
 ```bash
-# the box — step 6 (and SSH_KEY from step 4)
+# the box — step 6 (and SSH_KEY from step 3)
 export BOX=root@194.26.196.4
-export SSH_KEY=$HOME/.ssh/id_ed25519
+export SSH_KEY=$HOME/.ssh/dodona_ed25519
 export SSH_PORT=22122
 
 # the keys — steps 7, 8, 9
@@ -271,7 +279,7 @@ that is already running. Fix it from the pod's web terminal:
 
 ```bash
 mkdir -p ~/.ssh && chmod 700 ~/.ssh
-echo '<paste the contents of ~/.ssh/id_ed25519.pub>' >> ~/.ssh/authorized_keys
+echo '<paste the contents of ~/.ssh/dodona_ed25519.pub>' >> ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
 ```
 
