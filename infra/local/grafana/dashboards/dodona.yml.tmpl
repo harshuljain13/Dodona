@@ -1,4 +1,11 @@
-# Load the dashboards from where they already live.
+# Load the dashboards from where they already live. A TEMPLATE: workers.sh
+# renders __DASHBOARDS__ to the real path.
+#
+# This file must live in a `dashboards/` subdirectory of the provisioning
+# directory. Grafana looks for <provisioning>/dashboards/*.yml and
+# <provisioning>/datasources/*.yml — a flat `dashboards.yml` beside them is
+# simply never read, with no error and no empty-state hint. Grafana starts
+# fine, the datasource is missing, every panel is blank.
 #
 # `path` points into the Kubernetes tree on purpose. The ten JSONs are the
 # dashboards for this project regardless of how the workers were started, and
@@ -17,8 +24,7 @@ providers:
     allowUiUpdates: false
     updateIntervalSeconds: 30
     options:
-      # $DODONA_ROOT is exported by workers.sh. Grafana interpolates env vars
-      # in provisioning files, which keeps this working whether the repo is at
-      # ~/dodona on a rented box or anywhere else.
-      path: $DODONA_ROOT/infra/cluster/k8s/observability/dashboards
+      # Rendered, not interpolated: relying on Grafana to expand an env var
+      # here is one more thing that fails silently when it does not.
+      path: __DASHBOARDS__
       foldersFromFilesStructure: false

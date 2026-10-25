@@ -38,9 +38,10 @@ scrape_configs:
     static_configs:
       - targets: ["127.0.0.1:50051"]
 
-  # GPU utilisation, memory and temperature. Only present if you run DCGM
-  # yourself; the k8s path installs it as a DaemonSet. Prometheus logs a target
-  # down and carries on, so leaving this in costs nothing.
+  # GPU utilisation, memory, power and temperature, under the DCGM_FI_DEV_*
+  # names dashboards.py queries. The k8s path gets them from a dcgm-exporter
+  # DaemonSet; here infra/local/gpu_exporter.py reads the same driver through
+  # nvidia-smi and publishes the three fields `cluster` plots.
   - job_name: dcgm
     static_configs:
       - targets: ["127.0.0.1:9400"]
