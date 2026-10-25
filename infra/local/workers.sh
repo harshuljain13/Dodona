@@ -28,6 +28,13 @@ cd "$ROOT"
 LOGS="$ROOT/infra/metrics/local"
 mkdir -p "$LOGS"
 
+# Fresh logs per fleet. They were appended to for ever, so `status` counted
+# restarts from runs that ended hours ago and reported a healthy fleet as
+# having failed 51 times. Previous content moves aside rather than vanishing.
+for old in "$LOGS"/*.log; do
+  [[ -e "$old" ]] && mv -f "$old" "$old.prev" 2>/dev/null || true
+done
+
 PY="${PY:-$ROOT/.venv/bin/python}"
 [[ -x "$PY" ]] || PY=python3
 

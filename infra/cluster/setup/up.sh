@@ -5,6 +5,7 @@
 #   up.sh fleet-runpod    the same fleet as processes — no k3s, for container boxes
 #   up.sh fleet-runpod-down      stop a process fleet (fleet-runpod)
 #   up.sh fleet-runpod-logs      follow the detached fleet's log
+#   up.sh fleet-runpod-status    what the fleet is actually doing
 #   up.sh observability   Prometheus + Grafana + DCGM
 #   up.sh tunnel          forward the box's ports to this Mac
 #   up.sh engine          ONE worker on the whole card, for comparison only
@@ -265,6 +266,14 @@ cmd_fleet_runpod() {
   open_tunnel
 }
 
+# Asks the fleet what it is doing rather than reading ports. Syncs first: the
+# box only has what the last sync left, and a status script that is not there
+# reports a broken repo instead of a fleet.
+cmd_fleet_status() {
+  sync_project >/dev/null 2>&1 || true
+  on_box 'bash infra/local/status.sh'
+}
+
 # The fleet runs detached, so its output is a file rather than your terminal.
 cmd_logs_fleet() {
   load_env >/dev/null 2>&1 || true
@@ -415,7 +424,7 @@ cmd_check() {
 main() {
   local command="${1:-}"
   case "$command" in
-    fleet-lambda|fleet-runpod|fleet-runpod-down|fleet-runpod-logs|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
+    fleet-lambda|fleet-runpod|fleet-runpod-down|fleet-runpod-logs|fleet-runpod-status|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
     # Print the header block by shape, not by line number: `sed -n '2,14p'`
     # dropped `clean` off the end the moment two commands were added, and the
     # test that catches it is the only reason anyone noticed.
@@ -428,6 +437,7 @@ main() {
     fleet-runpod)  cmd_fleet_runpod ;;
     fleet-runpod-down)    cmd_fleet_down ;;
     fleet-runpod-logs)    cmd_logs_fleet ;;
+    fleet-runpod-status)  cmd_fleet_status ;;
     observability) cmd_observability ;;
     engine)        cmd_engine ;;
     tunnel)        open_tunnel ;;

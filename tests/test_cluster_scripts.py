@@ -26,7 +26,7 @@ SHELL_SCRIPTS = sorted(SETUP.glob("*.sh"))
 #: menu. `clean` is the one addition to the original four: a rented GPU has to
 #: be returnable, and teardown cannot be expressed by any of the others.
 MAKE_TARGETS = {"fleet-lambda", "fleet-runpod", "fleet-runpod-down",
-                "fleet-runpod-logs", "observability", "ssh", "test", "load",
+                "fleet-runpod-logs", "fleet-runpod-status", "observability", "ssh", "test", "load",
                 "logs", "kv", "app", "doctor", "clean"}
 
 
@@ -279,3 +279,26 @@ def test_port_probe_survives_a_free_port() -> None:
     assert "SURVIVED" in done.stdout, (
         f"probing a free port aborted the script: rc={done.returncode} {done.stderr}"
     )
+
+
+def test_status_is_read_only() -> None:
+    """A status command must not be able to start or stop anything.
+
+    `bad "... \u0060make fleet-runpod\u0060 was started twice"` is a double-quoted
+    string, so the backticks were command substitution — a read-only check ran
+    `make fleet-runpod` on the box. It surfaced only because that box had no
+    .env and the accidental run failed loudly.
+
+    Printed advice naming a command is fine; *executing* one is not. So this
+    bans backticks outright and the substitutions that would mutate, rather
+    than the words themselves.
+    """
+    src = (ROOT / "infra" / "local" / "status.sh").read_text()
+    code = [ln for ln in src.splitlines() if not ln.lstrip().startswith("#")]
+
+    for line in code:
+        assert "`" not in line, f"backtick is command substitution, not quoting: {line}"
+
+    for forbidden in ("$(make", "$(pkill", "$(bash", "pkill ", "rm -rf", "kill -"):
+        offenders = [ln for ln in code if forbidden in ln]
+        assert not offenders, f"status.sh must not {forbidden!r}: {offenders}"
