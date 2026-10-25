@@ -89,14 +89,53 @@ util_for() {
   awk -v s="$SLICE_MIB" -v t="$total" 'BEGIN { u = s / t; if (u > 0.92) u = 0.92; printf "%.3f", u }'
 }
 
+# ── ports ──────────────────────────────────────────────────────────────────
+# A rented box is not empty. RunPod's Jupyter template runs nginx, and it holds
+# :8001 — which is decode-0's port in the default layout. vLLM then failed with
+# "Address already in use" on a loop while the health check reported ready,
+# because nginx answers.
+#
+# PORT_BASE moves the whole block if something is in the way.
+PORT_BASE="${PORT_BASE:-8000}"
+PREFILL_PORT=$(( PORT_BASE ))
+DECODE0_PORT=$(( PORT_BASE + 1 ))
+DECODE1_PORT=$(( PORT_BASE + 2 ))
+
+port_holder() {
+  local port="$1"
+  local pid
+  pid=$(ss -lptn "sport = :$port" 2>/dev/null | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2)
+  [[ -n "$pid" ]] && ps -p "$pid" -o comm= 2>/dev/null
+}
+
+check_ports() {
+  local busy=0 holder
+  for port in "$PREFILL_PORT" "$DECODE0_PORT" "$DECODE1_PORT" 8080 50051; do
+    holder="$(port_holder "$port")"
+    if [[ -n "$holder" ]]; then
+      note "port $port is held by: $holder"
+      busy=1
+    fi
+  done
+  (( busy == 0 )) && return 0
+  echo
+  fail "  Ports are in use before anything started.
+
+  A rented box is not empty — RunPod's Jupyter template runs nginx on :8001,
+  which is decode-0's port in the default layout.
+
+  Move the block:   PORT_BASE=8100 make workers
+  Or stop whatever holds them, if it is a previous run of this script."
+}
+
 # ── the topology these processes form ──────────────────────────────────────
 # Set here, not in .env: .env holds what a person chooses — the box, the keys,
 # the model, the thresholds. Which URL a worker listens on is implied by the
 # launcher, and leaving stale pool URLs in .env is how a cluster run ends up
 # talking to localhost.
-export PREFILL_URLS="http://127.0.0.1:8000"
-export DECODE_URLS="http://127.0.0.1:8001,http://127.0.0.1:8002"
-export LOCAL_BASE_URL="http://127.0.0.1:8000/v1"
+export PREFILL_URLS="http://127.0.0.1:$PREFILL_PORT"
+export DECODE_URLS="http://127.0.0.1:$DECODE0_PORT,http://127.0.0.1:$DECODE1_PORT"
+export LOCAL_BASE_URL="http://127.0.0.1:$PREFILL_PORT/v1"
 export MOONCAKE_URL="http://127.0.0.1:50051"
 export LAB_TOPOLOGY="${LAB_TOPOLOGY:-disaggregated}"
 export ORCH_URL="${ORCH_URL:-http://127.0.0.1:8080/v1}"
@@ -137,18 +176,26 @@ supervise() {
   PIDS+=($!)
 }
 
+# Answering is not the same as being ours. nginx returned 2xx on /health and the
+# gate reported "decode-0 ready" while vLLM was crash-looping behind it, so this
+# asks /v1/models and insists on the OpenAI list payload only vLLM serves.
 wait_for() {
-  local name="$1" url="$2" tries="${3:-120}"
+  local name="$1" base="$2" tries="${3:-150}"
   for _ in $(seq "$tries"); do
-    curl -sf -m 2 "$url" >/dev/null 2>&1 && { note "$name ready"; return 0; }
+    if curl -sf -m 2 "$base/v1/models" 2>/dev/null | grep -q '"object"'; then
+      note "$name ready"
+      return 0
+    fi
     sleep 2
   done
-  fail "  $name never answered at $url — see $LOGS/$name.log"
+  fail "  $name never served /v1/models at $base — see $LOGS/$name.log"
 }
 
 # ── the hop ledger ─────────────────────────────────────────────────────────
 # First, because kvbus POSTs to it on the very first hop. It records count,
 # tokens and bytes; it does not move KV blocks, because decode re-prefills.
+check_ports
+
 say "mooncake  —  :50051  (the hop ledger)"
 supervise mooncake "$PY" -m router.mooncake
 sleep 1
@@ -170,19 +217,19 @@ start_worker() {
 say "engines  —  $GPUS GPU(s), 1 prefill + 2 decode"
 # Sequentially, not together: two processes profiling free memory on the same
 # card at the same moment can each believe the other's allocation is available.
-start_worker prefill  8000 "${DEVICES[0]}"
-wait_for prefill  http://127.0.0.1:8000/health
-start_worker decode-0 8001 "${DEVICES[1]}"
-wait_for decode-0 http://127.0.0.1:8001/health
-start_worker decode-1 8002 "${DEVICES[2]}"
-wait_for decode-1 http://127.0.0.1:8002/health
+start_worker prefill  "$PREFILL_PORT" "${DEVICES[0]}"
+wait_for prefill  "http://127.0.0.1:$PREFILL_PORT"
+start_worker decode-0 "$DECODE0_PORT" "${DEVICES[1]}"
+wait_for decode-0 "http://127.0.0.1:$DECODE0_PORT"
+start_worker decode-1 "$DECODE1_PORT" "${DEVICES[2]}"
+wait_for decode-1 "http://127.0.0.1:$DECODE1_PORT"
 
 # ── the control plane ──────────────────────────────────────────────────────
 # Only once the pools answer: the gateway reads their /metrics to decide, and
 # a gateway that starts first spends its first seconds deciding on absence.
 say "gateway  —  :8080  (guard · admit · place · queue · hop)"
 supervise gateway "$PY" -m gateway.serve
-wait_for gateway http://127.0.0.1:8080/v1/models
+wait_for gateway "http://127.0.0.1:8080"
 
 # ── observability ──────────────────────────────────────────────────────────
 # Optional on purpose. Without it the fleet still serves and the run still
@@ -213,6 +260,7 @@ fi
 
 say "up"
 note "gateway    http://127.0.0.1:8080/v1"
+note "workers    $PREFILL_PORT (prefill)  $DECODE0_PORT $DECODE1_PORT (decode)"
 note "grafana    http://127.0.0.1:31495"
 note "logs       $LOGS"
 note ""
