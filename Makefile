@@ -2,8 +2,8 @@
 #
 #   make fleet-lambda   k3s + HAMi + KEDA + the fleet + gateway  (needs a host)
 #   make fleet-runpod   the same fleet as processes, no k3s     (any box)
-#   make fleet-down     stop a process fleet
-#   make logs-fleet     follow the detached fleet's log
+#   make fleet-runpod-logs  follow the detached fleet's log
+#   make fleet-runpod-down  stop it
 #   make observability  Prometheus + Grafana + DCGM
 #   make ssh            tunnel — Grafana, the app and the fleet in your browser
 #   make doctor         is .env complete? run this before the first bring-up
@@ -19,7 +19,7 @@
 .DEFAULT_GOAL := help
 # `app` must be here: a directory of that name exists, so without it make
 # reports "`app' is up to date" and runs nothing.
-.PHONY: help fleet-lambda fleet-runpod fleet-down logs-fleet observability ssh test load logs kv app doctor clean
+.PHONY: help fleet-lambda fleet-runpod fleet-runpod-down fleet-runpod-logs observability ssh test load logs kv app doctor clean
 
 SHELL := /usr/bin/env bash
 SETUP := infra/cluster/setup
@@ -36,8 +36,8 @@ help:
 	@echo "   make fleet-lambda   k3s + HAMi + KEDA + fleet + gateway   (needs a host)"
 	@echo "   make fleet-runpod   THE ONE COMMAND on a container box:"
 	@echo "                       sync, install, start the fleet, open the tunnel"
-	@echo "   make fleet-down     stop a process fleet"
-	@echo "   make logs-fleet     follow the detached fleet log"
+	@echo "   make fleet-runpod-logs  follow it          (it runs detached)"
+	@echo "   make fleet-runpod-down  stop it"
 	@echo "   make observability  Prometheus + Grafana + DCGM"
 	@echo "   make ssh            tunnel — Grafana :31495, app :30030, fleet :30800"
 	@echo "   make doctor         is .env complete? before the first bring-up"
@@ -78,12 +78,12 @@ fleet-runpod:
 
 # Stops what fleet-runpod started. The Kubernetes path's equivalent is
 # `make clean`, which deletes the workloads and k3s with them.
-fleet-down:
-	@bash $(SETUP)/up.sh fleet-down
+fleet-runpod-down:
+	@bash $(SETUP)/up.sh fleet-runpod-down
 
 # The fleet runs detached, so its output is a file on the box, not your terminal.
-logs-fleet:
-	@bash $(SETUP)/up.sh logs-fleet
+fleet-runpod-logs:
+	@bash $(SETUP)/up.sh fleet-runpod-logs
 
 observability:
 	@bash $(SETUP)/up.sh observability

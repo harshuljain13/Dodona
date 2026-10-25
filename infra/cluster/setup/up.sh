@@ -3,8 +3,8 @@
 #
 #   up.sh fleet-lambda    k3s + HAMi + KEDA → fleet → gateway → capacity check
 #   up.sh fleet-runpod    the same fleet as processes — no k3s, for container boxes
-#   up.sh fleet-down      stop a process fleet (fleet-runpod)
-#   up.sh logs-fleet      follow the detached fleet's log
+#   up.sh fleet-runpod-down      stop a process fleet (fleet-runpod)
+#   up.sh fleet-runpod-logs      follow the detached fleet's log
 #   up.sh observability   Prometheus + Grafana + DCGM
 #   up.sh tunnel          forward the box's ports to this Mac
 #   up.sh engine          ONE worker on the whole card, for comparison only
@@ -211,7 +211,7 @@ cmd_fleet_runpod() {
 
   # Detached, not attached. Held in the foreground this blocks the terminal, so
   # the tunnel needs a second one — and a workshop instruction that begins
-  # "open another terminal" is the step everyone misses. `make fleet-down`
+  # "open another terminal" is the step everyone misses. `make fleet-runpod-down`
   # stops it, which is why detaching is safe now and was not before.
   on_box "mkdir -p infra/metrics/local && \
     setsid nohup $(workers_env) bash infra/local/workers.sh \
@@ -220,32 +220,44 @@ cmd_fleet_runpod() {
   # Weights download on the first run and three workers load in sequence, so
   # this is minutes. Show what it is waiting for rather than a silent hang.
   local port="${PORT_BASE:-8100}"
-  echo "    loading — first run downloads the weights, so this takes a while"
-  local waited=0 last=""
+  echo "    loading — the first run downloads the weights, so this takes a while"
+
+  # One ssh per poll, not two, and a hard ConnectTimeout: without it a stalled
+  # connection hangs the loop with no output at all, which is exactly how this
+  # looked stuck while the fleet was already serving.
+  local probe=(ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new
+               -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=2
+               -o BatchMode=yes)
+  local waited=0 last="" line=""
   while (( waited < 2400 )); do
-    local now
-    now="$("${SSH[@]}" "$BOX" "cd ~/$REMOTE_DIR && tail -1 infra/metrics/local/fleet.log 2>/dev/null | tr -d '\r'" 2>/dev/null || true)"
-    if [[ -n "$now" && "$now" != "$last" ]]; then
-      printf '    %s\n' "${now#    }"
-      last="$now"
+    # Ask both questions in one round trip. "UP" is the last line when the
+    # gateway answers, so the loop needs no second connection to find out.
+    line="$("${probe[@]}" "$BOX" "cd ~/$REMOTE_DIR 2>/dev/null || exit 0; \
+      grep -av '^\s*$' infra/metrics/local/fleet.log 2>/dev/null | tail -1 | tr -d '\r'; \
+      curl -sf -m 3 localhost:8080/v1/models >/dev/null 2>&1 && echo UP" 2>/dev/null || true)"
+
+    local progress="${line%UP}"
+    progress="$(printf '%s' "$progress" | tail -1)"
+    # Blank lines told you nothing; only print when it actually changed.
+    if [[ -n "${progress// /}" && "$progress" != "$last" ]]; then
+      printf '    %s\n' "$(printf '%s' "$progress" | sed 's/\x1b\[[0-9;]*m//g; s/^ *//')"
+      last="$progress"
     fi
-    if "${SSH[@]}" "$BOX" "curl -sf -m 2 localhost:8080/v1/models >/dev/null 2>&1"; then
-      announce "fleet up"
-      break
-    fi
+
+    [[ "$line" == *UP ]] && { announce "fleet up"; break; }
     sleep 10
     waited=$(( waited + 10 ))
   done
 
   if ! "${SSH[@]}" "$BOX" "curl -sf -m 2 localhost:8080/v1/models >/dev/null 2>&1"; then
     fail "  the gateway never answered.
-  Logs:  make logs-fleet
-  Stop:  make fleet-down"
+  Logs:  make fleet-runpod-logs
+  Stop:  make fleet-runpod-down"
   fi
 
   echo "    gateway   127.0.0.1:8080/v1"
   echo "    workers   $port  $((port+1))  $((port+2))"
-  echo "    logs      make logs-fleet          stop   make fleet-down"
+  echo "    logs      make fleet-runpod-logs          stop   make fleet-runpod-down"
   echo
 
   # And the tunnel, in the foreground, which is the thing to leave open.
@@ -403,7 +415,7 @@ cmd_check() {
 main() {
   local command="${1:-}"
   case "$command" in
-    fleet-lambda|fleet-runpod|fleet-down|logs-fleet|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
+    fleet-lambda|fleet-runpod|fleet-runpod-down|fleet-runpod-logs|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
     # Print the header block by shape, not by line number: `sed -n '2,14p'`
     # dropped `clean` off the end the moment two commands were added, and the
     # test that catches it is the only reason anyone noticed.
@@ -414,8 +426,8 @@ main() {
   case "$command" in
     fleet-lambda)  cmd_fleet_lambda ;;
     fleet-runpod)  cmd_fleet_runpod ;;
-    fleet-down)    cmd_fleet_down ;;
-    logs-fleet)    cmd_logs_fleet ;;
+    fleet-runpod-down)    cmd_fleet_down ;;
+    fleet-runpod-logs)    cmd_logs_fleet ;;
     observability) cmd_observability ;;
     engine)        cmd_engine ;;
     tunnel)        open_tunnel ;;

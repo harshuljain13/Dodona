@@ -272,7 +272,7 @@ make fleet-lambda        # a host — then: make observability && make ssh
 
 `make fleet-runpod` syncs, installs vLLM, starts the fleet **detached** on the
 box, waits for the gateway to answer, then opens the tunnel in your terminal.
-One command, one terminal. `make fleet-down` stops it, `make logs-fleet`
+One command, one terminal. `make fleet-runpod-down` stops it, `make fleet-runpod-logs`
 follows it.
 
 **Which of the two depends on your box, not your preference.** `make fleet-lambda`
