@@ -55,6 +55,40 @@ else
   fail "no completion from the gateway — guard/admit/place/queue or the pools"
 fi
 
+# The same path again, but carrying `tools` — because the plain completion
+# above passed 11/11 on a fleet where the voice agent could not finish a single
+# substantive turn.
+#
+# app/dodona.yaml gives the agent web_search and scrape_url, so every real
+# question sends tool schemas. vLLM refuses those outright unless it was
+# started with --enable-auto-tool-choice and --tool-call-parser, and the
+# gateway reports that refusal as 200 with no `choices` at all. Nothing logs a
+# cause at any layer: the only visible symptom is the agent apologising aloud.
+tools_body='{"model":"'"$MODEL"'","max_tokens":40,"messages":[{"role":"user","content":"What is 17 times 3?"}],"tools":[{"type":"function","function":{"name":"web_search","description":"search the web","parameters":{"type":"object","properties":{"q":{"type":"string"}}}}}]}'
+tool_reply=$(curl -sf -m 180 localhost:8080/v1/chat/completions \
+  -H 'Content-Type: application/json' -d "$tools_body" 2>/dev/null \
+  | python3 -c 'import sys, json
+body = json.load(sys.stdin)
+choices = body.get("choices")
+if not choices:
+    # The signature of an engine that rejected the tool schemas.
+    print("NO_CHOICES")
+else:
+    message = choices[0].get("message") or {}
+    print("ok" if (message.get("content") or message.get("tool_calls")) else "EMPTY")' 2>/dev/null)
+case "${tool_reply:-}" in
+  ok)
+    pass "a request carrying tools is served — the agent can call web_search"
+    ;;
+  NO_CHOICES|EMPTY|"")
+    fail "a request with tools came back with no choices.
+      The engine refused the tool schemas. vLLM needs BOTH of:
+        --enable-auto-tool-choice   --tool-call-parser hermes
+      infra/setup/engine.sh passes them from TOOL_CALL_PARSER (default hermes).
+      If it does, the workers predate the change: make fleet-runpod to relaunch."
+    ;;
+esac
+
 # Placement is only a decision if more than one decode worker can take work.
 # One answering decode is routing, not choosing.
 alive=0
@@ -91,20 +125,28 @@ if curl -sf -m 5 localhost:31495/api/health >/dev/null 2>&1; then
   pass "grafana healthy"
   # Running with nothing provisioned is the quiet failure: Grafana starts, the
   # datasource is absent, every panel is blank and nothing logs an error.
-  n=$(curl -sf -m 10 -u "admin:$GRAFANA_PASSWORD" 'localhost:31495/api/search?type=dash-db' 2>/dev/null \
-    | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))' 2>/dev/null)
-  # Seven: the k8s-only four are deliberately not provisioned here.
-  if [[ "${n:-0}" -ge 7 ]]; then
-    pass "$n dashboard(s) provisioned, all with a live source"
-  elif [[ "${n:-0}" -ge 1 ]]; then
-    fail "only $n dashboard(s) — expected 7 (fleet, overview, gateway, router, vllm, mooncake, errors)"
+  # Exactly four, and exactly these four: the request path, in order. An extra
+  # one means a stale dashboard survived in Grafana's database from a previous
+  # layout, which is how four blank Kubernetes screens stayed up for a week.
+  expected="dodona-gateway dodona-engine dodona-kv dodona-hardware"
+  uids=$(curl -sf -m 10 -u "admin:$GRAFANA_PASSWORD" 'localhost:31495/api/search?type=dash-db' 2>/dev/null \
+    | python3 -c 'import sys,json; print(" ".join(sorted(d["uid"] for d in json.load(sys.stdin))))' 2>/dev/null)
+  n=$(printf '%s' "$uids" | wc -w | tr -d ' ')
+  missing=""
+  for u in $expected; do
+    [[ " $uids " == *" $u "* ]] || missing="${missing:+$missing }$u"
+  done
+  if [[ "${n:-0}" -eq 4 && -z "$missing" ]]; then
+    pass "4 dashboards: gateway -> engines -> kv -> hardware"
+  elif [[ -n "$missing" ]]; then
+    fail "missing dashboard(s): $missing (got: ${uids:-none})"
   else
-    fail "grafana has no dashboards — check the provisioning tree"
+    fail "$n dashboards, expected 4 — a stale one survived: ${uids:-none}"
   fi
   ds=$(curl -sf -m 10 -u "admin:$GRAFANA_PASSWORD" localhost:31495/api/datasources 2>/dev/null \
     | python3 -c 'import sys,json; print(",".join(d["uid"] for d in json.load(sys.stdin)))' 2>/dev/null)
   if [[ "$ds" == *prometheus* ]]; then
-    pass "datasource uid 'prometheus' present — the uid all 10 dashboards query"
+    pass "datasource uid 'prometheus' present — the uid every provisioned dashboard queries"
   else
     fail "no datasource with uid 'prometheus' (got: ${ds:-none})"
   fi

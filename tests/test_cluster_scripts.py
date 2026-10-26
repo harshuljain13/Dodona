@@ -334,3 +334,136 @@ def test_every_remote_fleet_command_carries_the_env() -> None:
         assert "workers_env" in body, (
             f"{command} runs a script on a box with no .env and passes it nothing"
         )
+
+
+def test_engine_flags_survive_the_jump_between_fleet_paths() -> None:
+    """The process path launches vLLM itself, and lost two flags doing it.
+
+    `test_the_engine_flags_that_must_never_be_lost` guards the Kubernetes
+    manifests. Nothing guarded `engine.sh`, so when the RunPod path was written
+    from those manifests, `--enable-auto-tool-choice` and `--tool-call-parser`
+    did not come across. Every request carrying `tools` — which is every
+    substantive turn `app/dodona.yaml` takes — was refused by vLLM with:
+
+        "auto" tool choice requires --enable-auto-tool-choice and
+        --tool-call-parser to be set                            -> HTTP 400
+
+    and the gateway reported that as 200 with no `choices`, so the voice agent
+    said "something went wrong on my end" with nothing logged anywhere. The
+    smoke test passed 11/11 throughout, because it only ever sent a plain
+    completion.
+
+    Not asserted here, and deliberately:
+
+    `--kv-transfer-config` is Kubernetes-specific as written — it names an RDMA
+    device (`mlx5_0`) and a cluster DNS name (`vllm-prefill:8998`), neither of
+    which exists on a rented box. The process path runs without a KV connector,
+    so its hop is recorded by the mooncake ledger but decode re-prefills rather
+    than receiving bytes. A real gap, but a documented one, not a lost flag.
+
+    `--custom-histogram-buckets` is set on NEITHER path: the manifests mention
+    it only in a comment explaining that vLLM 0.31.0 rejects it. Requiring it
+    by substring is what lets that comment satisfy the manifest test.
+    """
+    engine = (SETUP / "engine.sh").read_text()
+    # The command vLLM is actually invoked with, not the file's prose: a flag
+    # named only in a comment is exactly the false pass this test exists to
+    # avoid.
+    start = engine.index("exec vllm serve")
+    invocation = engine[start:]
+
+    required = {
+        "--enable-prefix-caching": "no prefix cache, every prompt recomputed",
+        "--enable-auto-tool-choice": "every request with tools gets a 400",
+        "--tool-call-parser": "tool calls arrive as prose in message.content",
+        "--max-model-len": "context defaults, and the capacity arithmetic is wrong",
+    }
+    for flag, consequence in required.items():
+        assert flag in invocation, (
+            f"engine.sh does not pass {flag} to vllm serve: {consequence}")
+
+
+def test_the_tool_parser_matches_the_one_the_manifests_use() -> None:
+    """Both paths serve the same model family, so both need the same parser.
+
+    `hermes` reads Qwen2.5's <tool_call> blocks. Picking a different one does
+    not fail loudly — the tool call arrives as prose in `message.content`, the
+    agent never calls the tool, and it answers from memory instead.
+    """
+    engine = (SETUP / "engine.sh").read_text()
+    manifest = (ROOT / "infra" / "lambda-cluster" / "k8s" / "fleet"
+                / "vllm-decode.yaml").read_text()
+    wanted = re.search(r"--tool-call-parser[= ]([a-z0-9_]+)", manifest)
+    assert wanted, "the decode manifest no longer names a tool parser"
+    assert wanted.group(1) in engine, (
+        f"engine.sh does not default to the manifests' parser "
+        f"({wanted.group(1)!r}) — tool calls will arrive as prose")
+
+
+def test_pgrep_patterns_cannot_match_the_shell_running_them() -> None:
+    """`pgrep -f foo` matches any process whose command line contains "foo".
+
+    The command line of the remote shell running the check contains it too, so
+    an unguarded pattern reports a process that is only the probe itself. This
+    cost real time twice: once reading "4 vllm processes" on a fleet of three,
+    and once about to report a running fleet on an empty box.
+
+    The fix is the usual one — `workers[.]sh` is a regex that matches
+    "workers.sh" but not the literal "workers[.]sh" sitting in the probe's own
+    argv. Any `pgrep -f` with a quoted literal pattern must use it.
+    """
+    offenders = []
+    for script in sorted(SETUP.glob("*.sh")):
+        text = script.read_text()
+        for line_no, line in enumerate(text.splitlines(), 1):
+            if "pgrep -f" not in line:
+                continue
+            # Only patterns this script itself names; `pgrep -f "$var"` is the
+            # caller's problem and cannot be checked here.
+            for pattern in re.findall(r"pgrep -fc? ['\"]([^'\"]+)['\"]", line):
+                if "$" in pattern:
+                    continue
+                if "[" not in pattern:
+                    offenders.append(f"{script.name}:{line_no}: {pattern}")
+    assert not offenders, (
+        "pgrep -f patterns that will match the probe's own command line:\n  "
+        + "\n  ".join(offenders)
+        + "\n  Guard one character: workers[.]sh")
+
+
+def test_the_gateway_env_is_the_same_on_both_fleet_paths() -> None:
+    """Every RunPod failure in this project has been a value the manifests set.
+
+    The Kubernetes gateway Deployment carries an env block. The process path
+    starts the same `gateway.serve` from a shell script, and when a value is
+    missing there the gateway falls back to a code default chosen for a capacity
+    sweep — small on purpose. The result is a refusal that looks like the
+    policy working:
+
+      MAX_PROMPT_CHARS       8,000 default vs 60,000 in the manifests
+                             -> 400 prompt_too_long mid-research
+      TENANT_TOKENS_PER_MIN  10,000 default vs 50,000,000
+                             -> 429, which is a quota, not capacity
+
+    Values are not required to be identical — a rented box is a different
+    machine — but each one has to be SET, so the choice is visible in a script
+    rather than inherited from a default nobody meant to use here.
+    """
+    manifest = (ROOT / "infra" / "lambda-cluster" / "k8s" / "gateway"
+                / "orch-serve.yaml").read_text()
+    workers = (ROOT / "infra" / "runpod-cluster" / "setup" / "workers.sh").read_text()
+
+    # Only the env that changes what the gateway REFUSES. Topology differs
+    # between the paths by design (service DNS vs loopback ports), and
+    # PYTHONPATH/TRACE_PATH are set elsewhere in the script.
+    guard_env = ("MAX_PROMPT_CHARS", "TENANT_TOKENS_PER_MIN")
+
+    missing = []
+    for name in guard_env:
+        if name not in manifest:
+            continue      # the manifests stopped setting it; nothing to match
+        if not re.search(rf"^export {name}=", workers, re.M):
+            missing.append(name)
+    assert not missing, (
+        "the manifests set these and workers.sh does not, so the process path "
+        "runs on code defaults meant for a capacity sweep: " + ", ".join(missing))

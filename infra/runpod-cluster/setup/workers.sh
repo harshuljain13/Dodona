@@ -165,6 +165,27 @@ export MOONCAKE_URL="http://127.0.0.1:50051"
 export LAB_TOPOLOGY="${LAB_TOPOLOGY:-disaggregated}"
 export ORCH_URL="${ORCH_URL:-http://127.0.0.1:8080/v1}"
 
+# The gateway's env, kept at parity with k8s/gateway/orch-serve.yaml.
+#
+# This is where the RunPod path kept diverging. The manifests set these two
+# explicitly; this script did not, so the gateway fell back to the code defaults
+# — which are deliberately small, for a capacity sweep, not for serving an agent:
+#
+#   MAX_PROMPT_CHARS       8,000 vs the manifests' 60,000. A research turn feeds
+#                          a scraped page into the next call and dies on a 400
+#                          prompt_too_long, after telling the listener it was
+#                          looking things up.
+#   TENANT_TOKENS_PER_MIN  10,000 vs the manifests' 50,000,000. A burst of
+#                          twenty-four 700-token prompts came back as fifteen
+#                          429s — a client-quota refusal wearing admission
+#                          control's clothes, which is the one thing this fleet
+#                          exists to measure honestly.
+#
+# Same numbers as the manifests, so a run on a rented box and a run on
+# Kubernetes refuse work for the same reasons. Override either in .env.
+export MAX_PROMPT_CHARS="${MAX_PROMPT_CHARS:-60000}"
+export TENANT_TOKENS_PER_MIN="${TENANT_TOKENS_PER_MIN:-50000000}"
+
 PIDS=()
 cleanup() {
   say "stopping"
@@ -263,8 +284,34 @@ wait_for gateway "http://127.0.0.1:8080"
 # Kubernetes path gets these from a dcgm-exporter DaemonSet, which a rented pod
 # cannot run — so without this the `cluster` dashboard, the one that shows
 # whether the card is busy, had no data at all.
+#
+# The mapping is built from DEVICES, the same array start_worker pinned each
+# worker with, so the hardware dashboard says "GPU 1 · decode-0" rather than
+# "GPU 1". Derived, not hardcoded: LAB_TOPOLOGY can reorder the cards, and a
+# label that silently disagrees with the pinning is worse than no label.
+#
+# With fewer than three cards DEVICES repeats — (0 0 0) on one GPU, (0 1 1) on
+# two — and more than one worker shares a card. Then no single worker name is
+# the truth about that card, so it is labelled "shared" rather than whichever
+# role happened to be assigned last.
+declare -A _role_of=()
+_worker_names=(prefill decode-0 decode-1)
+for _i in 0 1 2; do
+  _dev="${DEVICES[$_i]}"
+  if [[ -n "${_role_of[$_dev]:-}" ]]; then
+    _role_of[$_dev]="shared"
+  else
+    _role_of[$_dev]="${_worker_names[$_i]}"
+  fi
+done
+GPU_ROLES=""
+for _dev in "${!_role_of[@]}"; do
+  GPU_ROLES="${GPU_ROLES:+$GPU_ROLES,}${_dev}=${_role_of[$_dev]}"
+done
 say "gpu exporter  —  :9400  (DCGM_FI_DEV_* from nvidia-smi)"
-supervise gpu-exporter "$PY" "$ROOT/infra/runpod-cluster/observability/gpu_exporter.py" --port 9400
+note "roles: $GPU_ROLES"
+supervise gpu-exporter "$PY" "$ROOT/infra/runpod-cluster/observability/gpu_exporter.py" \
+  --port 9400 --roles "$GPU_ROLES"
 sleep 1
 
 if command -v prometheus >/dev/null 2>&1; then
@@ -296,30 +343,64 @@ if command -v grafana-server >/dev/null 2>&1 || command -v grafana >/dev/null 2>
   mkdir -p "$GF_PROV/dashboards" "$GF_PROV/datasources" "$GF_DASH"
   cp -f "$ROOT/infra/runpod-cluster/observability/grafana/datasources/prometheus.yml" "$GF_PROV/datasources/"
 
-  # Only the dashboards that can have data here.
+  # Four dashboards, generated here rather than copied from the k8s set.
   #
-  # cluster, replicas, hami and keda query kube_* and container_* — Kubernetes
-  # objects that do not exist when the workers are processes. Provisioning them
-  # anyway puts four permanently blank dashboards in front of you, and
-  # test_no_panel_queries_a_metric_nothing_exports already says why that is
-  # corrosive: "a panel with no possible source trains you to ignore empty
-  # panels." They stay in the repo; they are correct for fleet-lambda.
+  # Copying and filtering was the old approach and it was the wrong shape: the
+  # k8s dashboards are built for pods and slices, so even the seven that could
+  # hold data described a cluster this is not. These four are written for this
+  # topology and follow one request through it — gateway, engines, KV hop,
+  # hardware — and every panel is checked against the metrics this fleet
+  # actually exports by tests/test_runpod_dashboards.py.
+  #
+  # Generated at start, not checked in, so they cannot drift from the generator.
   rm -f "$GF_DASH"/*.json
-  for d in fleet overview gateway router vllm mooncake errors; do
-    src="$ROOT/infra/lambda-cluster/k8s/observability/dashboards/$d.json"
-    [[ -f "$src" ]] && cp -f "$src" "$GF_DASH/"
-  done
-  note "dashboards: $(ls "$GF_DASH" | wc -l | tr -d ' ') provisioned (k8s-only ones skipped)"
+  if "$PY" "$ROOT/infra/runpod-cluster/observability/dashboards.py" "$GF_DASH" >/dev/null; then
+    note "dashboards: $(ls "$GF_DASH"/*.json 2>/dev/null | wc -l | tr -d ' ') generated — the request path, in order"
+  else
+    note "dashboards: generator failed; grafana will come up empty"
+  fi
 
   sed "s|__DASHBOARDS__|$GF_DASH|" \
     "$ROOT/infra/runpod-cluster/observability/grafana/dashboards/dodona.yml.tmpl" \
     > "$GF_PROV/dashboards/dodona.yml"
 
+  # Land on step 1 of the path instead of Grafana's stock welcome page, which
+  # is a wall of links to documentation and makes a provisioned fleet look
+  # unprovisioned for the first ten seconds of a demo.
   supervise grafana env \
     GF_PATHS_PROVISIONING="$GF_PROV" \
     GF_SECURITY_ADMIN_PASSWORD="${GRAFANA_PASSWORD:-admin}" \
+    GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH="$GF_DASH/gateway.json" \
     GF_SERVER_HTTP_PORT=31495 \
     bash -c 'command -v grafana-server >/dev/null && exec grafana-server || exec grafana server'
+
+  # Grafana keeps its dashboards in a database that outlives this script, and it
+  # only reaps a stale one if the same provider inserted it. A box that once ran
+  # with all eleven provisioned keeps the four Kubernetes ones for ever —
+  # exactly the blank panels the filter above exists to prevent. The
+  # provisioning directory is the source of truth, so delete whatever is in
+  # Grafana and no longer on disk. A fresh box prunes nothing.
+  for _ in $(seq 1 20); do
+    curl -sf -m 2 -u "admin:${GRAFANA_PASSWORD:-admin}" \
+      localhost:31495/api/health >/dev/null 2>&1 && break
+    sleep 1
+  done
+  keep="$(ls "$GF_DASH"/*.json 2>/dev/null | xargs -n1 basename 2>/dev/null | sed 's|\.json$||')"
+  pruned=0
+  for u in $(curl -sf -m 5 -u "admin:${GRAFANA_PASSWORD:-admin}" \
+               "localhost:31495/api/search?type=dash-db" 2>/dev/null \
+             | tr ',' '\n' | grep -o '"uid":"[^"]*"' | cut -d: -f2 | tr -d '"'); do
+    if ! printf '%s\n' "$keep" | grep -qx "${u#dodona-}"; then
+      curl -sf -m 5 -u "admin:${GRAFANA_PASSWORD:-admin}" \
+        -X DELETE "localhost:31495/api/dashboards/uid/$u" >/dev/null 2>&1 \
+        && pruned=$((pruned + 1))
+    fi
+  done
+  # An `[[ ... ]] && note` here would return 1 when there is nothing to prune,
+  # and under `set -e` that is the whole script exiting on the happy path.
+  if [[ "$pruned" -gt 0 ]]; then
+    note "pruned $pruned stale dashboard(s) left by an earlier run"
+  fi
 else
   note "grafana not installed — skipping."
   note "  https://grafana.com/grafana/download  (untar, put it on PATH)"
@@ -331,6 +412,6 @@ note "workers    $PREFILL_PORT (prefill)  $DECODE0_PORT $DECODE1_PORT (decode)"
 note "grafana    http://127.0.0.1:31495"
 note "logs       $LOGS"
 note ""
-note "From the Mac:  make ssh   then open the URLs above."
+note "From the Mac:  make fleet-runpod-ssh   then open the URLs above."
 note "Ctrl-C here stops everything."
 wait

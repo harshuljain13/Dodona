@@ -128,14 +128,36 @@ nvidia-smi --query-gpu=index,memory.used,memory.total --format=csv,noheader,noun
 
 # ── is there exactly one fleet ─────────────────────────────────────────────
 say "processes"
-sup=$(pgrep -fc "infra/runpod-cluster/setup/workers.sh" 2>/dev/null); sup=${sup:-0}
+mapfile -t sup_pids < <(pgrep -f "infra/runpod-cluster/setup/workers.sh" 2>/dev/null || true)
+sup=${#sup_pids[@]}
 vll=$(pgrep -fc "vllm serve" 2>/dev/null); vll=${vll:-0}
 gpu_procs=$(nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null | grep -c .)
 
-note "supervisors: $sup   vllm: $vll   on a GPU: $gpu_procs"
-# One fleet is one parent plus five supervised children.
-if (( sup > 7 )); then
-  bad 'more than one fleet is running — fleet-runpod was started twice'
+# Count FLEETS, not processes.
+#
+# The old test was `supervisors > 7`, on the reasoning that one fleet is a
+# parent plus five supervised children. Then the fleet grew a GPU exporter,
+# prometheus and grafana — eight supervised components, so a single healthy
+# fleet shows ten workers.sh processes and the check reported it as two. A
+# status command that cries wolf on a fleet whose own smoke test passes is
+# worse than no check: it sends you to `down` and back on a working fleet.
+#
+# A second fleet means a second TOP-LEVEL workers.sh — one whose parent is not
+# itself a workers.sh. That stays true however many components get supervised.
+fleets=0
+for _p in "${sup_pids[@]:-}"; do
+  [[ -n "$_p" ]] || continue
+  _pp=$(ps -o ppid= -p "$_p" 2>/dev/null | tr -d ' ')
+  _is_child=0
+  for _q in "${sup_pids[@]}"; do
+    if [[ "$_pp" == "$_q" ]]; then _is_child=1; break; fi
+  done
+  if (( _is_child == 0 )); then fleets=$(( fleets + 1 )); fi
+done
+
+note "fleets: $fleets   supervised processes: $sup   vllm: $vll   on a GPU: $gpu_procs"
+if (( fleets > 1 )); then
+  bad "$fleets fleets are running — fleet-runpod was started twice"
   note "  fix: make fleet-runpod-down, then make fleet-runpod"
   problems=$(( problems + 1 ))
 fi

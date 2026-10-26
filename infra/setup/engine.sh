@@ -19,6 +19,26 @@ set -euo pipefail
 MODEL="${LOCAL_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}"
 PORT="${PORT:-8000}"
 
+# Tool calling, which the voice agent cannot work without.
+#
+# app/dodona.yaml gives the agent web_search and scrape_url, so every
+# substantive turn sends `tools` — and vLLM refuses those outright unless both
+# flags below are set:
+#
+#   "auto" tool choice requires --enable-auto-tool-choice and
+#   --tool-call-parser to be set                            -> HTTP 400
+#
+# That 400 never surfaced. admission.py copies `choices` only if the engine
+# returned it, so the gateway answered 200 with a 46-byte body of just
+# {"id", "via"}; litellm asserted on the missing `choices` and the agent spoke
+# "something went wrong on my end" through Deepgram. Nothing logged a cause at
+# any layer, which is why this cost an evening.
+#
+# `hermes` is the parser for Qwen2.5's <tool_call> format — confirmed present in
+# this build's ToolParserManager. The qwen3_* parsers are for Qwen3. Set
+# TOOL_CALL_PARSER= (empty) to serve without tool calling at all.
+TOOL_CALL_PARSER="${TOOL_CALL_PARSER:-hermes}"
+
 UTIL="${UTIL:-0.90}"
 CAP="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d ' ')"
 MEM_MIB="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')"
@@ -43,4 +63,5 @@ exec vllm serve "$MODEL" \
   --tensor-parallel-size "${TENSOR_PARALLEL_SIZE:-1}" \
   --pipeline-parallel-size "${PIPELINE_PARALLEL_SIZE:-1}" \
   --data-parallel-size "${DATA_PARALLEL_SIZE:-1}" \
+  ${TOOL_CALL_PARSER:+--enable-auto-tool-choice --tool-call-parser "$TOOL_CALL_PARSER"} \
   ${SPECULATIVE_CONFIG:+--speculative-config "$SPECULATIVE_CONFIG"}

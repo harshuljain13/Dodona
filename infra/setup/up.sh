@@ -240,6 +240,46 @@ cmd_fleet_runpod() {
   WITH_OBSERVABILITY=1 install_packages
   announce "fleet  —  1 vLLM per GPU, gateway, mooncake"
 
+  # Replace a fleet that is already running, rather than aborting into it.
+  #
+  # Re-running this over a live fleet did nothing and reported success. workers.sh
+  # calls check_ports, finds :8080 and the worker ports held by the OLD fleet, and
+  # exits before starting anything — while the readiness poll below asks those
+  # same ports and gets answers, from the very fleet we were trying to replace.
+  # The whole run then looks identical to a good one. That is how three workers
+  # stayed up for 45 minutes without the --enable-auto-tool-choice they had been
+  # relaunched to acquire, and how the voice agent kept failing on a fleet whose
+  # bring-up said "up".
+  #
+  # A fleet started by this script is ours to stop, so stop it. The alternative —
+  # refusing with "run fleet-runpod-down first" — makes the common case
+  # (change something, re-run) a two-command ritual nobody remembers.
+  #
+  # workers[.]sh, not workers.sh: `pgrep -f` would otherwise match the remote
+  # shell running this very check, which contains the pattern in its own
+  # command line. That mistake reports a fleet on an empty box.
+  if on_box "pgrep -f 'runpod-cluster/setup/workers[.]sh' >/dev/null 2>&1"; then
+    announce "a fleet is already running  —  stopping it before starting the new one"
+    on_box "bash infra/runpod-cluster/setup/down.sh" >/dev/null 2>&1 || true
+    # down.sh kills supervisors first, but a 32B's CUDA context takes a moment to
+    # release. Wait for the gateway port to actually free, or check_ports fails
+    # again and we are back where we started.
+    local freed=0
+    for _ in $(seq 1 30); do
+      if ! on_box "curl -sf -m 2 localhost:8080/v1/models >/dev/null 2>&1"; then
+        freed=1
+        break
+      fi
+      sleep 2
+    done
+    if (( freed )); then
+      printf '    stopped. ports released.\n'
+    else
+      printf '    WARNING: :8080 still answering — the new fleet may refuse to start.\n'
+      printf '             check with: make fleet-runpod-status\n'
+    fi
+  fi
+
   # Detached, not attached. Held in the foreground this blocks the terminal, so
   # the tunnel needs a second one — and a workshop instruction that begins
   # "open another terminal" is the step everyone misses. `make fleet-runpod-down`
@@ -388,8 +428,24 @@ WORKERS_ENV=(
   SLICE_MIB WHOLE_CARD_UTIL                # the memory budget per worker
   PORT_BASE                                # a rented box is not empty
   MAX_MODEL_LEN MAX_NUM_SEQS SCHEDULING_POLICY
+  # Without this the engine 400s every request carrying `tools`, which is every
+  # substantive turn the voice agent takes. Default is set in engine.sh.
+  TOOL_CALL_PARSER
   KV_BACKEND LAB_TOPOLOGY LAB_SPLIT
   HF_TOKEN                                 # gated weights
+
+  # The admission demo. Without ADMISSION_POLICY the gate is off and
+  # /metrics reports policy="none" — the dashboards show a fleet with no
+  # admission control, which is the one thing the fleet exists to show.
+  ADMISSION_POLICY ADMISSION_THRESHOLD ADMISSION_MAX_WAITING
+  ADMISSION_ENFORCE ADMISSION_LOG ADMISSION_EXPERIMENT ADMISSION_RUN
+
+  # The gate runs AFTER the tenant rate limit, so this number decides whether
+  # the gate ever sees pressure. At the 10k/min default a load test of long
+  # prompts is refused as 429 (client quota) long before KV fills, and the KV
+  # threshold never fires: the run looks like admission control working when
+  # it is actually a quota.
+  TENANT_TOKENS_PER_MIN
 )
 
 # Build `env K=V ...` for the values that are actually set, quoted for the

@@ -9,7 +9,24 @@ MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS") or 512)
 #: experiment needs. A prompt at a 7B's KV crossover on an A100-40 is ~33,000 CHARACTERS,
 #: so an 8,000 limit turns every request into 400 prompt_too_long — a refusal by a
 #: guardrail that reads, in any report, exactly like a refusal by the policy.
-MAX_PROMPT_CHARS = int(os.environ.get("MAX_PROMPT_CHARS") or 8_000)
+#:
+#: That comment used to sit above a default of 8,000, which is the bug it describes.
+#: The number is now derived from the context the engine was actually started with,
+#: so the guard refuses only what the engine would refuse anyway, and the engine
+#: stays the authority on its own context window.
+#:
+#: It matters most for the tool-calling agent. `scrape_url` returns a whole page as
+#: markdown and that page becomes part of the NEXT model call, so a research turn
+#: passes 8,000 characters on its second hop and the agent dies mid-investigation
+#: with a guardrail 400 — having already told the listener it was looking things up.
+#:
+#: ~4 characters per token is the usual English ratio for this tokenizer. Erring
+#: high is deliberate: overshoot and vLLM refuses with its own context message,
+#: which names the real limit. Undershoot and we refuse work the GPU could do.
+_MODEL_LEN = int(os.environ.get("MAX_MODEL_LEN") or 16_384)
+MAX_PROMPT_CHARS = int(
+    os.environ.get("MAX_PROMPT_CHARS") or max(8_000, (_MODEL_LEN - MAX_NEW_TOKENS) * 4)
+)
 
 _ALIASES = frozenset({"text", "vision"})
 
