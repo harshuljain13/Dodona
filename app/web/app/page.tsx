@@ -320,12 +320,30 @@ export default function Page() {
         });
         if (done) break;
         alive();
-        buffer += decoder.decode(value, { stream: true });
+        // Strip CR before anything else.
+        //
+        // The service frames with sse-starlette, which separates events with
+        // CRLF — the bytes are `}}\r\n\r\n event:`. Splitting on "\n\n" can
+        // therefore NEVER match, because there are no two consecutive newlines
+        // anywhere in the stream. The buffer grew for ever, not one frame was
+        // parsed, and the turn sat on "thinking" until it timed out.
+        //
+        // curl appeared to prove the endpoint worked, every time, because curl
+        // prints bytes and does not parse them. AgentShip Studio has had this
+        // line since it was written, with the comment that gave it away.
+        buffer += decoder.decode(value, { stream: true }).replace(/\r/g, "");
         const frames = buffer.split("\n\n");
         buffer = frames.pop() ?? "";
         for (const frame of frames) {
-          const line = frame.split("\n").find((l) => l.startsWith("data:"));
-          if (!line) continue;
+          // Join every data: line in the block. SSE allows an event to be split
+          // across several, and taking only the first silently truncates it.
+          const payload = frame
+            .split("\n")
+            .filter((l) => l.startsWith("data:"))
+            .map((l) => l.slice(5).trim())
+            .join("\n");
+          if (!payload) continue;
+          const line = `data:${payload}`;
           let f: { type?: string; data?: Record<string, unknown> };
           try {
             f = JSON.parse(line.slice(5).trim());
