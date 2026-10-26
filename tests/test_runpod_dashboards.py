@@ -295,3 +295,34 @@ def test_the_kv_dashboard_claim_matches_the_engine_config() -> None:
         assert "re-prefill" not in text or "no connector" not in text, (
             "a connector is configured now — the KV dashboard still describes the "
             "ledger-only path and understates what the fleet does")
+
+
+def test_a_metric_has_one_home() -> None:
+    """The same number on two deep-dive screens is a question with no answer.
+
+    24 of 45 metrics were on more than one screen: `kv_cache_usage_perc` lived
+    on `engine` AND `kv`, the prefix cache on both, preemptions on three. When
+    two screens both half-own a number, neither is the place to look, and a
+    reader checks both and trusts neither.
+
+    Overview is the deliberate exception — summarising the headline numbers is
+    the entire job of a first screen, so it is excluded rather than special-
+    cased away.
+    """
+    import collections
+
+    where = collections.defaultdict(set)
+    for name, build in DASHBOARDS.items():
+        for panel in build().get("panels", []):
+            if panel.get("type") == "text":
+                continue
+            for target in panel.get("targets", []):
+                for token in re.findall(r"[a-zA-Z_:][a-zA-Z0-9_:]*", target.get("expr", "")):
+                    if token.startswith(("vllm:", "orch_", "DCGM", "mooncake", "admitperf")):
+                        where[re.sub(r"_(bucket|sum|count)$", "", token)].add(name)
+
+    shared = {m: v - {"overview"} for m, v in where.items() if len(v - {"overview"}) > 1}
+    assert not shared, (
+        "these metrics are on more than one deep-dive screen, so neither screen "
+        "owns them:\n  "
+        + "\n  ".join(f"{m}: {', '.join(sorted(s))}" for m, s in sorted(shared.items())))

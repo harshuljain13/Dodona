@@ -549,19 +549,6 @@ def engine() -> dict:
         # Every engine serves both phases, so `phase` is "both" on every
         # series and filtering by it would empty the panel. The question
         # becomes which replica is fullest, which is what admission reads.
-        _panel(4, "KV used — fullest engine",
-               "max(vllm:kv_cache_usage_perc)", legend="fullest",
-               kind="stat", x=12, y=4, w=6, h=4, unit="percentunit",
-               desc="The fullest engine's KV cache. The admission policy is "
-                    "thresholded at 0.90; if this never approaches it the "
-                    "run is INERT — lower SLICE_MIB until it does."),
-        _panel(5, "KV used — fleet average",
-               "avg(vllm:kv_cache_usage_perc)", legend="average",
-               kind="stat", x=18, y=4, w=6, h=4, unit="percentunit",
-               desc="Averaged across engines. A wide gap between this and "
-                    "the fullest engine means place() is not spreading "
-                    "load evenly."),
-
         _panel(6, "Requests running, per engine",
                "sum by (pod, phase) (vllm:num_requests_running)",
                legend=POD, x=0, y=8,
@@ -572,19 +559,6 @@ def engine() -> dict:
                legend=POD, x=12, y=8,
                desc="An engine-side queue, distinct from the gateway's view on "
                     "screen 1."),
-
-        _panel(8, "KV cache usage, per engine",
-               "max by (pod, phase) (vllm:kv_cache_usage_perc)",
-               legend=POD, x=0, y=16, unit="percentunit",
-               maximum=1, thresholds=[("green", None), ("orange", 0.75), ("red", 0.90)],
-               desc="The signal the whole project is about. Red is 0.90, where "
-                    "the admission policy starts shedding."),
-        _panel(9, "Preemptions",
-               "sum by (pod, phase) (rate(vllm:num_preemptions_total[5m]))",
-               legend=POD, x=12, y=16,
-               desc="vLLM evicting a running request's KV to make room. Every "
-                    "preemption is work thrown away and later redone — this is "
-                    "what admission control exists to prevent."),
 
         _panel(10, "Time to first token — p50 / p95 / p99",
                "histogram_quantile(0.50, sum by (le) "
@@ -635,16 +609,6 @@ def engine() -> dict:
                     "prefill plus every decode step. Compare with the gateway's "
                     "own p95 — the difference is what the control plane costs."),
 
-        _panel(16, "Prompt tokens/s vs generated tokens/s",
-               "sum by (phase) (rate(vllm:prompt_tokens_total[1m]))",
-               legend="prompt", x=0, y=48,
-               extra=[("sum by (phase) (rate(vllm:generation_tokens_total[1m]))",
-                       "generated")],
-               desc="How fast the fleet reads versus how fast it writes. Prompt "
-                    "tokens are prefill work and generated tokens are decode "
-                    "work, and the ratio between the lines is the shape of your "
-                    "workload — a research agent is prompt-heavy, a chatbot is "
-                    "not."),
         _panel(17, "Batch size (tokens per engine iteration) p50 / p95",
                "histogram_quantile(0.50, sum by (le, pod) "
                "(rate(vllm:iteration_tokens_total_bucket[5m])))",
@@ -654,151 +618,106 @@ def engine() -> dict:
                desc="How much work vLLM batched per step. Larger batches mean "
                     "better GPU efficiency and worse tail latency."),
 
-        _panel(18, "Successful requests/s, per engine",
-               "sum by (pod, phase) (rate(vllm:request_success_total[5m]))",
-               legend=POD, x=0, y=56, unit="reqps",
-               desc="Completed by the engine. Compare with the gateway's "
-                    "completion rate on screen 1."),
-        _panel(19, "Local prefix cache hit rate",
-               "sum(rate(vllm:prefix_cache_hits_total[5m])) / "
-               "clamp_min(sum(rate(vllm:prefix_cache_queries_total[5m])), 1)",
-               legend="hit rate", x=12, y=56, unit="percentunit", maximum=1,
-               desc="Prompt prefixes already in this engine's cache, so prefill "
-                    "was skipped. clamp_min keeps the panel at 0 instead of "
-                    "blank when there is no traffic."),
     ], ["vllm", "engine"])
 
 
 def kv() -> dict:
-    """Stage 3: KV pressure and reuse — and, when the pools are split, the hop.
+    """Stage 3: how full the cache is, and how much work reuse saved.
 
-    Read `docs/project/topology.md` before presenting this screen. A real split
-    needs three things: placement, orchestration, and transfer. Transfer lives
-    INSIDE vLLM, behind `--kv-transfer-config`, because vLLM owns the block
-    table — and `infra/setup/engine.sh` cannot pass the manifests' version,
-    which names an RDMA device and a cluster DNS name.
+    Two questions and nothing else. KV pressure is the signal admission control
+    reads, and prefix reuse is the only KV saving this topology offers — there
+    is no hop, because one pool means `queue.py` short-circuits and the bus is
+    never called.
 
-    So no KV bytes move on this path in either topology. `KVBus.transfer` writes
-    a row and POSTs it to the ledger; `router/nccl.py` and `router/nixl.py` are
-    `return`. What differs is whether a hop is even attempted:
-
-      aggregated     one pool, so queue.py short-circuits and there is no hop.
-                     Every mooncake_* series is zero BY CONSTRUCTION, so those
-                     panels are not built — a screen of flat zeros is exactly
-                     the blank-panel failure this file exists to prevent.
-      disaggregated  the hop is attempted and recorded as a decision. The
-                     panels say "would have moved", because that is the truth.
-
-    What is real in both: KV pressure, which is the signal admission control
-    reads, and prefix reuse, which is the saving prefix-aware routing buys.
+    What this screen does NOT own, so a number has one home:
+      the shed, the gate and every routing decision   -> 1 · Gateway
+      running, waiting, preemptions, latency phases   -> 2 · Engines
     """
     story = (
         "## 3 · KV — pressure and reuse\n"
-        "Every engine serves both phases here, so there is **no hop**: "
-        "`queue.py` short-circuits when the prefill and decode pools are the "
-        "same object, and the ledger on `:50051` stays at zero by design. "
-        "That is why no hop panels are on this screen — flat zeros teach you "
-        "to ignore empty graphs.\n\n"
-        "What is on it is real. **KV usage is the signal admission control "
-        "reads**: the policy sheds at 0.90, so if the top panels never climb "
-        "there the run is INERT and proves nothing — lower `SLICE_MIB` until "
-        "they do. **Prefix reuse** is what prefix-aware routing buys: a "
-        "request sent back to the engine already holding its prompt skips "
-        "the prefill entirely.\n\n"
-        "Why no hop: a real split needs placement, orchestration AND "
-        "transfer, and transfer lives inside vLLM behind "
-        "`--kv-transfer-config`. See `docs/project/topology.md`.\n\n"
+        "**KV usage is the signal admission control reads.** The policy sheds "
+        "at 0.90, so if the top number never climbs there under load, the run "
+        "is INERT: its results cannot be told apart from having no policy at "
+        "all. Lower `SLICE_MIB` until it can.\n\n"
+        "**Prefix reuse is the saving.** A prompt whose prefix an engine "
+        "already holds skips prefill entirely — so cached tokens climbing "
+        "alongside total tokens is the agent's repeated system prompt being "
+        "read once instead of every turn.\n\n"
+        "There is no hop panel here because there is no hop: every engine "
+        "serves both phases, so nothing is ever transferred between them. "
+        "See `docs/project/topology.md`.\n\n"
         "Next: **4 · Hardware**, the cards all of this runs on."
     )
-    hop_panels = [
-        _panel(2, "Fleet KV headroom", "min(orch_kv_free_ratio)", legend="free",
-               kind="stat", x=0, y=4, w=6, h=4, unit="percentunit",
-               desc="Free fraction across the fleet, as the gateway computes "
-                    "it. This is what place() and admit both read."),
-        _panel(3, "Fullest engine", "max(vllm:kv_cache_usage_perc)",
-               legend="KV used", kind="stat", x=6, y=4, w=6, h=4,
+    return _dash("dodona-kv", "Dodona / 3 · KV — pressure and reuse", [
+        _text(1, story),
+
+        _panel(2, "Fullest engine", "max(vllm:kv_cache_usage_perc)",
+               legend="KV used", kind="stat", x=0, y=4, w=8, h=4,
                unit="percentunit",
-               desc="The engine closest to its KV limit. Admission is "
-                    "thresholded at 0.90; this is the number that has to "
-                    "reach it for the demo to show anything."),
-        _panel(4, "Admission policy",
-               "max by (policy) (admitperf_gate_active)", legend="{{policy}}",
-               kind="stat", x=12, y=4, w=6, h=4,
-               desc="1 while the named policy is deciding. policy=none means "
-                    "ADMISSION_POLICY is unset and nothing is being shed."),
-        _panel(5, "Shed", "sum(rate(orch_shed_total[1m]))", legend="503/s",
-               kind="stat", x=18, y=4, w=6, h=4, unit="reqps",
-               desc="Refused for capacity. Non-zero means the KV threshold "
-                    "fired — which is the whole point of the fleet."),
-    ]
-    base_y = 8
-    pid = 6
+               desc="The engine closest to its KV limit — the number the "
+                    "admission policy actually tests. It has to reach 0.90 for "
+                    "a run to prove anything about the policy."),
+        _panel(3, "Fleet KV headroom", "min(orch_kv_free_ratio)", legend="free",
+               kind="stat", x=8, y=4, w=8, h=4, unit="percentunit",
+               desc="Free fraction across the fleet, as the gateway computes "
+                    "it. The same pressure from the control plane's side."),
+        _panel(4, "Prefill avoided by reuse",
+               "sum(rate(vllm:prompt_tokens_cached_total[5m])) / "
+               "clamp_min(sum(rate(vllm:prompt_tokens_total[5m])), 1)",
+               legend="share cached", kind="stat", x=16, y=4, w=8, h=4,
+               unit="percentunit",
+               desc="The share of prompt tokens that were already cached and so "
+                    "never prefilled again. The whole value of prefix-aware "
+                    "routing, as one number."),
 
-    # Real in both topologies: the pressure admission reads, and the reuse that
-    # prefix-aware routing earns. Laid out after whatever the branch above put
-    # on the screen.
-    shared = [
-        _panel(pid, "KV cache usage, per engine",
-               "max by (pod) (vllm:kv_cache_usage_perc)", legend="{{pod}}",
-               x=0, y=base_y, unit="percentunit", maximum=1,
+        _panel(5, "KV cache usage, per engine",
+               "max by (pod) (vllm:kv_cache_usage_perc)", legend=POD,
+               x=0, y=8, unit="percentunit", maximum=1,
                thresholds=[("green", None), ("orange", 0.75), ("red", 0.90)],
-               desc="The signal the whole project is about, per replica. Red is "
-                    "0.90, where the admission policy starts shedding."),
-        _panel(pid + 1, "KV headroom per replica",
-               "min by (pod, pool) (orch_replica_kv_free_ratio)",
-               legend="{{pod}} ({{pool}})", x=12, y=base_y, unit="percentunit",
-               maximum=1, thresholds=[("green", None), ("red", 0.10)],
-               desc="The same pressure as the gateway sees it, which is what "
-                    "place() scores replicas on. Red is under 10% free."),
-
-        _panel(pid + 2, "Preemptions",
-               "sum by (pod) (rate(vllm:num_preemptions_total[5m]))",
-               legend="{{pod}}", x=0, y=base_y + 8,
-               desc="vLLM evicting a running request's KV to make room. Every "
-                    "preemption is work thrown away and later redone — this is "
-                    "what admission control exists to prevent."),
-        _panel(pid + 3, "KV evictions recorded by the gateway",
+               desc="Per replica, because the policy sheds on the FULLEST one. "
+                    "Two lines far apart means load is not being spread evenly."),
+        _panel(6, "KV evictions",
                "sum(rate(orch_kv_evict_total[5m]))", legend="evictions/s",
-               x=12, y=base_y + 8,
-               desc="Entries the gateway dropped from its prefix index, so the "
-                    "next request with that prefix will be prefilled again."),
+               x=12, y=8,
+               desc="Entries dropped from the gateway's prefix index, so the "
+                    "next request carrying that prefix gets prefilled again. "
+                    "Every eviction is a future recompute."),
 
-        _panel(pid + 4, "Prefill skipped: cached vs total prompt tokens",
+        _panel(7, "Prompt tokens: cached vs total",
                "sum(rate(vllm:prompt_tokens_cached_total[5m]))",
-               legend="cached (reused)", x=0, y=base_y + 16,
-               extra=[("sum(rate(vllm:prompt_tokens_total[5m]))", "total prompt tokens")],
-               desc="Cached tokens had their KV already and were not prefilled "
-                    "again. The gap between the lines is real prefill work, and "
-                    "closing it is what prefix-aware routing is for."),
-        _panel(pid + 5, "Prefix cache hit rate",
+               legend="cached (reused)", x=0, y=16,
+               extra=[("sum(rate(vllm:prompt_tokens_total[5m]))", "total sent")],
+               desc="The gap between the lines is real prefill work. Closing it "
+                    "is what prefix-aware routing is for, and a research agent "
+                    "re-sending the same long system prompt is the best case "
+                    "for it."),
+        _panel(8, "Prefix cache hit rate",
                "sum(rate(vllm:prefix_cache_hits_total[5m])) / "
                "clamp_min(sum(rate(vllm:prefix_cache_queries_total[5m])), 1)",
-               legend="hit rate", x=12, y=base_y + 16, unit="percentunit",
-               maximum=1,
-               desc="Prompt prefixes already in an engine's cache, so prefill was "
-                    "skipped. clamp_min keeps this at 0 rather than blank when "
-                    "there is no traffic."),
+               legend="hit rate", x=12, y=16, unit="percentunit", maximum=1,
+               desc="Prompt prefixes found in an engine's own cache. clamp_min "
+                    "keeps this at 0 rather than blank when there is no "
+                    "traffic — an idle fleet should read zero, not nothing."),
 
-        _panel(pid + 6, "Sticky routing — sent back to the replica holding the KV",
-               "sum(rate(orch_sticky_total[5m]))", legend="sticky/s",
-               x=0, y=base_y + 24, unit="reqps",
-               desc="The cheapest outcome available: no hop and no recompute, "
-                    "because the KV is already where the request landed. Compare "
-                    "with the hit rate beside it."),
-        _panel(pid + 7, "KV tokens computed during prefill p50 / p95",
+        _panel(9, "KV tokens computed during prefill p50 / p95",
                "histogram_quantile(0.50, sum by (le) "
                "(rate(vllm:request_prefill_kv_computed_tokens_bucket[5m])))",
-               legend="p50", x=12, y=base_y + 24,
+               legend="p50", x=0, y=24,
                extra=[("histogram_quantile(0.95, sum by (le) "
                        "(rate(vllm:request_prefill_kv_computed_tokens_bucket[5m])))",
                        "p95")],
                desc="Per request, how many tokens of KV prefill actually had to "
-                    "build. Lower than the prompt length means cache reuse."),
-    ]
-
-    title = "Dodona / 3 · KV — pressure and reuse"
-    return _dash("dodona-kv", title, [_text(1, story), *hop_panels, *shared],
-                 ["kv", "admission", "reuse"])
+                    "build. Lower than the prompt length is cache reuse, "
+                    "measured per request rather than in aggregate."),
+        _panel(10, "Preemption pressure",
+               "sum(rate(vllm:num_preemptions_total[5m]))", legend="preemptions/s",
+               x=12, y=24,
+               desc="vLLM evicting a RUNNING request's KV to make room — the "
+                    "engine doing admission control after the fact, which is "
+                    "the outcome the gate exists to prevent. Here rather than "
+                    "on the engine screen because it is a KV-pressure "
+                    "consequence, not an engine setting."),
+    ], ["kv", "admission", "reuse"])
 
 
 def hardware() -> dict:
