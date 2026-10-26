@@ -21,16 +21,17 @@ ROOT = Path(__file__).resolve().parents[1]
 #: Shared drivers — used by both the lambda and runpod paths.
 SETUP = ROOT / "infra" / "setup"
 #: Kubernetes-only: k3s, HAMi, KEDA, the capacity gate, the tunnel.
-LAMBDA_SETUP = ROOT / "infra" / "lambda-cluster" / "setup"
+RUNPOD_SETUP = ROOT / "infra" / "runpod-cluster" / "setup"
 
-SHELL_SCRIPTS = sorted(list(SETUP.glob("*.sh")) + list(LAMBDA_SETUP.glob("*.sh")))
+SHELL_SCRIPTS = sorted(list(SETUP.glob("*.sh")) + list(RUNPOD_SETUP.glob("*.sh")))
 
 #: What `make` offers. Deliberately small — the Makefile is the workflow, not a
 #: menu. `clean` is the one addition to the original four: a rented GPU has to
 #: be returnable, and teardown cannot be expressed by any of the others.
-MAKE_TARGETS = {"fleet-lambda", "fleet-runpod", "fleet-runpod-down",
-                "fleet-runpod-logs", "fleet-runpod-status", "fleet-runpod-ssh", "fleet-runpod-smoke-test", "observability", "ssh", "test", "load",
-                "logs", "kv", "app", "doctor", "clean"}
+MAKE_TARGETS = {"fleet-runpod", "fleet-runpod-down", "fleet-runpod-logs",
+                "fleet-runpod-status", "fleet-runpod-ssh",
+                "fleet-runpod-smoke-test", "test", "load", "app", "doctor",
+                "clean"}
 
 
 def test_there_are_shell_scripts_to_check() -> None:
@@ -52,20 +53,19 @@ def test_script_parses_under_bash(script: Path) -> None:
 def _referenced_scripts(text: str) -> set[str]:
     """Scripts named by path, from either home.
 
-    They live in two places now: infra/setup/ drives both paths, and
-    infra/lambda-cluster/setup/ is Kubernetes-only. A reference is valid if the
-    file exists in either.
+    infra/setup/ drives the box from your Mac; infra/runpod-cluster/setup/ runs
+    on it. A reference is valid if the file exists in either.
     """
     return set(re.findall(
-        r"infra/(?:setup|lambda-cluster/setup|runpod-cluster)/([A-Za-z0-9_]+\.(?:sh|py))", text))
+        r"infra/(?:setup|runpod-cluster/setup|runpod-cluster)/([A-Za-z0-9_]+\.(?:sh|py))", text))
 
 
 def _script_exists(name: str) -> bool:
-    return any((d / name).exists() for d in (SETUP, LAMBDA_SETUP, ROOT / "infra" / "runpod-cluster" / "setup"))
+    return any((d / name).exists() for d in (SETUP, RUNPOD_SETUP))
 
 
 @pytest.mark.parametrize(
-    "caller", [ROOT / "Makefile", SETUP / "up.sh", LAMBDA_SETUP / "fleet.sh",
+    "caller", [ROOT / "Makefile", SETUP / "up.sh", RUNPOD_SETUP / "workers.sh",
                ROOT / "docs" / "COMMANDS.md"],
     ids=lambda p: p.name,
 )
@@ -79,19 +79,38 @@ def test_every_referenced_script_exists(caller: Path) -> None:
     assert not missing, f"{caller.name} calls scripts that do not exist: {missing}"
 
 
-def test_guard_refuses_on_a_machine_with_no_gpu() -> None:
-    """The guard is the only thing stopping Helm running on a laptop."""
-    if shutil.which("nvidia-smi"):
-        pytest.skip("this machine has a GPU, so the guard is expected to pass")
-    done = subprocess.run(["bash", str(LAMBDA_SETUP / "_require_gpu.sh")], capture_output=True, text=True)
-    assert done.returncode != 0
-    assert "GPU box" in done.stdout or "nvidia-smi" in done.stdout
+def test_the_fleet_refuses_to_run_on_a_machine_with_no_gpu() -> None:
+    """workers.sh on a laptop should say so, not fail somewhere inside vLLM.
+
+    The Kubernetes path had a sourced `_require_gpu.sh`, because helm on a
+    laptop was a real risk. Here the fleet is processes, so the check is
+    inline — but it still has to be the FIRST thing, before anything is
+    started or any port is bound.
+    """
+    body = (RUNPOD_SETUP / "workers.sh").read_text()
+    assert "command -v nvidia-smi" in body, "workers.sh does not check for a GPU"
+    # Before the first supervise/start, or the refusal comes after side effects.
+    guard_at = body.index("command -v nvidia-smi")
+    for marker in ("supervise ", "check_ports"):
+        if marker in body:
+            assert guard_at < body.index(marker), (
+                f"the GPU check comes after {marker!r} — it has to be first")
 
 
-def test_guard_is_sourced_by_every_script_that_touches_the_cluster() -> None:
-    """A new script that forgets the guard can helm the laptop."""
-    for name in ("k3s.sh", "fleet.sh", "observability.sh"):
-        assert "_require_gpu.sh" in (SETUP / name if (SETUP / name).exists() else LAMBDA_SETUP / name).read_text(), f"{name} has no guard"
+def test_run_on_the_box_scripts_say_so_in_their_header() -> None:
+    """Running a box script on the Mac is the most common wrong move.
+
+    Nothing can stop it, so each one has to state where it runs. workers.sh,
+    status.sh and smoke.sh all take a `make` target that drives them over ssh,
+    and someone will eventually run them directly.
+    """
+    for name in ("workers.sh", "status.sh", "smoke.sh", "clean.sh", "down.sh"):
+        path = RUNPOD_SETUP / name
+        if not path.exists():
+            continue
+        head = "".join(path.read_text().splitlines(keepends=True)[:20]).lower()
+        assert "gpu box" in head or "on the box" in head, (
+            f"{name} does not say it runs on the box")
 
 
 def test_up_sh_rejects_an_unknown_command_without_needing_env() -> None:
@@ -120,18 +139,35 @@ def test_makefile_defines_exactly_the_documented_targets() -> None:
     assert phony - MAKE_TARGETS == {"help"}, f"undocumented targets: {phony - MAKE_TARGETS - {'help'}}"
 
 
-def test_makefile_puts_both_import_roots_on_the_pythonpath() -> None:
-    """Without both, `python -m gateway.repl` cannot resolve and every
-    control-plane entrypoint in the repo becomes unreachable."""
-    source = (ROOT / "Makefile").read_text()
-    assert re.search(r"^export PYTHONPATH\s*:?=.*control.*cluster", source, re.M)
+def test_the_import_root_is_on_the_pythonpath_everywhere_it_is_needed() -> None:
+    """Without it, `python -m gateway.repl` cannot resolve.
+
+    One root now: infra/control holds gateway, router, edge AND kernels, which
+    moved there with the control plane that imports it when the Kubernetes path
+    became its own branch. Three places have to agree — the Makefile for local
+    use, pytest.ini for the suite, and workers.sh for the box, which inherits
+    none of the others over ssh.
+    """
+    assert re.search(r"^export PYTHONPATH\s*:?=.*infra/control",
+                     (ROOT / "Makefile").read_text(), re.M), "Makefile"
+    assert "../infra/control" in (ROOT / "tests" / "pytest.ini").read_text(), "pytest.ini"
+    assert "infra/control" in (RUNPOD_SETUP / "workers.sh").read_text(), "workers.sh"
 
 
 def test_prometheus_scrapes_the_jobs_the_dashboards_query() -> None:
-    """An empty Grafana panel and a missing scrape job look identical."""
-    values = (ROOT / "infra" / "lambda-cluster" / "k8s" / "observability" / "prometheus-values.yaml").read_text()
-    jobs = set(re.findall(r"job_name:\s*([\w-]+)", values))
-    assert {"keda", "hami"} <= jobs, f"missing scrape jobs, found: {sorted(jobs)}"
+    """An empty Grafana panel and a missing scrape job look identical.
+
+    Checked against the dashboards rather than a fixed list, so adding a panel
+    for a component nothing scrapes fails here instead of in front of an
+    audience. `vllm` is rendered from the fleet, so the template carries a
+    placeholder for it rather than literal targets.
+    """
+    tmpl = (ROOT / "infra" / "runpod-cluster" / "observability"
+            / "prometheus.yml.tmpl").read_text()
+    jobs = set(re.findall(r"job_name:\s*([\w-]+)", tmpl))
+    assert {"vllm", "gateway", "dcgm"} <= jobs, f"found: {sorted(jobs)}"
+    assert "__VLLM_TARGETS__" in tmpl, (
+        "the vllm targets are hardcoded again — they have to follow the fleet")
 
 
 def test_the_harness_never_touches_the_cluster() -> None:
@@ -140,32 +176,25 @@ def test_the_harness_never_touches_the_cluster() -> None:
     assert "helm" not in harness and "kubectl" not in harness
 
 
-def test_fleet_restarts_the_gateway_so_mounted_code_takes_effect() -> None:
-    """orch-serve runs code from a hostPath mount, not from its image.
-
-    `kubectl apply` on an unchanged manifest is a no-op, so syncing new
-    control-plane code changes the files on disk while the pod keeps running
-    what it loaded at startup. Every edit would silently not take.
-    """
-    fleet = (LAMBDA_SETUP / "fleet.sh").read_text()
-    assert "rollout restart deploy/orch-serve" in fleet
-    manifest = (ROOT / "infra" / "lambda-cluster" / "k8s" / "gateway" / "orch-serve.yaml").read_text()
-    assert "hostPath" in manifest, "if the gateway stops mounting code, drop the restart"
-
-
 @pytest.mark.parametrize("script", SHELL_SCRIPTS, ids=lambda p: p.name)
 def test_grep_in_a_substitution_cannot_abort_the_script(script: Path) -> None:
-    """`x=$(... | grep ...)` under `set -euo pipefail` exits on no match.
+    """`grep` returns 1 when it finds nothing, which is not an error here.
 
-    grep returns 1 when it finds nothing, pipefail propagates that out of the
-    pipeline, and set -e kills the script. The failure looks like the step after
-    it never ran — exactly how it presented: the KV connector block aborted
-    `make fleet-lambda` before the capacity checks, and the only symptom was `Error 1`
-    printed after a heading.
+    Under `set -e` with `pipefail`, that 1 becomes the pipeline's status, the
+    command substitution carries it into an assignment, and the script dies —
+    on the one input it was meant to wave through. workers.sh exited before
+    printing a line, on a box where every port was free.
 
-    Backslash continuations are joined first; the real bug spanned two lines,
-    and the first version of this test missed it for that reason.
+    Only fatal with `set -e`, so that is what this checks: a script without it
+    gets a pass rather than a warning it does not need. Reporting a bug where
+    there is none is how a check stops being read.
     """
+    source = script.read_text()
+    # No `set -e` means a non-zero exit is noted and ignored, which is the
+    # whole reason status.sh and down.sh deliberately do not set it.
+    if not re.search(r"^set -[a-z]*e", source, re.M):
+        pytest.skip(f"{script.name} does not use `set -e`, so a failing grep is harmless")
+
     text = script.read_text()
     if "pipefail" not in text:
         return
@@ -200,29 +229,6 @@ def test_every_value_doctor_requires_exists_in_env_example() -> None:
     declared = set(re.findall(r"^(?:export )?([A-Z_][A-Z0-9_]*)=", template, re.M))
     missing = sorted(required - declared)
     assert not missing, f"required by `make doctor`, absent from .env.example: {missing}"
-
-
-def test_the_guard_refuses_a_container_not_just_a_laptop() -> None:
-    """A GPU container passes every other check and still cannot host a cluster.
-
-    `systemctl --version` is not the test — the binary ships in plenty of
-    images. PID 1 is. Checking the version is how a RunPod Pod was mistaken for
-    a VM, and the cost was a k3s install that wrote its unit files and then
-    failed with "Failed to connect to bus", naming systemd rather than the
-    container it was trapped in.
-    """
-    guard = (LAMBDA_SETUP / "_require_gpu.sh").read_text()
-    assert "/proc/1/comm" in guard, "the guard must test PID 1, not systemctl --version"
-    assert "container" in guard.lower()
-
-    # And the bring-up asks before it syncs, so the answer arrives in seconds
-    # rather than after a partial install.
-    up = (SETUP / "up.sh").read_text()
-    assert "require_a_host" in up
-    for command in ("cmd_fleet_lambda", "cmd_observability"):
-        body = up.split(f"{command}() {{", 1)[1].split("\n}", 1)[0]
-        assert "require_a_host" in body, f"{command} does not check for a host first"
-
 
 def test_scripts_that_cd_to_the_repo_root_actually_land_there() -> None:
     """A `cd` that is one level out fails late and blames the wrong thing.
@@ -383,21 +389,29 @@ def test_engine_flags_survive_the_jump_between_fleet_paths() -> None:
             f"engine.sh does not pass {flag} to vllm serve: {consequence}")
 
 
-def test_the_tool_parser_matches_the_one_the_manifests_use() -> None:
-    """Both paths serve the same model family, so both need the same parser.
+def test_the_engine_asks_for_the_tool_parser_qwen_needs() -> None:
+    """`hermes` reads Qwen2.5's <tool_call> blocks. The wrong one fails quietly.
 
-    `hermes` reads Qwen2.5's <tool_call> blocks. Picking a different one does
-    not fail loudly — the tool call arrives as prose in `message.content`, the
-    agent never calls the tool, and it answers from memory instead.
+    This used to compare engine.sh against the Kubernetes manifest, which was
+    the better test because the manifest was a second, independently-written
+    source. That manifest is on the `lambda-cluster` branch now, so the value
+    has to be asserted here along with the reason — otherwise the knowledge
+    that `hermes` is the right parser for this model family lives nowhere.
+
+    Getting it wrong does not raise: the tool call arrives as prose in
+    `message.content`, the agent never calls the tool, and it answers from the
+    model's memory while sounding like it researched. The qwen3_* parsers are
+    for Qwen3 and will not match Qwen2.5 output.
     """
     engine = (SETUP / "engine.sh").read_text()
-    manifest = (ROOT / "infra" / "lambda-cluster" / "k8s" / "fleet"
-                / "vllm-decode.yaml").read_text()
-    wanted = re.search(r"--tool-call-parser[= ]([a-z0-9_]+)", manifest)
-    assert wanted, "the decode manifest no longer names a tool parser"
-    assert wanted.group(1) in engine, (
-        f"engine.sh does not default to the manifests' parser "
-        f"({wanted.group(1)!r}) — tool calls will arrive as prose")
+    invocation = engine[engine.index("exec vllm serve"):]
+    assert "--tool-call-parser" in invocation, "engine.sh passes no tool parser"
+    assert "--enable-auto-tool-choice" in invocation, (
+        "a parser without --enable-auto-tool-choice is a 400 on every request "
+        "that carries tools")
+    assert 'TOOL_CALL_PARSER:-hermes' in engine, (
+        "the default parser is no longer hermes — Qwen2.5 tool calls will "
+        "arrive as prose in message.content and silently never run")
 
 
 def test_pgrep_patterns_cannot_match_the_shell_running_them() -> None:
@@ -431,42 +445,37 @@ def test_pgrep_patterns_cannot_match_the_shell_running_them() -> None:
         + "\n  Guard one character: workers[.]sh")
 
 
-def test_the_gateway_env_is_the_same_on_both_fleet_paths() -> None:
-    """Every RunPod failure in this project has been a value the manifests set.
+def test_the_gateway_env_that_decides_refusals_is_set_explicitly() -> None:
+    """These two decide what the gateway REFUSES, and both defaults are traps.
 
-    The Kubernetes gateway Deployment carries an env block. The process path
-    starts the same `gateway.serve` from a shell script, and when a value is
-    missing there the gateway falls back to a code default chosen for a capacity
-    sweep — small on purpose. The result is a refusal that looks like the
-    policy working:
+    The code defaults are chosen for a capacity sweep — small on purpose — and
+    the Kubernetes manifest overrode both. With that manifest on its own branch,
+    workers.sh has to set them, and the numbers have to carry their reasons:
 
-      MAX_PROMPT_CHARS       8,000 default vs 60,000 in the manifests
-                             -> 400 prompt_too_long mid-research
-      TENANT_TOKENS_PER_MIN  10,000 default vs 50,000,000
-                             -> 429, which is a quota, not capacity
+      MAX_PROMPT_CHARS       8,000 in code. A research turn feeds a scraped
+                             page into the next model call, so the second hop
+                             came back 400 prompt_too_long — from our own
+                             guard, on a fleet whose engine had a 16k context
+                             it never got to use.
+      TENANT_TOKENS_PER_MIN  10,000 in code, which one research turn exceeds.
+                             The refusal is a 429: client-attributable, and
+                             indistinguishable in a report from the admission
+                             policy doing its job.
 
-    Values are not required to be identical — a rented box is a different
-    machine — but each one has to be SET, so the choice is visible in a script
-    rather than inherited from a default nobody meant to use here.
+    Asserting they are SET, not what to, because the right value depends on the
+    box. Silence is the failure mode — both produce a plausible-looking refusal.
     """
-    manifest = (ROOT / "infra" / "lambda-cluster" / "k8s" / "gateway"
-                / "orch-serve.yaml").read_text()
-    workers = (ROOT / "infra" / "runpod-cluster" / "setup" / "workers.sh").read_text()
-
-    # Only the env that changes what the gateway REFUSES. Topology differs
-    # between the paths by design (service DNS vs loopback ports), and
-    # PYTHONPATH/TRACE_PATH are set elsewhere in the script.
-    guard_env = ("MAX_PROMPT_CHARS", "TENANT_TOKENS_PER_MIN")
-
-    missing = []
-    for name in guard_env:
-        if name not in manifest:
-            continue      # the manifests stopped setting it; nothing to match
-        if not re.search(rf"^export {name}=", workers, re.M):
-            missing.append(name)
-    assert not missing, (
-        "the manifests set these and workers.sh does not, so the process path "
-        "runs on code defaults meant for a capacity sweep: " + ", ".join(missing))
+    workers = (RUNPOD_SETUP / "workers.sh").read_text()
+    for name in ("MAX_PROMPT_CHARS", "TENANT_TOKENS_PER_MIN"):
+        assert re.search(rf"^export {name}=", workers, re.M), (
+            f"workers.sh does not set {name}, so the gateway falls back to a "
+            f"code default meant for a capacity sweep")
+    # And the gateway must start after them, or the export is decoration.
+    first_export = min(workers.index("export MAX_PROMPT_CHARS"),
+                       workers.index("export TENANT_TOKENS_PER_MIN"))
+    assert first_export < workers.index("supervise gateway"), (
+        "the guard env is exported after the gateway starts, so it inherits "
+        "nothing")
 
 
 def test_the_three_fleet_scripts_agree_on_the_fleet_shape() -> None:

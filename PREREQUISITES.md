@@ -1,6 +1,6 @@
 # Prerequisites
 
-Everything you need before `make fleet-lambda`. About twenty minutes, most of it
+Everything you need before `make fleet-runpod`. About twenty minutes, most of it
 waiting — for an account to confirm and for a box to boot, which is why those
 two things overlap here.
 
@@ -137,36 +137,27 @@ box.
 > are done. Steps 7–9 come after this one so the keys get sorted while the box
 > boots.
 
-**Target: 1 × A100-40GB.** The capacity arithmetic assumes sm80 — no fp8 tensor
-cores, which is *why* the model is int4. An H100 will run it, but `nvidia-smi`
-reporting compute capability `9.0` means
+**Target: 2 × A100-80GB.** Two cards, because the point of the fleet is that
+the router *chooses* between replicas — with one card `place()` degenerates to
+routing and half the dashboards describe a single process. Two is the floor;
+more works and costs more.
+
+The capacity arithmetic assumes sm80 — no fp8 tensor cores, which is *why* the
+model is int4. An H100 will run it, but `nvidia-smi` reporting compute
+capability `9.0` means
 [`docs/project/01-capacity.md`](docs/project/01-capacity.md) needs redoing
-before its numbers mean anything. One card is enough: the whole project is one
-card split three ways.
+before its numbers mean anything.
 
-> **It must be a host, not a container.** `make fleet-lambda` installs k3s as a
-> **systemd service** and HAMi slices the device through the kernel. Neither
-> works inside someone else's container.
+> **A standard RunPod Pod is fine.** Nothing on this branch needs systemd, root
+> over the kernel, or a host you own: the fleet is plain processes — one vLLM
+> per card with the gateway in front — supervised by a shell script.
 >
-> | Provider | Works? |
-> |---|---|
-> | Lambda, EC2, bare metal — a VM you are root on | ✅ |
-> | **RunPod Instant Cluster / bare metal** | ✅ |
-> | **RunPod standard Pod** | ❌ it is a container |
->
-> `make fleet-lambda` checks this before it syncs anything and names it if wrong, so
-> a mistake here costs seconds rather than a part-finished k3s install.
-
-**Do not trust `systemctl --version` to tell you which you have.** The binary
-ships in plenty of container images and will happily report a version; what
-matters is whether systemd is PID 1:
-
-```bash
-ssh <box> -p <port> 'cat /proc/1/comm'
-```
-
-`systemd` is a host. Anything else — `docker-init`, `bash`, `sh` — is a
-container, and no amount of permissions will change that.
+> That was not always true. The Kubernetes path installs k3s as a systemd
+> service and slices the device with HAMi, neither of which works inside
+> someone else's container, so it had to refuse a Pod before syncing anything.
+> It lives on the
+> [`lambda-cluster`](https://github.com/harshuljain13/Dodona/tree/lambda-cluster)
+> branch now, and this one does not care what PID 1 is.
 
 **On RunPod specifically:**
 
@@ -186,9 +177,9 @@ container, and no amount of permissions will change that.
    export SSH_PORT=22122           # the port half  (22 on Lambda, EC2, bare metal)
    ```
 
-> **Use Direct TCP, not `ssh.runpod.io`.** The proxy forwards no ports, and
-> `make ssh` is nine port-forwards. The proxy connects, and then nothing is
-> reachable.
+> **Use Direct TCP, not `ssh.runpod.io`.** The proxy forwards no ports, and the
+> tunnel is four of them — gateway, Grafana, Prometheus, the ledger. The proxy
+> connects, and then nothing is reachable at `127.0.0.1`.
 
 The box is those three values — `BOX`, `SSH_KEY`, `SSH_PORT` — and **nothing
 else in the repo is provider-specific**. `LAMBDA` and `LAMBDA_SSH_KEY` are the
@@ -332,10 +323,9 @@ cat /proc/1/comm          # on the box, via the ssh line above
 
 | It says | Run | Why |
 |---|---|---|
-| `systemd` | `make fleet-lambda` | a host — k3s can install itself |
-| anything else | `make fleet-runpod` | a container — same fleet as processes, no k3s |
+| anything | `make fleet-runpod` | processes — no orchestrator, no systemd needed |
 
-`make fleet-lambda` checks this itself and refuses before syncing, so guessing wrong
+There is nothing to guess any more: this branch runs on a container or a host alike. Guessing wrong
 costs seconds rather than a part-finished install.
 
 Teardown is `make clean` and then **destroying the box** — the second half is
@@ -375,9 +365,11 @@ exporter, again with `AGENTSHIP_OTEL_ALLOW_SAAS=1`.
 | `No API credentials for model 'openai/Qwen...'` | LiteLLM wants a key for any `openai/*` model, even our own gateway. `make app` sets a fake one for you | Only seen running the agent outside `make app` |
 | `Permission denied (publickey)` | Key added to RunPod *after* the box launched | Step 5, then destroy and relaunch — keys inject at start |
 | `Connection refused` | Using port 22 on RunPod | Use the port from Direct TCP |
-| `make ssh` connects but `127.0.0.1` is dead | Using the `ssh.runpod.io` proxy | Use Direct TCP |
-| `make fleet-lambda` dies installing k3s | It is a container, not a host | Rebook as Instant Cluster / bare metal |
-| Nothing on the fleet reachable from the laptop | Services are `ClusterIP`, which exists only inside the cluster | NodePorts 30800 / 30801 / 30030 |
+| The tunnel connects but `127.0.0.1` is dead | Using the `ssh.runpod.io` proxy | Use Direct TCP |
+| `make fleet-runpod-ssh` says "Address already in use" | A tunnel is already open, or something local holds :8080 | Close the other terminal, or `lsof -nP -iTCP:8080` |
+| `make fleet-runpod` says it worked but nothing changed | Fixed — it stops a running fleet first now. If you see this on an old checkout, `make fleet-runpod-down` first | `make fleet-runpod-status` |
+| Grafana loads but every panel is empty | The tunnel is closed, or Prometheus is scraping ports the fleet is not on | `make fleet-runpod-smoke-test` names which |
+| The agent says it will look something up, then answers from memory | vLLM was started without the tool-call parser, so the call was dropped with no error | `make fleet-runpod` to relaunch the workers |
 | `make app` will not start | No `DEEPGRAM_API_KEY` | Step 8 |
 | The agent answers but cites nothing | `web_search` has no key | Step 9 |
 

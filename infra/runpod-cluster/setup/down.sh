@@ -75,7 +75,7 @@ fi
 
 # The ports the fleet holds, so a restart does not meet its own corpse.
 for port in 8000 8001 8002 8100 8101 8102 8080 50051 9090 31495; do
-  pid=$(ss -lptn "sport = :$port" 2>/dev/null | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2)
+  pid=$(ss -lptn "sport = :$port" 2>/dev/null | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2) || true
   [[ -n "$pid" ]] && note "note: :$port still held by $(ps -p "$pid" -o comm= 2>/dev/null) (pid $pid)"
 done
 exit 0

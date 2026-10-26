@@ -1,89 +1,82 @@
-# Dodona.
+# Dodona — RunPod, one vLLM per card, data parallel.
 #
-#   make fleet-lambda   k3s + HAMi + KEDA + the fleet + gateway  (needs a host)
-#   make fleet-runpod   the same fleet as processes, no k3s     (any box)
-#   make fleet-runpod-smoke-test  prove it works: a completion, scrapes, dashboards
-#   make fleet-runpod-ssh   tunnel — gateway, grafana, prometheus, workers
-#   make fleet-runpod-status  model, KV pressure, GPU placement, restarts
-#   make fleet-runpod-logs  follow the detached fleet's log
-#   make fleet-runpod-down  stop it
-#   make observability  Prometheus + Grafana + DCGM
-#   make ssh            tunnel — Grafana, the app and the fleet in your browser
-#   make doctor         is .env complete? run this before the first bring-up
-#   make app            the voice app — LiveKit, the agent worker, the UI
-#   make test           run the control plane here, no GPU needed
-#   make load           run a load test ON THE BOX, pull the bundle back
-#   make logs           pod logs, scrape noise stripped
-#   make kv             KV connector state and the transfer counters
+# The fleet, in order:
+#   make doctor         is .env complete? run this first
+#   make fleet-runpod   THE command: sync, install, start, open the tunnel
+#   make fleet-runpod-smoke-test  prove it works: completion, tools, scrapes, dashboards
+#   make fleet-runpod-status      model, KV pressure, card placement, uptime
+#   make fleet-runpod-logs        follow it (it runs detached)
+#   make fleet-runpod-down        stop it
+#   make fleet-runpod-ssh         the tunnel on its own, if you closed it
+#
+# Then:
+#   make app            the voice app — AgentShip and the UI on :3000
+#   make load           a load test ON THE BOX, bundle pulled back
+#   make test           the control plane here, no GPU needed
 #   make clean          wipe the box back to bare metal
+#
+# Other topologies are branches, not flags: lambda-cluster (k3s + HAMi + KEDA),
+# lambda-pd-disaggregation, runpod-tp-cluster.
 #
 # Anything more specific is a plain python or bash line in docs/COMMANDS.md.
 # Make is the workflow, not a menu.
 .DEFAULT_GOAL := help
 # `app` must be here: a directory of that name exists, so without it make
 # reports "`app' is up to date" and runs nothing.
-.PHONY: help fleet-lambda fleet-runpod fleet-runpod-down fleet-runpod-logs fleet-runpod-status fleet-runpod-ssh fleet-runpod-smoke-test observability ssh test load logs kv app doctor clean
+.PHONY: help fleet-runpod fleet-runpod-down fleet-runpod-logs fleet-runpod-status fleet-runpod-ssh fleet-runpod-smoke-test test load app doctor clean
 
 SHELL := /usr/bin/env bash
 SETUP := infra/setup
 PY    ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-# control/ holds gateway, router and edge; cluster/ holds observability and
-# kernels. Both are import roots — same as tests/pytest.ini.
-export PYTHONPATH := $(CURDIR)/infra/control:$(CURDIR)/infra/lambda-cluster
+# infra/control holds gateway, router, edge and kernels — one import root, the
+# same one tests/pytest.ini uses.
+export PYTHONPATH := $(CURDIR)/infra/control
 
 help:
 	@echo ""
-	@echo "  Dodona"
+	@echo "  Dodona — RunPod, one vLLM per card, data parallel"
 	@echo ""
-	@echo "   make fleet-lambda   k3s + HAMi + KEDA + fleet + gateway   (needs a host)"
-	@echo "   make fleet-runpod   THE ONE COMMAND on a container box:"
+	@echo "  Bring it up"
+	@echo "   make doctor         is .env complete? names what is missing"
+	@echo "   make fleet-runpod   THE ONE COMMAND:"
 	@echo "                       sync, install, start the fleet, open the tunnel"
-	@echo "   make fleet-runpod-smoke-test  prove it works, end to end"
-	@echo "   make fleet-runpod-ssh   tunnel — gateway, grafana, prometheus"
-	@echo "   make fleet-runpod-status  is it healthy? model, KV, GPUs, restarts"
-	@echo "   make fleet-runpod-logs  follow it          (it runs detached)"
-	@echo "   make fleet-runpod-down  stop it"
-	@echo "   make observability  Prometheus + Grafana + DCGM"
-	@echo "   make ssh            tunnel — Grafana :31495, app :30030, fleet :30800"
-	@echo "   make doctor         is .env complete? before the first bring-up"
-	@echo "   make app            voice app — LiveKit + worker + UI on :3000"
-	@echo "   make test           run the control plane here, no GPU needed"
+	@echo ""
+	@echo "  Check it"
+	@echo "   make fleet-runpod-smoke-test  a completion, a tool call, scrapes, dashboards"
+	@echo "   make fleet-runpod-status      model, KV pressure, cards, uptime"
+	@echo "   make fleet-runpod-logs        follow it        (it runs detached)"
+	@echo ""
+	@echo "  Use it"
+	@echo "   make app            voice + text app on :3000, through the gateway"
 	@echo "   make load           load test ON THE BOX  (ARGS=\"--sessions 32\")"
-	@echo "   make logs           pod logs  (ARGS=\"decode --follow\")"
-	@echo "   make kv             did the KV hop move bytes? connector + counters"
-	@echo "   make clean          wipe the box: workloads, helm, k3s, engines"
 	@echo ""
-	@echo "  First run:  cp .env.example .env   # set BOX and SSH_KEY"
-	@echo "              make fleet-lambda && make observability && make ssh"
+	@echo "  Stop it"
+	@echo "   make fleet-runpod-down  stop the fleet"
+	@echo "   make clean              wipe the box back to bare metal"
 	@echo ""
-	@echo "  Redo from scratch:  make clean && make fleet-lambda"
+	@echo "  No GPU needed"
+	@echo "   make test           the control plane, locally"
 	@echo ""
-	@echo "  Both bring-up targets are safe to re-run."
-	@echo "  Stopping, logs, load, one-off tools: COMMANDS.md"
+	@echo "  First run:  cp .env.example .env   # BOX, SSH_KEY, SSH_PORT"
+	@echo "              make doctor && make fleet-runpod"
+	@echo ""
+	@echo "  fleet-runpod is safe to re-run: it stops a running fleet first."
+	@echo "  Grafana is at 127.0.0.1:31495 once the tunnel is open."
 	@echo ""
 
-# venv first, so this works on a fresh clone with nothing installed.
-fleet-lambda:
-	@[ -d .venv ] || { python3 -m venv .venv && .venv/bin/pip install -qU pip \
-	  && .venv/bin/pip install -qr requirements.txt; }
-	@bash $(SETUP)/up.sh fleet-lambda
 
-# One vLLM per GPU, the gateway in front, no orchestrator. For boxes that are
-# containers — which is most rented GPUs — where `make fleet-lambda` cannot install
-# k3s. Same control plane, same dashboards, same reports; what it drops is
-# HAMi's enforced slices and KEDA.
+# One vLLM per card, the gateway in front, no orchestrator. Drives the box over
+# ssh — syncs, installs vLLM, starts the fleet detached, then opens the tunnel.
+# Safe to re-run: it stops a running fleet first.
 #
-# Drives the box over ssh, like every other target here — syncs, installs vLLM
-# (which `make fleet-lambda` does not need: there the pods bring their own), then
-# starts the workers. Leave it running; Ctrl-C stops the fleet.
+# venv first, so this works on a fresh clone with nothing installed.
 fleet-runpod:
 	@[ -d .venv ] || { python3 -m venv .venv && .venv/bin/pip install -qU pip \
 	  && .venv/bin/pip install -qr requirements.txt; }
 	@bash $(SETUP)/up.sh fleet-runpod
 
-# Stops what fleet-runpod started. The Kubernetes path's equivalent is
-# `make clean`, which deletes the workloads and k3s with them.
+# Stops what fleet-runpod started.
 fleet-runpod-down:
 	@bash $(SETUP)/up.sh fleet-runpod-down
 
@@ -97,8 +90,7 @@ fleet-runpod-logs:
 fleet-runpod-status:
 	@bash $(SETUP)/up.sh fleet-runpod-status
 
-# `make ssh` forwards the Kubernetes NodePorts, which do not exist here — that
-# is why :30030 Open WebUI never answered. This forwards what actually runs.
+# The tunnel. Leave it open — every URL is 127.0.0.1 on your Mac.
 fleet-runpod-ssh:
 	@bash $(SETUP)/up.sh fleet-runpod-ssh
 
@@ -108,26 +100,11 @@ fleet-runpod-ssh:
 fleet-runpod-smoke-test:
 	@bash $(SETUP)/up.sh fleet-runpod-smoke-test
 
-observability:
-	@bash $(SETUP)/up.sh observability
-
-ssh:
-	@bash $(SETUP)/up.sh tunnel
-
 # On the box, so no tunnel sits in the latency path. Bundles land in
 # infra/metrics/<run>/load.json. Override anything:  make load ARGS="--sessions 32"
 LOAD_ARGS ?= --sessions 8 --seed 1 --run baseline
 load:
 	@bash $(SETUP)/up.sh load $(if $(ARGS),$(ARGS),$(LOAD_ARGS))
-
-# Keeps the HuggingFace cache; those weights are on disk, not the GPU.
-# Prints and exits so it can be piped:  make logs | grep -i hcas
-logs:
-	@bash $(SETUP)/up.sh logs $(ARGS)
-
-# The one diagnostic that is always wanted and always buried in a log.
-kv:
-	@bash $(SETUP)/up.sh kv
 
 app: ## the voice app — AgentShip (agent, ears, mouth) and the UI
 	@bash app/run.sh
@@ -138,8 +115,12 @@ app: ## the voice app — AgentShip (agent, ears, mouth) and the UI
 doctor:
 	@$(PY) $(SETUP)/check_env.py
 
+# Stops the fleet and removes the venv, logs, prometheus/grafana data and the
+# binaries we installed. KEEPS the model weights — they are ~19 GB on disk and
+# re-downloading them costs the start of your next bring-up:
+#   make clean ARGS=--purge-models    drop those too, handing the box back
 clean:
-	@bash $(SETUP)/up.sh clean
+	@bash $(SETUP)/up.sh clean $(ARGS)
 
 # No GPU required. Compiles, checks every doc link, runs the suite, then
 # exercises the gateway and guardrail behaviours end to end.

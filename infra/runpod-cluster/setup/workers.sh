@@ -3,21 +3,15 @@
 #
 #   make fleet-runpod        (this script, on the GPU box)
 #
-# Run on: the GPU box. The Kubernetes path is `make fleet-lambda`, and it needs a
-# host — a machine where systemd is PID 1. Most rented GPUs are containers, so
-# this exists to run the same control plane without k3s, HAMi or KEDA.
+# Run on: the GPU box, over ssh — `make fleet-runpod` does that for you.
 #
-# What this replaces, manifest by manifest:
+# Processes, not pods. A rented GPU is usually a container, where k3s cannot
+# install itself at all, so there is no orchestrator here: this script IS the
+# Deployment controller, and the job it is doing is start order, health gating
+# and restart-on-crash. That is `supervise` below.
 #
-#   k8s/fleet/vllm-prefill.yaml    one engine.sh, pinned to GPU 0
-#   k8s/fleet/vllm-decode.yaml     two more, pinned to the remaining GPUs
-#   k8s/gateway/orch-serve.yaml    python -m gateway.serve
-#   k8s/mooncake/mooncake.yaml     python -m router.mooncake
-#   k8s/router/keda-*.yaml         nothing — scaling is minutes-slow and is
-#                                  taught with that number rather than shown
-#
-# The Deployment controller's real job on a single node was start order,
-# health gating and restart-on-crash. That is `supervise` below.
+# The Kubernetes version of this fleet lives on the `lambda-cluster` branch,
+# with HAMi slices and KEDA. Nothing on this path needs systemd to be PID 1.
 set -euo pipefail
 set -m
 
@@ -46,10 +40,14 @@ PY="${PY:-$ROOT/.venv/bin/python}"
 
 # The Makefile exports PYTHONPATH — on the Mac. These processes run on the box,
 # reached over ssh, and inherit none of it. Without the first line
-# `python -m router.mooncake` is ModuleNotFoundError; without the second,
+# `python -m gateway.serve` is ModuleNotFoundError; without the second,
 # engine.sh's bare `vllm` is "command not found" even though pip installed it
 # into .venv/bin.
-export PYTHONPATH="$ROOT/infra/control:$ROOT/infra/lambda-cluster${PYTHONPATH:+:$PYTHONPATH}"
+#
+# One root: infra/control holds gateway, router, edge and kernels. It used to
+# also list infra/lambda-cluster, for a `kernels` package that moved here when
+# the Kubernetes path became its own branch.
+export PYTHONPATH="$ROOT/infra/control${PYTHONPATH:+:$PYTHONPATH}"
 export PATH="$ROOT/.venv/bin:$PATH"
 
 say()  { printf '\033[1;36m==> %s\033[0m\n' "$*"; }

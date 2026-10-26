@@ -55,7 +55,7 @@ for i in $(seq 0 $(( WORKER_COUNT - 1 ))); do
   # steadily for twenty minutes, because the crash loops of an earlier, broken
   # fleet were still in the file. What matters is whether THIS process is up
   # and has stayed up.
-  pid=$(ss -lptnH "sport = :$port" 2>/dev/null | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2)
+  pid=$(ss -lptnH "sport = :$port" 2>/dev/null | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2) || true
   up=$(ps -p "${pid:-0}" -o etimes= 2>/dev/null | tr -d ' ')
   up=${up:-0}
 

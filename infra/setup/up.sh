@@ -1,29 +1,23 @@
 #!/usr/bin/env bash
 # Drive the GPU box from your Mac. Normally called by the Makefile.
 #
-#   up.sh fleet-lambda    k3s + HAMi + KEDA → fleet → gateway → capacity check
-#   up.sh fleet-runpod    the same fleet as processes — no k3s, for container boxes
-#   up.sh fleet-runpod-down      stop a process fleet (fleet-runpod)
-#   up.sh fleet-runpod-logs      follow the detached fleet's log
-#   up.sh fleet-runpod-status    what the fleet is actually doing
-#   up.sh fleet-runpod-ssh       tunnel for the process fleet's ports
-#   up.sh fleet-runpod-smoke-test  prove it works, end to end
-#   up.sh observability   Prometheus + Grafana + DCGM
-#   up.sh tunnel          forward the box's ports to this Mac
-#   up.sh engine          ONE worker on the whole card, for comparison only
-#   up.sh down            stop the engine and Open WebUI
-#   up.sh logs [pool] [--follow] [--raw]   pod logs, scrape noise stripped
-#   up.sh check           re-run the capacity checks against the whole-card engine
-#   up.sh load [args]     run a load test ON THE BOX, pull the bundle back
-#   up.sh kv              connector state and the transfer counters
-#   up.sh clean           wipe the box back to bare metal
+#   up.sh fleet-runpod            one vLLM per card, gateway in front, then the tunnel
+#   up.sh fleet-runpod-down       stop it
+#   up.sh fleet-runpod-logs       follow the detached fleet's log
+#   up.sh fleet-runpod-status     what the fleet is actually doing
+#   up.sh fleet-runpod-ssh        tunnel for the fleet's ports
+#   up.sh fleet-runpod-smoke-test prove it works, end to end
+#   up.sh engine                  ONE worker on the whole card, for comparison only
+#   up.sh down                    stop that engine
+#   up.sh load [args]             run a load test ON THE BOX, pull the bundle back
+#   up.sh clean                   wipe the box back to bare metal
 #
 # Every remote step is one of the scripts next to this one, run over ssh. This
 # file only sequences them — if a step is wrong, fix that script, not this one.
 
 # Bash, not sh: arrays and [[ ]]. Under dash load_env is a syntax error.
 if [ -z "${BASH_VERSION:-}" ]; then
-  echo "up.sh needs bash:  bash infra/setup/up.sh fleet-lambda   (or: make fleet-lambda)" >&2
+  echo "up.sh needs bash:  bash infra/setup/up.sh fleet-runpod   (or: make fleet-runpod)" >&2
   exit 1
 fi
 set -euo pipefail
@@ -80,23 +74,6 @@ sync_project() {
   bash infra/setup/sync.sh
 }
 
-# Asked before anything is synced or installed, because the answer invalidates
-# the whole bring-up and the box cannot tell us later in any useful way: k3s
-# fails two minutes in, naming systemd and not the container it is trapped in.
-require_a_host() {
-  local init
-  init=$("${SSH[@]}" "$BOX" 'cat /proc/1/comm 2>/dev/null' | tr -d '\r')
-  [[ "$init" == "systemd" ]] && return 0
-  echo
-  fail "  $BOX is a container, not a host — PID 1 is ${init:-unknown}.
-
-  k3s installs as a systemd service and HAMi slices the GPU through the kernel.
-  Neither works inside someone else's container, so nothing in this bring-up
-  can succeed here.
-
-  On RunPod that means a standard Pod. Book an Instant Cluster or a bare-metal
-  instance instead — see PREREQUISITES.md step 6."
-}
 
 show_card() {
   announce "card"
@@ -143,51 +120,6 @@ wait_for_engine() {
   fail "Engine did not answer in 15 min.  bash infra/setup/up.sh logs"
 }
 
-check_capacity() {
-  announce "capacity  —  checks against the running engine"
-  on_box "python3 infra/lambda-cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG" || fail \
-"    The capacity check failed, which means the arithmetic is wrong rather than
-    the cluster. Read docs/project/01-capacity.md before going further."
-}
-
-start_fleet() {
-  announce "fleet  —  k3s + HAMi + KEDA, then one prefill and one decode"
-  # Harmless if nothing is running: the slices need every byte of the card, so
-  # any whole-card engine from `up.sh engine` has to go first.
-  stop_engine
-  on_box_tty 'bash infra/lambda-cluster/setup/fleet.sh'
-}
-
-start_observability() {
-  announce "observability  —  Prometheus + Grafana + DCGM"
-  on_box_tty 'bash infra/lambda-cluster/setup/observability.sh'
-}
-
-open_tunnel() {
-  announce "tunnel  —  ports forwarded to this Mac. Leave this window open."
-  cat <<'PORTS'
-    http://127.0.0.1:30030   Open WebUI   <- talk to it here
-    http://127.0.0.1:31495   Grafana      admin / password from `make observability`
-    http://127.0.0.1:8080    gateway      /metrics, /v1/chat/completions
-    http://127.0.0.1:30800   vLLM prefill (30801 decode) — bypasses the gateway
-PORTS
-  exec bash infra/lambda-cluster/setup/tunnel.sh
-}
-
-# ── commands ───────────────────────────────────────────────────────────────
-
-# No venv and no whole-card engine. The pods bring their own vLLM in the
-# container image, and the capacity checks run against a pod inside fleet.sh
-# because a whole-card measurement cannot be extrapolated to a slice anyway.
-cmd_fleet_lambda() {
-  require_a_host
-  sync_project
-  show_card
-  start_fleet
-  announce "cluster up"
-  echo "    make observability   Prometheus + Grafana"
-  echo "    make ssh             open the tunnel"
-}
 
 # One worker on the whole card, for the comparison measurement only. Needs the
 # box venv, which is why it is not part of `make fleet-lambda`.
@@ -203,7 +135,7 @@ cmd_engine() {
 }
 
 # The fleet without an orchestrator, for boxes that are containers — which is
-# most rented GPUs. Deliberately does NOT call require_a_host: being a container
+# most rented GPUs. Being a container
 # is the reason this command exists.
 #
 # It installs vLLM, which `make fleet-lambda` does not need: there the pods bring
@@ -501,55 +433,15 @@ cmd_fleet_down() {
   on_box "$(workers_env) bash infra/runpod-cluster/setup/down.sh"
 }
 
-cmd_observability() {
-  require_a_host
-  sync_project
-  start_observability
-  announce "observability up"
-  echo "    make ssh   then open http://127.0.0.1:31495"
-}
-
-# Only the whole-card engine. The pods are k3s's and `make fleet-lambda` owns them;
-# `docker` on this box needs sudo anyway.
+# Only the whole-card engine from `up.sh engine`. The fleet has its own stop,
+# because it has supervisors that would restart a plain pkill.
 cmd_down() {
   announce "stopping the whole-card engine"
   "${SSH[@]}" "$BOX" '{ pkill -u "$(id -u)" -f "[v]llm serve" || true; }; echo stopped'
-  echo "    Pods keep running:  sudo k3s kubectl delete -f infra/lambda-cluster/k8s/fleet/"
-  echo "    The box is still billing. Stop the instance in your provider's console."
+  echo "    The fleet is separate:  make fleet-runpod-down"
+  echo "    The box is still billing. Stop the pod in your provider's console."
 }
 
-# Whatever is actually serving: the pods if the fleet is up, otherwise the
-# whole-card engine's log. PRINTS AND EXITS by default so it can be piped into
-# grep — a log you cannot pipe is a log you have to read by eye.
-#
-#   up.sh logs                        last 200 lines of prefill, then exit
-#   up.sh logs decode                 the other pool
-#   up.sh logs prefill --follow       tail it
-cmd_logs() {
-  local pool="prefill" follow=0 raw=0 arg
-  for arg in "$@"; do
-    case "$arg" in
-      -f|--follow)    follow=1 ;;
-      --raw)          raw=1 ;;
-      prefill|decode) pool="$arg" ;;
-    esac
-  done
-  local flags="--tail=400"
-  (( follow )) && flags="-f --tail=120"
-  # Health and metrics scrapes are ~95% of the volume and never the answer.
-  # Unfiltered, 200 lines is 200 scrapes and the startup lines you actually
-  # want have long scrolled away. --raw keeps everything.
-  local strip='grep -vE "(GET /metrics|GET /health|GET /ping) HTTP"'
-  (( raw )) && strip="cat"
-  exec "${SSH[@]}" "$BOX" "
-    if sudo test -f /etc/rancher/k3s/k3s.yaml && sudo k3s kubectl get deploy vllm-$pool >/dev/null 2>&1; then
-      sudo k3s kubectl logs $flags -l app=vllm-$pool | $strip
-    elif [ $follow -eq 1 ]; then
-      tail -f ~/$REMOTE_DIR/$ENGINE_LOG | $strip
-    else
-      tail -400 ~/$REMOTE_DIR/$ENGINE_LOG | $strip
-    fi"
-}
 
 # Load runs ON THE BOX, against 127.0.0.1:8080. Over the ssh tunnel your WAN
 # round-trip lands inside every TTFT and concurrency serialises through one TCP
@@ -567,43 +459,16 @@ cmd_load() {
 # Syncs first: this deletes things, so it must be the current script doing it.
 cmd_clean() {
   sync_project
-  announce "clean  —  deleting workloads, helm releases, k3s, stray engines"
-  on_box_tty 'bash infra/lambda-cluster/setup/clean.sh'
+  announce "clean  —  stopping the fleet and removing what we installed"
+  on_box_tty "bash infra/runpod-cluster/setup/clean.sh $*"
 }
 
-# Everything about the KV connector, in one place. The init lines are at pod
-# startup and scroll away within minutes; the counters are the live answer.
-cmd_kv() {
-  announce "KV connector"
-  on_box '
-    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-    for pool in prefill decode; do
-      echo "-- $pool --"
-      sudo k3s kubectl logs --tail=-1 -l app=vllm-$pool 2>/dev/null \
-        | grep -iE "mooncake|transfer_id|HCAs|Using .* transport|No RDMA" \
-        | tail -6 || echo "   no connector lines"
-    done
-    echo "-- what the engine counts (decode) --"
-    curl -s localhost:30801/metrics \
-      | grep -E "^vllm:(external_prefix_cache|prompt_tokens_by_source)" \
-      | sed "s/{engine=\"0\",model_name=\"[^\"]*\"/{/"
-  '
-  echo
-  echo "    external_kv_transfer > 0  the hop is real"
-  echo "    = 0 with queries > 0      connector consulted, returning nothing"
-}
 
-# Sync first: this runs the copy on the box, and a stale one checks nothing.
-cmd_check() {
-  rsync -az -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new" \
-    infra/lambda-cluster/setup/gate.py "$BOX:~/$REMOTE_DIR/infra/lambda-cluster/setup/gate.py"
-  on_box "python3 infra/lambda-cluster/setup/gate.py --log ~/$REMOTE_DIR/$ENGINE_LOG"
-}
 
 main() {
   local command="${1:-}"
   case "$command" in
-    fleet-lambda|fleet-runpod|fleet-runpod-down|fleet-runpod-logs|fleet-runpod-status|fleet-runpod-ssh|fleet-runpod-smoke-test|observability|tunnel|engine|down|logs|check|clean|load|kv) ;;
+    fleet-runpod|fleet-runpod-down|fleet-runpod-logs|fleet-runpod-status|fleet-runpod-ssh|fleet-runpod-smoke-test|engine|down|clean|load) ;;
     # Print the header block by shape, not by line number: `sed -n '2,14p'`
     # dropped `clean` off the end the moment two commands were added, and the
     # test that catches it is the only reason anyone noticed.
@@ -612,21 +477,15 @@ main() {
   esac
   load_env
   case "$command" in
-    fleet-lambda)  cmd_fleet_lambda ;;
     fleet-runpod)  cmd_fleet_runpod ;;
     fleet-runpod-down)    cmd_fleet_down ;;
     fleet-runpod-logs)    cmd_logs_fleet ;;
     fleet-runpod-status)  cmd_fleet_status ;;
     fleet-runpod-ssh)     cmd_fleet_runpod_ssh ;;
     fleet-runpod-smoke-test) cmd_fleet_smoke ;;
-    observability) cmd_observability ;;
     engine)        cmd_engine ;;
-    tunnel)        open_tunnel ;;
     down)          cmd_down ;;
-    logs)          shift; cmd_logs "$@" ;;
-    check)         cmd_check ;;
-    kv)            cmd_kv ;;
-    clean)         cmd_clean ;;
+    clean)         shift; cmd_clean "$@" ;;
     load)          shift; cmd_load "$@" ;;
   esac
 }

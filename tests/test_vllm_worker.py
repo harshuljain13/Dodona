@@ -9,7 +9,7 @@ from gateway.types import Request
 
 from conftest import fleet_is_answering
 
-pytestmark = getattr(pytest.mark, "lambda")
+pytestmark = pytest.mark.live
 
 @pytest.mark.skipif(not fleet_is_answering(), reason="no vLLM answering on PREFILL_URLS")
 def test_vllm_short_prompt_snapshot() -> None:

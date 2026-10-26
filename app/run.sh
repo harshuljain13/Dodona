@@ -70,12 +70,13 @@ reclaim "$AGENTSHIP_PORT"
 if ! curl -sf -m 2 http://127.0.0.1:8080/v1/models >/dev/null 2>&1; then
   echo "    WARNING: the gateway is not answering on :8080."
   echo "    Open the tunnel first, or the agent will have nothing to think with:"
-  echo "      make fleet-runpod-ssh   (rented box)   |   make ssh   (kubernetes)"
+  echo "      make fleet-runpod          brings the fleet up and opens the tunnel"
+  echo "      make fleet-runpod-ssh      the tunnel on its own, if you closed it"
 fi
 
 # Fresh clone: the app's deps are in requirements-app.txt, not requirements.txt,
-# so `make fleet-lambda` has not installed them. Same for the UI's node_modules.
-# Install rather than complain — `make fleet-lambda` builds its venv the same way.
+# so the fleet bring-up has not installed them. Same for the UI's node_modules.
+# Install rather than complain — `make fleet-runpod` builds its venv the same way.
 [[ -d .venv ]] || python3 -m venv .venv
 if ! .venv/bin/python -c 'import agentship_voice, pipecat' 2>/dev/null; then
   say "python deps  —  requirements-app.txt, first run only"

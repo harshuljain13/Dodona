@@ -2,7 +2,7 @@
 
 One vLLM per GPU, the gateway in front, started by a shell script instead of
 Kubernetes. For boxes that are **containers** — which is most rented GPUs, and
-where [`../lambda-cluster/`](../lambda-cluster/README.md) cannot run at all:
+where the [Kubernetes path](https://github.com/harshuljain13/Dodona/tree/lambda-cluster) cannot run at all:
 k3s installs itself as a systemd service, and a container has no systemd.
 
 ```bash
@@ -17,7 +17,7 @@ make fleet-runpod-down         # stop it
 |---|---|
 | `setup/` | `workers.sh` starts the fleet · `down.sh` stops it · `status.sh` · `smoke.sh` · `observability.sh` installs prometheus and grafana |
 | `observability/` | `dashboards.py` generates the four screens · `gpu_exporter.py` · `prometheus.yml.tmpl` · `grafana/` provisioning |
-| [`../setup/`](../setup/) | shared with lambda-cluster: `up.sh`, `sync.sh`, `engine.sh`, `box_packages.sh` |
+| [`../setup/`](../setup/) | drives the box from your Mac: `up.sh`, `sync.sh`, `engine.sh`, `box_packages.sh`, `gate.py` |
 | [`../control/`](../control/) | the gateway, router and guardrails — **identical on both paths** |
 
 ## The layout

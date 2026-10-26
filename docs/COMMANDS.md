@@ -7,31 +7,54 @@ back to the runbook — it has a failure-mode table per step.
 Every block is marked **`[Mac]`** or **`[GPU]`**. Getting that wrong is the most
 common way to waste ten minutes.
 
-> **Status: untested.** Nothing in this file has been run end to end yet. Steps
-> marked ⚠ are the ones most likely to need adjusting on first contact.
-
 ---
 
 ## The short version
 
 ```bash
-cp .env.example .env     # set BOX, SSH_KEY, SSH_PORT
-make fleet-lambda             # then: make observability && make ssh
+cp .env.example .env          # BOX, SSH_KEY, SSH_PORT — see PREREQUISITES.md
+make doctor                   # is .env complete?
+
+make fleet-runpod             # sync, install, start the fleet, open the tunnel
 ```
 
-There are four targets and no more: `fleet-lambda`, `observability`, `ssh`, `test`.
-`make fleet-lambda` runs the steps below over ssh — it is not a second
-implementation, it calls the same scripts in `infra/lambda-cluster/setup/`. **If a step is
-wrong, fix the script, not `infra/setup/up.sh`.**
+Leave that terminal open — it is holding the tunnel. In a second terminal:
 
-It needs **no venv and no vLLM on the box**: the pods bring their own vLLM in
-the container image, and `gate.py` is stdlib-only. The whole-card engine below
-is a separate, optional measurement — `bash infra/setup/up.sh engine` — kept
-because comparing it against a slice is what shows that CUDA-graph overhead
-does not extrapolate. `make fleet-lambda` does not need it.
+```bash
+make fleet-runpod-smoke-test  # a completion, a tool call, scrapes, dashboards
+make app                      # the voice + text app on :3000
+```
+
+`make fleet-runpod` calls the scripts in `infra/runpod-cluster/setup/` over ssh.
+It is not a second implementation of them. **If a step is wrong, fix that
+script, not `infra/setup/up.sh`.**
+
+It is safe to re-run: it stops a running fleet before starting a new one.
+Re-running it used to be a silent no-op — `workers.sh` aborted on `check_ports`
+because the old fleet held them, while the readiness poll got its answers from
+that same old fleet, so the bring-up reported success having changed nothing.
+
+### When something is wrong
+
+```bash
+make fleet-runpod-status      # model, KV pressure, cards, uptime, one fleet?
+make fleet-runpod-logs        # follow it — it runs detached
+make fleet-runpod-down        # stop it
+```
+
+`status` answers the questions listening ports do not: is each worker serving
+the model you think, is it on its own card, how full is its KV cache, and is
+there exactly one fleet. Every one of those has been wrong while the ports
+looked fine.
 
 Everything after this point is that sequence broken out, which is what you want
 when something fails and you need to run one piece at a time.
+
+> **The Kubernetes path is a branch**, not a target here:
+> [`lambda-cluster`](https://github.com/harshuljain13/Dodona/tree/lambda-cluster)
+> has k3s, HAMi slices and KEDA. `make observability`, `make ssh`, `make logs`
+> and `make kv` were its commands and are gone from this branch — the fleet
+> starts Prometheus and Grafana itself, and the tunnel comes up with it.
 
 ---
 
@@ -69,19 +92,26 @@ not your secrets.
 ## Step 2 — open the tunnel, and leave it open `[Mac]`
 
 ```bash
-bash infra/lambda-cluster/setup/tunnel.sh
+make fleet-runpod-ssh      # or it comes up with `make fleet-runpod`
 ```
 
 Gives you a shell on the box in `~/dodona`, with these ports forwarded back:
 
 | Port | What | Live after |
 |---|---|---|
-| `PORT_BASE`, +1, +2 | the three vLLM workers (8100–8102 by default) | `make fleet-runpod` |
-| 8000 | vLLM, whole card | `make fleet-lambda`, before the fleet |
-| 8080 | the gateway | `make fleet-lambda` |
-| 30800, 30801 | vLLM prefill / decode NodePorts | `make fleet-lambda` |
-| 30030, 30080 | Open WebUI / gateway NodePorts | `make fleet-lambda` |
-| 31495 | Grafana | `make observability` |
+| `PORT_BASE`, +1, … | one vLLM per card (8100, 8101, … by default) | `make fleet-runpod` |
+| 8080 | **the gateway** — guard, admit, place | `make fleet-runpod` |
+| 50051 | the KV ledger | `make fleet-runpod` |
+| 9090 | Prometheus | `make fleet-runpod` |
+| 31495 | **Grafana** — admin / `$GRAFANA_PASSWORD` | `make fleet-runpod` |
+| 9400 | the GPU exporter (`DCGM_FI_DEV_*` from nvidia-smi) | `make fleet-runpod` |
+| 8000 | vLLM holding the whole card | `up.sh engine`, a separate measurement |
+| 3000 | the voice + text app | `make app`, on your Mac |
+
+`PORT_BASE` is 8100 and not 8000 because RunPod's Jupyter template runs nginx on
+:8001 — which would be the second worker's port. vLLM's failure there is
+"Address already in use" on a loop *while the health check reports ready*,
+because nginx answers it.
 
 **Most GPU hosts allow only SSH inbound.** Everything is reached at `127.0.0.1:<port>`
 on the Mac — never the public IP. Open a second terminal and run `tunnel.sh` again if
@@ -322,11 +352,21 @@ docker exec open-webui curl -s http://host.docker.internal:8000/v1/models | head
 
 ## Step 7 — talk to it `[Mac]`
 
-Open **http://127.0.0.1:30030** — through the tunnel from step 2, not the public IP.
+```bash
+make app
+```
 
-**Gate: you have a conversation with it in a browser.** That is this step done, and
-it means the engine is good *by hand* before any control plane exists. Every later
-failure then has a much smaller search space.
+Then open **http://127.0.0.1:3000** — the voice and text app, talking to the GPU
+through the gateway on the tunnel from step 2. Type a question rather than
+speaking one for the first test: it exercises the same path and fails more
+legibly.
+
+**Gate: you get a sourced answer back.** That means guard, admit, place, the
+engine and the tools all worked. Every later failure then has a much smaller
+search space.
+
+Ask something substantive, not "hi" — a greeting takes no tools, so it proves
+nothing about the half of the path that calls `web_search`.
 
 ---
 

@@ -6,9 +6,15 @@ import re
 from prom import LATENCY_HISTOGRAMS, Grafana, Prom, panel_id, panel_queries
 
 
-def test_dashboard_queries_are_readable_from_the_json_we_deploy() -> None:
-    """The point of the module: plot what Grafana plots, from one source."""
-    queries = panel_queries("vllm")
+def test_dashboard_queries_are_readable_from_the_dashboards_we_deploy() -> None:
+    """The point of the module: plot what Grafana plots, from one source.
+
+    `engine`, not `vllm`: the dashboards are the four this branch provisions,
+    in request order, and they are built by calling the generator rather than
+    read from disk — they are generated on the box at fleet start and not
+    checked in, so a file read found nothing and every lookup returned None.
+    """
+    queries = panel_queries("engine")
     assert len(queries) >= 8, f"only found {len(queries)} panels"
     joined = " ".join(e for exprs in queries.values() for e in exprs)
     assert "vllm:" in joined
@@ -16,9 +22,15 @@ def test_dashboard_queries_are_readable_from_the_json_we_deploy() -> None:
 
 
 def test_panel_id_resolves_a_title_to_something_renderable() -> None:
-    assert isinstance(panel_id("vllm", "ttft"), int)
-    assert panel_id("mooncake", "delivered") is not None
-    assert panel_id("vllm", "no such panel") is None
+    """Matched on the words a reader would use, against real panel titles.
+
+    Not "ttft": the panel is called "Time to first token", because a dashboard
+    an audience reads should not be written in metric names.
+    """
+    assert isinstance(panel_id("engine", "time to first token"), int)
+    assert panel_id("gateway", "shed") is not None
+    assert panel_id("kv", "prefix") is not None
+    assert panel_id("engine", "no such panel") is None
 
 
 def test_quantiles_use_histogram_buckets_not_sorted_samples() -> None:
