@@ -100,3 +100,46 @@ button.cta.ghost { background: transparent; color: var(--muted); border: 1px sol
 .notice.bad { border-color: #6a1f22; color: #f85149; }
 .notice code { font-size: 12.5px; color: var(--text); }
 .notice .detail { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+
+
+/* The reading list. A deep research answer is only as checkable as its sources,
+   and these were being summarised to "3 results" and discarded — the agent knew
+   every title and URL and the screen showed none of them.
+
+   Two states, because they are different claims: a page the agent SCRAPED is
+   content it reasoned over; a search hit is a title it saw, possibly cited from
+   a one-line snippet. Read ones carry the accent and sort first. */
+.turn .sources {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-top: 10px; padding-top: 9px;
+  border-top: 1px solid var(--line);
+}
+.sources-head {
+  font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 2px; font-variant-numeric: tabular-nums;
+}
+.turn .source {
+  display: block; padding: 7px 10px; border-radius: 7px;
+  border: 1px solid transparent; text-decoration: none;
+  background: rgba(255, 255, 255, 0.02); transition: background 120ms, border-color 120ms;
+}
+.turn .source:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--line); }
+.turn .source b {
+  display: block; font-size: 13px; font-weight: 600; color: var(--fg);
+  /* One line. A long headline pushing the host onto its own row makes a list
+     of five sources read as a list of ten things. */
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.turn .source .host {
+  display: block; font-size: 11px; color: var(--muted); margin-top: 1px;
+}
+.turn .source .host i { font-style: normal; color: #3f9d6b; }
+.turn .source em {
+  display: block; font-style: normal; font-size: 12px; color: var(--muted);
+  margin-top: 4px; opacity: 0.85;
+  /* Two lines of the snippet: enough to judge relevance, not enough to turn
+     the transcript into a search results page. */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.turn .source.read { border-left: 2px solid #3f9d6b; }

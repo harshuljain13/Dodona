@@ -18,6 +18,22 @@ type Step = {
   detail?: string;
 };
 
+// A page the agent found or read. `web_search` returns
+// {query, provider, results: [{title, url, description}]} and `scrape_url` is
+// handed one url — so the agent's actual reading list is in the event stream
+// and was being summarised down to "3 results" and thrown away.
+//
+// `read` separates the two, and it is the distinction that matters in a deep
+// research answer: a search HIT is a title the agent saw, a scrape is a page it
+// actually took the content of. An agent citing something it only saw the
+// snippet of is the failure this makes visible.
+type Source = {
+  url: string;
+  title?: string;
+  description?: string;
+  read?: boolean;
+};
+
 // `pending` marks a turn still being streamed into. `at` is when it started, not
 // when it finished, so the gap to the next timestamp is how long the turn took.
 type Turn = {
@@ -27,7 +43,43 @@ type Turn = {
   at: number;
   pending?: boolean;
   steps?: Step[];
+  sources?: Source[];
 };
+
+//: Hostname only, for a compact byline under a title. A full URL wraps over
+//: three lines in a narrow column and buries the title it belongs to.
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url.slice(0, 40);
+  }
+}
+
+// Pull the reading list out of a tool result. Tolerant on purpose: the payload
+// arrives as a JSON string, the provider may change, and a research turn that
+// renders no sources is worse than one that renders a few imperfectly.
+function sourcesFrom(raw: unknown): Source[] {
+  let data: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (typeof data !== "object" || data === null) return [];
+  const results = (data as Record<string, unknown>).results;
+  if (!Array.isArray(results)) return [];
+  return results
+    .filter((r): r is Record<string, unknown> => typeof r === "object" && r !== null)
+    .map((r) => ({
+      url: String(r.url ?? ""),
+      title: typeof r.title === "string" ? r.title : undefined,
+      description: typeof r.description === "string" ? r.description : undefined,
+    }))
+    .filter((s) => s.url.startsWith("http"));
+}
 
 // The first words of `voice.fallback_text` in app/dodona.yaml. A failed voice
 // turn is spoken, not signalled — the adapter pushes this as a TextFrame and the
@@ -182,6 +234,25 @@ export default function Page() {
     [extend],
   );
 
+  // Merge by url, because a research turn searches several times and the same
+  // page comes back for more than one query. Later information wins: a page
+  // first seen as a search hit and later scraped becomes `read`, and that
+  // upgrade is the whole point of keeping them in one list.
+  const addSources = useCallback(
+    (found: Source[]) => {
+      if (!found.length) return;
+      extend((t) => {
+        const by = new Map((t.sources ?? []).map((s) => [s.url, s]));
+        for (const s of found) {
+          const prev = by.get(s.url);
+          by.set(s.url, prev ? { ...prev, ...s, read: prev.read || s.read } : s);
+        }
+        return { ...t, sources: [...by.values()] };
+      });
+    },
+    [extend],
+  );
+
   const openLive = useCallback(async (): Promise<WebSocket> => {
     if (live.current?.readyState === WebSocket.OPEN) return live.current;
     const res = await fetch("/api/voice");
@@ -205,6 +276,12 @@ export default function Page() {
           extend((t) => ({ ...t, text: t.text + (d.content ?? "") }));
           break;
         case "tool_call":
+          // A scrape is the agent committing to read one page. Record it now,
+          // so the source list shows what it is working on rather than only
+          // what it finished — a 20-second scrape is otherwise a silent gap.
+          if (typeof d.args?.url === "string") {
+            addSources([{ url: d.args.url, read: true }]);
+          }
           // The query, not just the tool name. "web_search…" tells you it did
           // something; `web_search · llm inference` tells you whether it
           // understood the question — which is the thing you actually want to
@@ -224,6 +301,7 @@ export default function Page() {
           // returns nothing and a search that was never made look identical
           // otherwise, and only one of them is a missing API key.
           addStep("result", String(d.tool ?? "tool"), summariseResult(d.result));
+          addSources(sourcesFrom(d.result));
           break;
         case "guard":
           addStep("guard", "guardrail", String(d.reason ?? d.detail ?? "refused"));
@@ -263,7 +341,7 @@ export default function Page() {
       });
     });
     return ws;
-  }, [extend]);
+  }, [extend, addStep, addSources]);
 
   const send = useCallback(async () => {
     const text = typed.trim();
@@ -565,6 +643,40 @@ export default function Page() {
                   <span className="step thinking">
                     <b>working…</b>
                   </span>
+                )}
+                {/* What it actually read. Under the answer, not above it: the
+                    answer is what you asked for, and the sources are how you
+                    check it — which is the order you want them in.
+
+                    `read` pages first. A page the agent scraped is evidence it
+                    reasoned over; a search hit is a title it saw and may have
+                    cited from a one-line snippet, and those are not the same
+                    claim. Spelling out which is which is the point. */}
+                {!!t.sources?.length && (
+                  <div className="sources">
+                    <span className="sources-head">
+                      {t.sources.filter((s) => s.read).length} read ·{" "}
+                      {t.sources.length} found
+                    </span>
+                    {[...t.sources]
+                      .sort((a, b) => Number(!!b.read) - Number(!!a.read))
+                      .map((src) => (
+                        <a
+                          key={src.url}
+                          className={`source ${src.read ? "read" : ""}`}
+                          href={src.url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          <b>{src.title || hostOf(src.url)}</b>
+                          <span className="host">
+                            {hostOf(src.url)}
+                            {src.read && <i> · read in full</i>}
+                          </span>
+                          {src.description && <em>{src.description}</em>}
+                        </a>
+                      ))}
+                  </div>
                 )}
               </div>
             ))
