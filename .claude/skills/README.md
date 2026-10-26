@@ -7,7 +7,7 @@ they describe.
 | Skill | Use it when |
 |---|---|
 | `dodona-stage` | Bringing up or debugging a stage from [`docs/RUNBOOK.md`](../../docs/RUNBOOK.md) |
-| `dodona-capacity` | A knob moved — card, model, slice size, context — and the arithmetic has to be redone |
+| `dodona-capacity` | A knob moved — card, model, `SLICE_MIB`, context, replica count — and the arithmetic has to be redone |
 | `dodona-run` | Running an experiment, or reading what one produced |
 | `dodona-docs` | A number changed and the docs have to stop disagreeing with each other |
 | `dodona-review` | Reviewing a diff, or before calling anything done |

@@ -25,7 +25,7 @@ notebook loses — and worse, nobody notices which one was wrong.
 ```python
 from prom import Prom, Grafana, panel_queries, panel_id
 
-p = Prom()                                   # :31490 through the tunnel
+p = Prom()                                   # :9090 through the tunnel
 p.quantiles("ttft", qs=(0.5, 0.9, 0.99))     # real p50/p90/p99
 p.query_range("vllm:kv_cache_usage_perc", minutes=30)
 panel_queries("vllm")                        # what Grafana actually plots
@@ -55,12 +55,21 @@ their PromQL is already reviewed and is what the cluster is judged by.
 
 **`rate(sum(x)[5m])` is invalid.** It must be `sum(rate(x[5m]))`. Grafana
 renders the first as an empty panel — indistinguishable from a metric that is
-genuinely zero. `tests/test_dashboards.py` enforces this.
+genuinely zero. `tests/test_runpod_dashboards.py` enforces this.
 
 **An empty panel can be correct.** Before debugging one, ask what emits the
-metric and whether that thing is deployed. Three panels here queried
-`mooncake_*`, emitted by a pod no script ever applied. `Prom.series_exist()`
-answers it: zero series means nothing scrapes it.
+metric and whether anything is in a position to move it. Two distinct cases,
+and they need different answers:
+
+- *Nothing scrapes it.* `Prom.series_exist()` settles it — zero series means
+  no target emits it. Four panels here queried `kube_*` on a box with no
+  Kubernetes, and stayed blank for a week.
+- *Something scrapes it and it is zero by construction.* `mooncake_*` on a
+  one-pool fleet: the target is up, the metric exists, and `queue.py` never
+  calls the bus, so the line is flat for the life of the fleet. This is the
+  more convincing disguise, and the generator does not build those panels —
+  a screen of flat zeros teaches an audience to discount empty graphs,
+  including the ones that are empty because admission control is working.
 
 **Two metrics one word apart.** `prefix_cache_hits` is the pod's own cache;
 `external_prefix_cache_hits` is the KV connector. An 87.9% local hit rate

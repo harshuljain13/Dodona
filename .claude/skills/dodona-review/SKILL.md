@@ -19,7 +19,7 @@ of them.
 | Check | Why |
 |---|---|
 | Does any number in the diff disagree with `docs/project/01-capacity.md`? | That file is the authority. A disagreement is a bug in one of the two, and it is usually not the authority |
-| Was `gpu_memory_utilization` applied to the **slice** or the card? | HAMi gives the pod a hard `gpumem` cap. Against the card instead of the slice is a 3× error here |
+| Can the KV pool actually reach the policy threshold under reachable load? | The run is INERT otherwise, and INERT looks exactly like a working baseline. `MAX_NUM_SEQS x tokens_per_request` has to exceed `threshold x pool_tokens` |
 | Was `head_dim` read from `config.json` or derived? | `hidden/heads` is wrong for Qwen3 by 60% |
 | Do quantized weights account for the **unquantized** embeddings and `lm_head`? | 2.03 GiB on Qwen2.5-7B — 39% of the footprint |
 | Are **both** lengths reported — `max_len` and the real send length? | The brief asks for both. They differ 16× here |
@@ -33,10 +33,12 @@ For every assertion in the diff, ask **what artifact backs this?**
 |---|---|
 | "concurrency is N" | the arithmetic, or a scrape |
 | "the policy fired" | `decisions.jsonl` rows with the signal value, plus a liveness verdict |
-| "the hop works" | `/hops` non-empty **and** `KV_BACKEND=mooncake` confirmed |
+| "the hop works" | **Do not claim it on this branch.** A ledger row is not a transfer: `KVBus.transfer` writes `{src,dst,req_id,tokens}` and `nccl.py`/`nixl.py` are `return`. Moving blocks needs `--kv-transfer-config` inside vLLM |
+| "routing is a choice" | two replicas with traffic on both, from `vllm:request_success_total` by `pod` — not a router log line |
+| "reuse saved a prefill" | `vllm:prompt_tokens_cached_total` against `vllm:prompt_tokens_total`, not a hit-rate gauge read once |
 | "TTFT is X" | vLLM's metrics, from a **warm** replica |
 | "throughput improved" | token counts alongside the wall time |
-| "three workers" | `nvidia-smi` showing three processes, none above its slice |
+| "N workers" | `nvidia-smi` showing N processes AND `fleet-runpod-status` reporting `fleets: 1` — a second fleet halves the memory of both |
 
 A claim with no artifact is not a finding. Either get the artifact or mark it `TBM`.
 

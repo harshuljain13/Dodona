@@ -84,7 +84,8 @@ tell you it happened.
 |---|---|
 | **TTFT from the client** | The gateway synthesises SSE from a completed response, so client-side TTFT measures the whole generation. Take it from vLLM's metrics |
 | **TTFT from a cold replica** | `READY` precedes serving by minutes. Warm, then re-quote. On the brief's bad-answer list |
-| **Hops when `KV_BACKEND` is not mooncake** | `nccl.py` and `nixl.py` return immediately. An empty `/hops` panel under those means nothing at all |
+| **Hops as evidence of a transfer** | Every backend is bookkeeping: `nccl.py` and `nixl.py` `return`, and the mooncake store appends to a dict. A hop count measures the ROUTER, never the network |
+| **429s counted as capacity refusals** | A 429 is the per-tenant quota — client-attributable, and nothing to do with the cluster. Only 503/529 are capacity. Conflating them makes a rate-limited sweep look like a saturated fleet |
 | **Overflowed responses pooled with local ones** | Overflow is a 4B answering for a 7B — a relief valve, not equivalent service. Never pool them for quality |
 | **Overflow "not helping"** | `OVERFLOW_MAX_REQS=20` is a **lifetime** cap, not a rate. After 20 the path switches itself off. The summary must say when the budget ran out |
 | **Wall-clock including the laptop** | The agent runs on the laptop, so round-trips inflate wall time. They do not affect TTFT or KV pressure |

@@ -96,9 +96,9 @@ updated by hand and lag.
 
 | Claim | How to check it |
 |---|---|
-| "the cluster is up" | `kubectl get pods`, `nvidia-smi` — three processes on index 0 |
-| "admission works" | `metrics/*/decisions.jsonl` non-empty, `admitperf_gate_recording 1` |
-| "the hop works" | `/hops` non-empty **and** `KV_BACKEND=mooncake` |
+| "the cluster is up" | `make fleet-runpod-smoke-test` — a completion, a request carrying `tools`, scrapes, dashboards |
+| "admission works" | `metrics/*/decisions.jsonl` non-empty with the signal value beside each verdict, `admitperf_gate_active{policy=...}` not `policy="none"`, and a peak KV that reached the threshold |
+| "the hop works" | not claimable on this branch — see `dodona-review`, and `docs/project/topology.md` for why a ledger row is not a transfer |
 | "we measured X" | a scrape under `metrics/` that contains X |
 
 If a claim has no artifact behind it, it is not done — say so and update the table.

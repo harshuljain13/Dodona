@@ -22,7 +22,8 @@ concurrency        = KV / (kv_bytes_per_token x max_model_len)
 
 | Mistake | Consequence |
 |---|---|
-| Applying `gpu_memory_utilization` to the **card** instead of the **slice** | HAMi gives the pod a hard `gpumem` cap it sees as its whole device. On a 12 GiB slice of a 40 GiB card, reading 0.90 against the card inflates KV by **3×** |
+| Sizing the KV pool so large that the threshold is unreachable | **The mistake that voids a whole run.** 0.90 of an 80 GiB card with a 32B gives ~217k tokens of KV — more than `MAX_NUM_SEQS` can hold at once — so `kv_cache_usage_perc` never nears 0.90 and the policy comes back INERT. `SLICE_MIB` shrinks the pool; it is the only lever that does not need more load than you can generate |
+| Reading `gpu_memory_utilization` against the wrong denominator | It is a fraction of what the process SEES. One engine per card means the card. `SLICE_MIB` sets it by arithmetic — `SLICE_MIB / card_MiB`, capped at 0.92 — so ask for a budget, not a fraction of an unknown card |
 | Deriving `head_dim` as `hidden / heads` | Qwen3 declares `head_dim: 128` while `2560/32 = 80`. Off by 60%. **Read `config.json`** |
 | Forgetting that quantization spares the embeddings | AWQ leaves `embed_tokens` and `lm_head` in fp16, and Qwen2.5-7B does not tie them — 2.03 GiB, **39% of the weight footprint** |
 
