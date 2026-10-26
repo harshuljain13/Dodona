@@ -52,22 +52,52 @@ REPORTS = reports_dir()
 #: Through the tunnel from a laptop; on the box these are all localhost anyway.
 DEFAULTS = {
     "gateway": "http://127.0.0.1:8080",
-    "prefill": "http://127.0.0.1:30800",
-    "decode": "http://127.0.0.1:30801",
-    "webui": "http://127.0.0.1:30030",
     "grafana": "http://127.0.0.1:31495",
+    "prometheus": "http://127.0.0.1:9090",
 }
+
+#: Where engines might be, most likely first.
+#:
+#: 8100+ is this branch: one vLLM per card, started by workers.sh, ports from
+#: PORT_BASE. 30800/30801 are the Kubernetes NodePorts on the `lambda-cluster`
+#: branch. Probed rather than configured because a notebook that reports "the
+#: cluster is down" over a port number wastes the run — and these notebooks were
+#: pinned to the NodePorts, so every one of them was broken on this branch.
+ENGINE_PORT_CANDIDATES = (8100, 8101, 8102, 8103, 30800, 30801)
+
+_engines_cache: list[str] | None = None
+
+
+def discover_engines(*, force: bool = False) -> list[str]:
+    """Base URLs of every vLLM that answers, in port order.
+
+    Cached: this is called from several cells and the answer does not change
+    within a run. `force=True` after bringing a worker up.
+    """
+    global _engines_cache
+    if _engines_cache is not None and not force:
+        return _engines_cache
+    found = []
+    for port in ENGINE_PORT_CANDIDATES:
+        base = f"http://127.0.0.1:{port}"
+        if _get(f"{base}/v1/models", 2.0) is not None:
+            found.append(base)
+    _engines_cache = found
+    return found
 
 
 GRAFANA = "http://127.0.0.1:31495"
 
-#: Dashboards installed by `make observability`, by their Grafana uid slug.
+#: The dashboards `make fleet-runpod` provisions, by Grafana uid slug.
+#:
+#: Four, in the order a request travels. The eleven that used to be listed here
+#: were the Kubernetes set, and four of those queried `kube_*` on a box with no
+#: Kubernetes — so a notebook linking to them sent you to a blank screen.
 DASHBOARDS = {
-    "overview": "dodona-overview", "gateway": "dodona-gateway",
-    "router": "dodona-router", "vllm": "dodona-vllm",
-    "keda": "dodona-keda", "hami": "dodona-hami",
-    "mooncake": "dodona-mooncake", "cluster": "dodona-cluster",
-    "errors": "dodona-errors", "replicas": "dodona-replicas",
+    "gateway": "dodona-gateway",
+    "engine": "dodona-engine",
+    "kv": "dodona-kv",
+    "hardware": "dodona-hardware",
 }
 
 
@@ -148,19 +178,29 @@ class Cluster:
     stopping at the first thing that is down."""
 
     gateway: str = DEFAULTS["gateway"]
-    prefill: str = DEFAULTS["prefill"]
-    decode: str = DEFAULTS["decode"]
+    #: Set to pin an engine; left None they are discovered.
+    prefill: str | None = None
+    decode: str | None = None
     #: Why the most recent sample() call lost requests, if it did.
     last_error: str | None = None
+
+    def engines(self) -> list[str]:
+        """Every engine that answers. The fleet's real width.
+
+        On this branch that is one per card, all serving both phases. On
+        `lambda-cluster` it is the prefill and decode NodePorts.
+        """
+        pinned = [b for b in (self.prefill, self.decode) if b]
+        return pinned or discover_engines()
 
     def endpoints(self) -> dict[str, bool]:
         """What answers. Run this first — everything below depends on it."""
         checks = {
             "gateway /metrics": f"{self.gateway}/metrics",
             "gateway /v1/models": f"{self.gateway}/v1/models",
-            "prefill /metrics": f"{self.prefill}/metrics",
-            "decode /metrics": f"{self.decode}/metrics",
         }
+        for base in self.engines():
+            checks[f"engine {base.rsplit(':', 1)[-1]} /metrics"] = f"{base}/metrics"
         return {name: _get(url, 3.0) is not None for name, url in checks.items()}
 
     def gateway_metrics(self) -> dict[str, float]:
@@ -168,9 +208,32 @@ class Cluster:
         return parse_prometheus(body) if body else {}
 
     def pool_metrics(self, pool: str) -> dict[str, float]:
-        base = self.prefill if pool == "prefill" else self.decode
+        """One engine's metrics, by the role name the older notebooks use.
+
+        `prefill` is the first engine and `decode` the last. On a split fleet
+        those really are the two phases. On this branch every engine serves
+        both, so the names are positional aliases — kept so the notebooks that
+        predate the change still read SOMETHING rather than nothing, and
+        `engine_metrics()` is the honest view.
+        """
+        found = self.engines()
+        if not found:
+            return {}
+        base = found[0] if pool == "prefill" else found[-1]
         body = _get(f"{base}/metrics")
         return parse_prometheus(body) if body else {}
+
+    def engine_metrics(self) -> dict[str, dict[str, float]]:
+        """{":8100": {...}, ":8101": {...}} — every engine, by port.
+
+        What `pool_metrics` should have been on a fleet whose replicas are
+        interchangeable: there is no phase to ask about, only replicas.
+        """
+        out = {}
+        for base in self.engines():
+            body = _get(f"{base}/metrics")
+            out[f":{base.rsplit(':', 1)[-1]}"] = parse_prometheus(body) if body else {}
+        return out
 
     def served_model(self) -> str | None:
         body = _get(f"{self.gateway}/v1/models")
