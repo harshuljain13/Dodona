@@ -35,120 +35,86 @@ Dodona makes it on purpose, and writes down what it saw.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{
-  'darkMode':true,'background':'#0B0B0B',
-  'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13.5px',
-  'primaryColor':'#111827','primaryTextColor':'#E5E7EB','primaryBorderColor':'#475569',
-  'lineColor':'#7C8CA6','textColor':'#E5E7EB','titleColor':'#E5E7EB',
-  'clusterBkg':'#0F1218','clusterBorder':'#263142','edgeLabelBackground':'#0B0B0B'
+  'darkMode':true,'background':'#0E1013',
+  'fontFamily':'ui-sans-serif, -apple-system, Helvetica, Arial, sans-serif','fontSize':'13px',
+  'primaryColor':'#171A1F','primaryTextColor':'#D6DBE1','primaryBorderColor':'#3A424D',
+  'lineColor':'#5E6876','textColor':'#D6DBE1','titleColor':'#9BA4AF',
+  'clusterBkg':'#13161B','clusterBorder':'#252B33','edgeLabelBackground':'#13161B'
 }}}%%
 flowchart TD
-    subgraph CL["The app · all of it on this laptop"]
+    L(["<b>Listener</b> · speaks"]) --> WEB
+
+    WEB["<b>Web UI</b> · :3000<br/>mic → 24 kHz PCM"]
+    AG["<b>AgentShip</b> · :8090<br/>voice cascade · Dodona agent<br/>web_search · scrape_url"]
+    WEB <--> AG
+
+    DG(["Deepgram · stt/tts"])
+    WB(["Firecrawl · the sources"])
+    AG <-.-> DG
+    AG <-.-> WB
+
+    AG ==>|"every completion"| GD
+
+    subgraph GW["<b>gateway</b> :8080 — the whole point"]
       direction TB
-      L(["<b>Listener</b><br/>speaks"])
-      WEB["<b>Web UI</b> · Next.js :3000<br/>mic → 24 kHz PCM, one socket"]
-      subgraph AS["<b>AgentShip</b> · :8090 · one process"]
-        direction TB
-        VC["<b>voice cascade</b><br/>stt · vad · tts<br/><i>built from the spec</i>"]
-        AG["<b>Dodona agent</b> · LangGraph<br/>web_search · scrape_url"]
-        VC <--> AG
-      end
-      L -->|"mic"| WEB
-      WEB <-->|"/voice"| VC
+      GD["<b>guard</b> · bad model → 400"]
+      AD{"<b>admit</b><br/>KV ≥ 0.90 ?"}
+      PL["<b>place</b> · least-loaded · prefix"]
+      IX[("prefix index")]
+      GD --> AD
+      AD ==>|"admitted"| PL
+      PL <-.-> IX
     end
 
-    subgraph EXT["Off this machine · not the GPU"]
-      direction TB
-      DG["<b>Deepgram</b><br/>nova-3 · aura-2"]
-      WB["<b>Firecrawl</b><br/>what the tools read"]
+    AD -->|"<b>503</b> shed"| SL(["Superlinked<br/>overflow · capacity only"])
+    AD -.-> AP(["AdmitPerf<br/>decision log"])
+
+    subgraph FLEET["<b>the fleet</b> — one vLLM per card"]
+      direction LR
+      D0["<b>engine-0</b><br/>prefill + decode"]
+      D1["<b>engine-1</b><br/>prefill + decode"]
     end
 
-    VC <-->|"speech ⇄ text"| DG
-    AG <-->|"search · scrape"| WB
-
-    subgraph GW["Control plane · <b>gateway</b> :8080 · one process"]
-      GD["<b>guard</b><br/>unknown model, bad max_tokens → 400"]
-      AD{"<b>admit</b><br/>kv_cache_usage ≥ 0.90?"}
-      PL["<b>place</b><br/>least-loaded + queue depth<br/>+ who holds this prefix"]
-      GD --> AD --> PL
-      AP["<b>AdmitPerf</b><br/>policy · decision log"]
-      IX[("<b>prefix index</b><br/>which replica holds which prompt")]
-      RF(["<b>503</b> · no kv_free"])
-      OV{"<b>overflow gate</b><br/>503/529 may leave<br/>429 never does"}
-      RP["<b>run report</b><br/>liveness verdict"]
-    end
-
-    subgraph FLEET["<b>The fleet</b> · data parallel · one engine per card"]
-      D0["<b>vLLM engine-0</b><br/>whole card · prefill AND decode"]
-      D1["<b>vLLM engine-1</b><br/>whole card · prefill AND decode"]
-      D0 ~~~ D1
-    end
-
-    SL["<b>Superlinked</b><br/>Qwen3.5-4B · 64 tok<br/>max 20 for the run"]
-
-    subgraph OPS["Observability"]
-      PM[("<b>Prometheus</b><br/>+ GPU exporter")]
-      GF["<b>Grafana</b><br/>4 dashboards, in request order"]
-      PM --> GF
-    end
-
-    AG --> GD
-    PL --> D0
-    PL --> D1
-    PL <-.->|"prefix hit → send it back"| IX
-    D0 --> AG
-    D1 --> AG
-    AD -->|"refused"| RF
-    RF --> OV
-    OV -->|"capacity · 503/529"| SL
-    OV -.->|"tenant quota · 429"| AG
-    SL --> AG
-    AD <--> AP
-    AP --> RP
+    PL ==> D0
+    PL ==> D1
     D0 -.->|"kv_cache_usage_perc"| AD
-    D1 -.->|"kv_cache_usage_perc"| AD
-    D0 --> PM
-    D1 --> PM
+    D1 -.-> AD
+    FLEET ==>|"the answer"| AG
 
-    class L,RF actor
-    class DG,WB ext
-    class GD,PL,WEB ours
-    class AD gate
+    FLEET --> PM[("Prometheus")] --> GF(["Grafana · 4 dashboards"])
+
+    class L human
+    class WEB,GD,PL ours
+    class AG,AP lib
+    class AD decision
     class D0,D1 engine
     class IX store
-    class AP,AG,VC lib
-    class OV gate
-    class SL overflow
-    class PM,GF obs
-    class RP out
+    class DG,WB,SL offbox
+    class PM,GF watch
 
-    classDef actor    fill:#2B0F18,stroke:#FB7185,stroke-width:2px,color:#FECDD3
-    classDef input    fill:#2B0F18,stroke:#FB7185,stroke-width:2px,color:#FECDD3
-    classDef ext      fill:#1E1033,stroke:#C084FC,stroke-width:2px,color:#E9D5FF
-    classDef accent   fill:#1E1033,stroke:#C084FC,stroke-width:2px,color:#E9D5FF
-    classDef ours     fill:#0C1A33,stroke:#60A5FA,stroke-width:2px,color:#DBEAFE
-    classDef primary  fill:#0C1A33,stroke:#60A5FA,stroke-width:2px,color:#DBEAFE
-    classDef alt      fill:#0C1A33,stroke:#60A5FA,stroke-width:2px,color:#DBEAFE
-    classDef gate     fill:#2B2008,stroke:#FBBF24,stroke-width:3px,color:#FDE68A
-    classDef decision fill:#2B2008,stroke:#FBBF24,stroke-width:3px,color:#FDE68A
-    classDef engine   fill:#06220F,stroke:#4ADE80,stroke-width:2px,color:#BBF7D0
-    classDef secondary fill:#06220F,stroke:#4ADE80,stroke-width:2px,color:#BBF7D0
-    classDef store    fill:#2A1405,stroke:#FB923C,stroke-width:2px,color:#FED7AA
-    classDef data     fill:#2A1405,stroke:#FB923C,stroke-width:2px,color:#FED7AA
-    classDef lib      fill:#13163A,stroke:#818CF8,stroke-width:2px,color:#C7D2FE
-    classDef highlight fill:#13163A,stroke:#818CF8,stroke-width:2px,color:#C7D2FE
-    classDef obs      fill:#0F172A,stroke:#94A3B8,stroke-width:2px,color:#CBD5E1
-    classDef neutral  fill:#0F172A,stroke:#94A3B8,stroke-width:2px,color:#CBD5E1
-    classDef overflow fill:#2A0F2A,stroke:#E879F9,stroke-width:2px,color:#F5D0FE
-    classDef out      fill:#04302B,stroke:#22D3EE,stroke-width:2.5px,color:#A5F3FC
-    classDef success  fill:#04302B,stroke:#22D3EE,stroke-width:2.5px,color:#A5F3FC
-    classDef pick     fill:#06220F,stroke:#4ADE80,stroke-width:3px,color:#BBF7D0
-    classDef dead     fill:#2B0F18,stroke:#F87171,stroke-width:2px,color:#FECACA
-    classDef note     fill:#0F1218,stroke:#475569,stroke-width:1.5px,color:#9FB0C9
-    linkStyle default stroke:#7C8CA6,stroke-width:1.7px
+    %% Six roles, and a colour only where the role changes how you read the box.
+    %% Muted on purpose: the old palette spent nine saturated accents, so
+    %% nothing stood out — including the one thing that should, a decision.
+    classDef human    fill:#241A1D,stroke:#9A6B74,stroke-width:1.6px,color:#E0CBCF
+    classDef ours     fill:#161E29,stroke:#5A7795,stroke-width:1.6px,color:#CBD8E4
+    classDef lib      fill:#1A1B27,stroke:#6E7096,stroke-width:1.6px,color:#CFD1E2
+    classDef decision fill:#241F14,stroke:#A3864F,stroke-width:2.4px,color:#E6D8BC
+    classDef engine   fill:#16211A,stroke:#5B8468,stroke-width:1.6px,color:#CAD9CE
+    classDef store    fill:#152020,stroke:#537E7C,stroke-width:1.4px,color:#C6D7D6
+    classDef offbox   fill:#1C1A22,stroke:#726889,stroke-width:1.3px,color:#CFCADA
+    classDef watch    fill:#191B1F,stroke:#5C646F,stroke-width:1.3px,color:#C0C6CE
+    linkStyle default stroke:#5E6876,stroke-width:1.4px
 ```
 
-🔵 what we write · 🟢 vLLM, configured not touched · 🟠 KV storage ·
-🟡 a decision · 🟣 clients and external services · ⚪ observability · 🔴 a refusal
+**Reading it.** Blue is what we write · green is vLLM, configured not touched ·
+indigo is a library we drive · teal is state · violet leaves this machine ·
+grey is observability. **Amber is the decision** — one shape, one colour, and
+the thing the whole project is about: `admit` reads `kv_cache_usage_perc`
+straight off the engines and sheds at 0.90.
+
+Thick edges are a request on its way to an answer. Dotted edges are something
+being *told* rather than asked — a metric scraped, a prefix recorded, a
+decision logged.
 
 **Three ways out of the control plane, and the difference is the design.**
 Admitted work goes to the GPU. A capacity refusal (`503`/`529`) reaches the
