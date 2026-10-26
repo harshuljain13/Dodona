@@ -44,6 +44,9 @@ type Turn = {
   pending?: boolean;
   steps?: Step[];
   sources?: Source[];
+  //: Spoken rather than typed. Voice arrives as several `said` chunks that are
+  //: one answer, so they join; a typed turn must not absorb them.
+  spoken?: boolean;
 };
 
 //: Hostname only, for a compact byline under a title. A full URL wraps over
@@ -430,26 +433,48 @@ export default function Page() {
             // of the call — a worse bug than the one the gate fixes, and a
             // silent one.
             if (msg.type === "said") researching.current = false;
-            setTurns((prev) => [
-              ...prev,
-              {
-                id: nextId.current++,
-                who: msg.type === "heard" ? "you" : "agent",
-                text: msg.text,
-                at: Date.now(),
-                // A failed turn arrives as an ordinary `said` — the adapter
-                // catches the exception, speaks the fallback and emits nothing
-                // structured — so the agreed string in dodona.yaml's
-                // `fallback_text` is the only signal there is. Matching our own
-                // text, not a library default, which is why it is set there.
-                steps:
-                  msg.type === "said" && String(msg.text ?? "").startsWith(FAILED_TURN)
-                    ? [{ at: Date.now(), kind: "guard" as const,
-                         label: "session needs reconnecting",
-                         detail: "Interruptions are on, so a stray word during a silent research turn can cancel it. Press Stop, then Start Talking — this call's history cannot be continued." }]
-                    : undefined,
-              },
-            ]);
+            setTurns((prev) => {
+              // ONE answer, not one bubble per clause.
+              //
+              // VoiceTurn.say yields chunks as they arrive rather than joining
+              // them, so TTS can start on the first clause while the model is
+              // still producing the rest — time-to-first-audio is what the
+              // listener experiences as latency. Each chunk reaches us as its
+              // own `said`, so appending a turn per event split one answer into
+              // four bubbles stamped the same second, which reads as the agent
+              // repeating itself.
+              //
+              // Join onto the open spoken turn instead. `heard` always starts a
+              // new one: that is a different speaker.
+              const last = prev[prev.length - 1];
+              if (msg.type === "said" && last?.who === "agent" && last.spoken) {
+                const joined = `${last.text} ${String(msg.text ?? "").trim()}`.trim();
+                return [...prev.slice(0, -1), { ...last, text: joined }];
+              }
+              return [
+                ...prev,
+                {
+                  id: nextId.current++,
+                  who: msg.type === "heard" ? "you" : "agent",
+                  text: msg.text,
+                  at: Date.now(),
+                  // Marks a turn that is being spoken, so the next chunk knows
+                  // to join it. A typed turn must never absorb a spoken clause.
+                  spoken: msg.type === "said",
+                  // A failed turn arrives as an ordinary `said` — the adapter
+                  // catches the exception, speaks the fallback and emits nothing
+                  // structured — so the agreed string in dodona.yaml's
+                  // `fallback_text` is the only signal there is. Matching our own
+                  // text, not a library default, which is why it is set there.
+                  steps:
+                    msg.type === "said" && String(msg.text ?? "").startsWith(FAILED_TURN)
+                      ? [{ at: Date.now(), kind: "guard" as const,
+                           label: "session needs reconnecting",
+                           detail: "Interruptions are on, so a stray word during a silent research turn can cancel it. Press Stop, then Start Talking — this call's history cannot be continued." }]
+                      : undefined,
+                },
+              ];
+            });
           } else if (msg.type === "idle") {
             researching.current = false;
             setState("listening");
