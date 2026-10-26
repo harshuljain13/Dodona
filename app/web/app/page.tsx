@@ -220,6 +220,29 @@ export default function Page() {
   // starts, so it would close over whatever `state` was at that moment and read
   // "connecting" for the rest of the call.
   const researching = useRef(false);
+  //: Deadline for the gate above. Every path that sets `researching` true must
+  //: guarantee something later sets it false, and one did not: a turn that died
+  //: without emitting `said` or `idle` left the microphone muted for the rest
+  //: of the call. The session looked alive, the orb animated, and nothing you
+  //: said was ever sent — silent, and indistinguishable from a dead recogniser.
+  //:
+  //: So the gate expires. 75s is longer than any research turn seen here and
+  //: far shorter than a call, which makes that failure self-correcting rather
+  //: than terminal.
+  const researchGuard = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The ONLY writer of `researching`. Four call sites set it directly before,
+  // and a watchdog attached at three of them is a watchdog that does not exist.
+  const setResearching = useCallback((on: boolean) => {
+    researching.current = on;
+    if (researchGuard.current) clearTimeout(researchGuard.current);
+    researchGuard.current = on
+      ? setTimeout(() => {
+          researching.current = false;
+          console.warn("[dodona] research gate expired after 75s — reopening the mic");
+        }, 75_000)
+      : null;
+  }, []);
   const capture = useRef<AudioContext | null>(null);
   const playback = useRef<AudioContext | null>(null);
   const mic = useRef<MediaStream | null>(null);
@@ -504,7 +527,7 @@ export default function Page() {
   const stop = useCallback(() => {
     // So the next call starts with an open microphone whatever state this one
     // ended in.
-    researching.current = false;
+    setResearching(false);
     socket.current?.close(1000, "listener left");
     socket.current = null;
     mic.current?.getTracks().forEach((t) => t.stop());
@@ -563,7 +586,7 @@ export default function Page() {
             // ever emitting `idle` would leave the microphone shut for the rest
             // of the call — a worse bug than the one the gate fixes, and a
             // silent one.
-            if (msg.type === "said") researching.current = false;
+            if (msg.type === "said") setResearching(false);
             setTurns((prev) => {
               // ONE answer, not one bubble per clause.
               //
@@ -607,14 +630,14 @@ export default function Page() {
               ];
             });
           } else if (msg.type === "idle") {
-            researching.current = false;
+            setResearching(false);
             setState("listening");
           } else if (["listening", "thinking", "speaking"].includes(msg.type)) {
             // Only `thinking` closes the microphone. `speaking` deliberately
             // does not: cutting the agent off mid-answer is the barge-in worth
             // having, and it is safe — there is no half-finished tool call to
             // strand, because the tools already ran.
-            researching.current = msg.type === "thinking";
+            setResearching(msg.type === "thinking");
             setState(msg.type as State);
           }
           // `timings` also arrives, carrying the turn's trace. Not shown here —

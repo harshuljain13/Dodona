@@ -97,6 +97,26 @@ voice:
   greeting: Dodona here. Ask me something and I will go and read the sources.
   # Runs locally, costs nothing, needs no key.
   vad: silero
+
+  # 200ms, and SHORTER is what stops you being cut off mid-sentence — which is
+  # the opposite of how it reads.
+  #
+  # This is not a "how long may I pause" dial. A smart-turn analyser decides
+  # whether a sentence is FINISHED, on meaning. The VAD only says when sound
+  # stopped, and after that signal pipecat waits for the words still in flight
+  # from the recogniser. That wait is `stt_p99 - stop_secs`.
+  #
+  # Left at the 700ms default against a 350ms STT p99, the wait collapsed to
+  # ZERO and the turn was finalised on whatever transcript had arrived:
+  # "Tell me something about" was judged a complete sentence, and "What is the"
+  # came back as an answer about the word "the". The analyser was not wrong —
+  # it was shown half a sentence and asked whether it was finished.
+  #
+  # pipecat warns about precisely this and names 0.2 as the value its own
+  # latency assumptions are built on:
+  #   "VAD stop_secs (0.7s) >= STT p99 latency (0.35s). STT wait timeout
+  #    collapsed to 0s, which may cause delayed turn detection"
+  endpoint_silence_ms: 200
   # Spoken when a turn raises, and it names the recovery because the most likely
   # cause needs one.
   #
