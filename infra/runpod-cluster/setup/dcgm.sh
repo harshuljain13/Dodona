@@ -53,23 +53,52 @@ elif (( PROBE_ONLY )); then
   note "dcgmi not installed (probe only, not installing)"
   exit 2
 else
-  note "installing datacenter-gpu-manager (apt, a few minutes)"
-  # The CUDA keyring repo carries it. Ubuntu's own archive does not.
+  note "installing DCGM (apt, a few minutes)"
+
   DISTRO="$(. /etc/os-release && echo "${ID}${VERSION_ID//./}")"
   ARCH="$(uname -m)"; [[ "$ARCH" == "aarch64" ]] && ARCH="sbsa"
-  KEYRING="/tmp/cuda-keyring.deb"
-  if ! dpkg -l cuda-keyring >/dev/null 2>&1; then
-    curl -fsSL -o "$KEYRING" \
-      "https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/${ARCH}/cuda-keyring_1.1-1_all.deb" \
-      && dpkg -i "$KEYRING" >/dev/null 2>&1 || note "keyring step failed — trying the existing apt sources"
+  note "distro ${DISTRO}  arch ${ARCH}"
+
+  # Failures here are PRINTED. The first version sent apt to /dev/null and
+  # reported "could not install" with no reason, which is unactionable — and
+  # is the exact habit that has cost this project hours today.
+  if ! dpkg -l cuda-keyring 2>/dev/null | grep -q '^ii'; then
+    KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/${ARCH}/cuda-keyring_1.1-1_all.deb"
+    note "fetching $KEYRING_URL"
+    if curl -fsSL -o /tmp/cuda-keyring.deb "$KEYRING_URL"; then
+      dpkg -i /tmp/cuda-keyring.deb 2>&1 | tail -2 | sed 's/^/      /'
+    else
+      bad "no CUDA repo published for ${DISTRO}/${ARCH}"
+      note "this image is not one NVIDIA ships DCGM for — see"
+      note "https://developer.download.nvidia.com/compute/cuda/repos/"
+    fi
   fi
-  apt-get update -qq >/dev/null 2>&1
-  if ! apt-get install -y -qq datacenter-gpu-manager >/dev/null 2>&1; then
-    bad "could not install datacenter-gpu-manager"
-    note "the nvidia-smi exporter stays in place; profiling panels will not be generated"
+
+  note "apt-get update"
+  apt-get update 2>&1 | tail -3 | sed 's/^/      /'
+
+  # NVIDIA renamed this across major versions and which name exists depends on
+  # the repo generation the image is pinned to. Try each, and say which took.
+  INSTALLED=""
+  for pkg in datacenter-gpu-manager-4-cuda12 datacenter-gpu-manager-4-core datacenter-gpu-manager; do
+    note "trying $pkg"
+    apt-get install -y "$pkg" 2>&1 | tail -4 | sed 's/^/      /'
+    if command -v dcgmi >/dev/null 2>&1 || command -v nv-hostengine >/dev/null 2>&1; then
+      INSTALLED="$pkg"; break
+    fi
+  done
+
+  if [[ -z "$INSTALLED" ]]; then
+    bad "no DCGM package installed — the apt output above says why"
+    note "Most likely, in order: no CUDA apt repo on this image; apt could not"
+    note "reach it from this pod; or the package is named differently here."
+    note ""
+    note "Not fatal. The fleet serves identically on the nvidia-smi exporter —"
+    note "you lose the two roofline panels, and they are NOT generated rather"
+    note "than left blank."
     exit 1
   fi
-  ok "installed"
+  ok "installed $INSTALLED"
 fi
 
 # ── the host engine, which owns the GPU handles ────────────────────────────

@@ -59,6 +59,61 @@ FIELDS = (
 #: workers.sh pins one worker per GPU in this order, and passes the mapping in.
 DEFAULT_ROLES = "0=prefill,1=decode-0,2=decode-1"
 
+#: Profiling fields, read through `dcgmi` when it is installed and the host
+#: permits it. nvidia-smi cannot see any of these at any privilege level.
+#:
+#: Read here rather than by running NVIDIA's `dcgm-exporter`, because that is a
+#: separate Go binary normally shipped as a container — and a rented pod cannot
+#: run containers. `datacenter-gpu-manager` gives `dcgmi`, which gives the same
+#: numbers, so one exporter serves both sources and the fleet keeps one port.
+#:
+#: (field id, metric name, help)
+PROF_FIELDS = (
+    (1001, "DCGM_FI_PROF_PIPE_TENSOR_ACTIVE", "Tensor-core pipe active (ratio)"),
+    (1005, "DCGM_FI_PROF_DRAM_ACTIVE", "Device memory active (ratio)"),
+    (1011, "DCGM_FI_PROF_PCIE_TX_BYTES", "PCIe bytes transmitted"),
+    (1009, "DCGM_FI_PROF_NVLINK_TX_BYTES", "NVLink bytes transmitted"),
+)
+
+
+def profiling() -> dict[str, dict[str, float]]:
+    """{gpu_index: {metric: value}} from `dcgmi dmon`, or empty.
+
+    Empty on every failure path — not installed, host refuses profiling, no
+    host engine — because a GPU exporter that dies when an optional extra is
+    absent takes the whole hardware screen down with it.
+    """
+    ids = ",".join(str(i) for i, _, _ in PROF_FIELDS)
+    try:
+        out = subprocess.run(
+            ["dcgmi", "dmon", "-e", ids, "-c", "1"],
+            capture_output=True, text=True, timeout=15, check=True,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return {}
+
+    # `dcgmi dmon` prints two header lines then one row per GPU:
+    #     #Entity  PRFL_TENSOR  PRFL_DRAMA  ...
+    #          Id
+    #     GPU 0      0.004209    0.013358   ...
+    rows: dict[str, dict[str, float]] = {}
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) < 2 + len(PROF_FIELDS) or parts[0] != "GPU":
+            continue
+        index = parts[1]
+        values: dict[str, float] = {}
+        for (_, name, _h), raw in zip(PROF_FIELDS, parts[2:]):
+            try:
+                values[name] = float(raw)
+            except ValueError:
+                # "N/A" for a field this card or host will not report. Omitted
+                # rather than zeroed: zero is a reading, absence is not.
+                continue
+        if values:
+            rows[index] = values
+    return rows
+
 
 def parse_roles(spec: str) -> dict[str, str]:
     """`"0=prefill,1=decode-0"` -> `{"0": "prefill", "1": "decode-0"}`.
@@ -137,6 +192,23 @@ def render(roles: dict[str, str] | None = None) -> str:
                 phase = "both"
             lines.append(
                 f'{metric}{{gpu="{index}",pod="{pod}",phase="{phase}"}} {value}')
+
+    # Profiling fields, when this box will give them up. Absent entirely when
+    # it will not, so Prometheus has no series and the generator builds no
+    # panel — rather than a panel of flat zeros that reads as a broken scrape.
+    prof = profiling()
+    if prof:
+        for _fid, name, help_text in PROF_FIELDS:
+            emitted = False
+            for index, values in sorted(prof.items()):
+                if name not in values:
+                    continue
+                if not emitted:
+                    lines.append(f"# HELP {name} {help_text}")
+                    lines.append(f"# TYPE {name} gauge")
+                    emitted = True
+                pod = roles.get(index, f"gpu-{index}")
+                lines.append(f'{name}{{gpu="{index}",pod="{pod}"}} {values[name]}')
     return "\n".join(lines) + "\n"
 
 

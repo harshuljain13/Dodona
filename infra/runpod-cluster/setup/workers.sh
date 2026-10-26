@@ -319,21 +319,26 @@ if bash "$ROOT/infra/runpod-cluster/setup/dcgm.sh" --probe >/dev/null 2>&1; then
   export DCGM_PROFILING=1
 fi
 
-if [[ "$DCGM_PROFILING" == "1" ]] && command -v dcgm-exporter >/dev/null 2>&1; then
-  say "dcgm-exporter  —  :9400  (full DCGM, profiling fields included)"
-  supervise gpu-exporter dcgm-exporter --address ":9400"
-  sleep 1
+# One exporter either way. It reads nvidia-smi always, and adds the four DCGM
+# profiling fields through `dcgmi` when this host will give them up.
+#
+# NOT NVIDIA's dcgm-exporter: that is a separate Go binary shipped as a
+# container, and a rented pod cannot run containers. `datacenter-gpu-manager`
+# installs `dcgmi`, which reports the same numbers — so one process, one port,
+# and no second thing to supervise.
+if [[ "$DCGM_PROFILING" == "1" ]]; then
+  say "gpu exporter  —  :9400  (nvidia-smi + DCGM profiling fields)"
 else
   if command -v dcgmi >/dev/null 2>&1; then
-    note "DCGM is installed but profiling is restricted on this host —"
-    note "  falling back to nvidia-smi. bash infra/runpod-cluster/setup/dcgm.sh for why."
+    note "DCGM is installed but this host refuses profiling —"
+    note "  bash infra/runpod-cluster/setup/dcgm.sh prints why."
   fi
   say "gpu exporter  —  :9400  (DCGM_FI_DEV_* from nvidia-smi)"
-note "roles: $GPU_ROLES"
-  supervise gpu-exporter "$PY" "$ROOT/infra/runpod-cluster/observability/gpu_exporter.py" \
-    --port 9400 --roles "$GPU_ROLES"
-  sleep 1
 fi
+note "roles: $GPU_ROLES"
+supervise gpu-exporter "$PY" "$ROOT/infra/runpod-cluster/observability/gpu_exporter.py" \
+  --port 9400 --roles "$GPU_ROLES"
+sleep 1
 
 if command -v prometheus >/dev/null 2>&1; then
   say "prometheus  —  :9090"
