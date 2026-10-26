@@ -198,7 +198,7 @@ export default function Page() {
   const nextId = useRef(0);
 
   // Polled, not read once: the usual sequence is to start the app, see this,
-  // run `make ssh`, and expect the page to notice without a reload.
+  // run `make fleet-runpod-ssh`, and expect the page to notice without a reload.
   useEffect(() => {
     const ask = () =>
       fetch("/api/health")
@@ -346,6 +346,26 @@ export default function Page() {
     return ws;
   }, [extend, addStep, addSources]);
 
+  // One retry, then report.
+  //
+  // The service gets restarted often — a spec edit needs it — and for the
+  // second or two that takes, an open page gets a refused socket and a dead
+  // end. Worse, two services briefly overlapped here, so the page was holding
+  // a key minted by the one that was going away.
+  //
+  // The retry re-fetches /api/voice, so the second attempt carries whatever
+  // key is current. Once only: if it fails twice the service really is gone,
+  // and a page that retries forever hides that.
+  const openLiveOrRetry = useCallback(async (): Promise<WebSocket> => {
+    try {
+      return await openLive();
+    } catch {
+      live.current = null;
+      await new Promise((r) => setTimeout(r, 600));
+      return openLive();
+    }
+  }, [extend, addStep, addSources]);
+
   const send = useCallback(async () => {
     const text = typed.trim();
     if (!text || sending) return;
@@ -353,7 +373,7 @@ export default function Page() {
     setTurns((prev) => [...prev, { id: nextId.current++, who: "you", text, at: Date.now() }]);
     setSending(true);
     try {
-      const ws = await openLive();
+      const ws = await openLiveOrRetry();
       ws.send(JSON.stringify({ input: text, session_id: session.current ?? undefined }));
       // Before any event arrives. A research turn can take tens of seconds to
       // its first tool call, and an empty screen for that long reads as broken.
@@ -366,7 +386,7 @@ export default function Page() {
       ]);
       setSending(false);
     }
-  }, [typed, sending, openLive]);
+  }, [typed, sending, openLiveOrRetry]);
 
   // Only the voice half. The text socket outlives a spoken session on purpose:
   // ending the call should not throw away the conversation.
@@ -627,9 +647,9 @@ export default function Page() {
                 Local inference cluster unavailable. You can talk and be heard, but nothing
                 can answer — the agent will say so too.
                 <span className="detail">
-                  <code>make fleet-runpod &amp;&amp; make fleet-runpod-ssh</code> — the gateway is
-                  expected on 127.0.0.1:8080. On the Kubernetes path:{" "}
-                  <code>make fleet-lambda &amp;&amp; make ssh</code>
+                  <code>make fleet-runpod</code> brings the fleet up and opens the tunnel. The
+                  gateway is expected on 127.0.0.1:8080 — if the fleet is already running,{" "}
+                  <code>make fleet-runpod-ssh</code> reopens the tunnel on its own.
                 </span>
               </div>
             )}
