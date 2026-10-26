@@ -8,7 +8,7 @@ gateway and three GPUs, and the only question worth a screen is:
     a request arrives
       -> the gateway admits it, queues it, routes it        (1 gateway)
       -> an engine prefills it, then decodes it             (2 engines)
-      -> the KV it computed hops from prefill to decode     (3 kv)
+      -> the router books a KV hop prefill -> decode         (3 kv)
       -> all of which is a card getting hot                 (4 hardware)
 
 So: four dashboards, numbered, each one stage of that path, every panel built
@@ -20,7 +20,10 @@ Kubernetes dashboards in front of an audience and four were permanently blank.
 
 Unlike the k8s path, `mooncake_*` IS exported here: `workers.sh` starts the hop
 ledger as a process and the smoke test asserts it answers. The KV dashboard
-uses it.
+uses it — and says plainly that a ledger is ALL it is on this path, because
+`--kv-transfer-config` is not passed and so decode re-prefills. See `kv()` and
+`docs/project/topology.md`. A dashboard that implied the bytes moved would
+mislead an audience about the project's own central claim.
 
     python3 infra/runpod-cluster/observability/dashboards.py [DEST]
 """
@@ -476,33 +479,52 @@ def engine() -> dict:
 
 
 def kv() -> dict:
-    """Stage 3: the KV cache itself, and the hop that moves it.
+    """Stage 3: the KV cache, and the hop — which on this path is a LEDGER.
 
-    This is the dashboard that justifies the architecture: prefill computes KV
-    on one card and decode generates from it on another, which only pays off if
-    the transfer is cheaper than recomputing.
+    Read `docs/project/topology.md` before presenting this screen. A real split
+    needs three things: placement, orchestration, and transfer. This fleet has
+    the first two. It does not have the third, because `--kv-transfer-config` is
+    Kubernetes-specific as written (RDMA `mlx5_0`, `vllm-prefill:8998`) and
+    `infra/setup/engine.sh` does not pass it.
+
+    So no KV bytes move here. `KVBus.transfer` writes a row — `{src, dst,
+    req_id, tokens}` — and POSTs it to the mooncake ledger; `router/nccl.py` and
+    `router/nixl.py` are `return`. Transfer lives INSIDE the engine, because
+    vLLM owns the block table, and no amount of control-plane bookkeeping can
+    hand blocks to another process.
+
+    Every panel below is therefore an honest count of a DECISION, not of a byte.
+    The wording says so, because a dashboard that implies otherwise is the one
+    place this project could mislead someone about its own central claim.
     """
     story = (
-        "## 3 · KV — the hop from prefill to decode\n"
-        "Prefill and decode run on **different cards**, so the KV that prefill "
-        "computes has to reach decode. That transfer is the *hop*, and the "
-        "mooncake ledger on `:50051` records it.\n\n"
-        "The architecture only pays off if a hop is cheaper than recomputing "
-        "the prompt. These panels are how you tell: **hop tokens** is what was "
-        "moved instead of recomputed, and **cached prompt tokens** is prefill "
-        "work skipped entirely because the KV was already somewhere.\n\n"
+        "## 3 · KV — the hop, as a routing decision\n"
+        "Prefill and decode run on **different cards**, so the KV prefill "
+        "computes would have to reach decode. The mooncake ledger on `:50051` "
+        "records every hop the router decided to make.\n\n"
+        "**On this fleet the ledger is all there is.** Moving the blocks needs "
+        "`--kv-transfer-config` inside vLLM, and the process path does not pass "
+        "it — so decode **re-prefills the whole prompt**, and the prompt is "
+        "prefilled twice to produce one answer. Placement and orchestration are "
+        "real; the transfer is not.\n\n"
+        "That makes this the most useful screen here: **external prefix cache "
+        "hits sitting at zero is the proof**, and it is what a real connector "
+        "would change. See `docs/project/topology.md`.\n\n"
         "Next: **4 · Hardware**, the cards all of this runs on."
     )
-    return _dash("dodona-kv", "Dodona / 3 · KV — the hop from prefill to decode", [
+    return _dash("dodona-kv", "Dodona / 3 · KV — the hop (a routing decision here)", [
         _text(1, story),
 
-        _panel(2, "Hops", "sum(mooncake_hops_total)", legend="hops",
+        _panel(2, "Hops decided", "sum(mooncake_hops_total)", legend="hops",
                kind="stat", x=0, y=4, w=6, h=4,
-               desc="KV handovers from prefill to decode since the ledger "
-                    "started. A running total, which is what you want here."),
+               desc="Times the router routed a request prefill -> decode since "
+                    "the ledger started. A decision count, not a transfer "
+                    "count: nothing moved."),
         _panel(3, "Tokens moved", "sum(mooncake_hop_tokens_total)", legend="tokens",
                kind="stat", x=6, y=4, w=6, h=4,
-               desc="Tokens' worth of KV transferred rather than recomputed."),
+               desc="Tokens of KV that a real connector WOULD have moved. "
+                    "Here decode recomputed all of them, so read this as the "
+                    "size of the transfer the architecture is asking for."),
         _panel(4, "Blocks in the ledger", "sum(mooncake_blocks)", legend="blocks",
                kind="stat", x=12, y=4, w=6, h=4,
                desc="KV blocks the ledger is currently tracking."),
@@ -513,13 +535,15 @@ def kv() -> dict:
         _panel(6, "Hop rate",
                "sum(rate(mooncake_hops_total[1m]))", legend="hops/s",
                x=0, y=8,
-               desc="One hop per request that prefilled on one card and decoded "
-                    "on another — so under normal routing this tracks arrivals."),
+               desc="One per request that prefilled on one card and decoded on "
+                    "another, so under normal routing this tracks arrivals. It "
+                    "measures the router, not the network."),
         _panel(7, "Tokens hopped per second",
                "sum(rate(mooncake_hop_tokens_total[1m]))", legend="tokens/s",
                x=12, y=8,
-               desc="The actual bandwidth of the disaggregation. At 256 KiB of "
-                    "KV per token for this model, 1000 tokens/s is ~250 MiB/s."),
+               desc="What the hop WOULD cost in bandwidth. At 256 KiB of KV per "
+                    "token for this model, 1000 tokens/s is ~250 MiB/s — the "
+                    "number to weigh against recomputing. No bytes move here."),
 
         _panel(8, "Transfers the gateway recorded vs tokens transferred",
                "sum(rate(orch_kv_transfer_total[5m]))", legend="transfers/s",
@@ -532,7 +556,8 @@ def kv() -> dict:
                "sum(rate(orch_kv_evict_total[5m]))", legend="evictions/s",
                x=12, y=16,
                desc="KV dropped to make room. Every eviction is a future "
-                    "recompute — the cost admission control is trading against."),
+                    "recompute — the cost admission control is trading against. "
+                    "This one is real: the pool it evicts from is vLLM's own."),
 
         _panel(10, "KV usage: prefill vs decode",
                "max by (phase) (vllm:kv_cache_usage_perc)", legend="{{phase}}",
@@ -556,8 +581,10 @@ def kv() -> dict:
                "sum(rate(vllm:external_prefix_cache_hits_total[5m])) / "
                "clamp_min(sum(rate(vllm:external_prefix_cache_queries_total[5m])), 1)",
                legend="hit rate", x=12, y=32, unit="percentunit", maximum=1,
-               desc="'External' is KV found outside this engine — i.e. across the "
-                    "hop. This is the disaggregation paying for itself."),
+               desc="KV found outside this engine — i.e. arriving across a hop. "
+                    "Flat at zero is the honest signal that no connector is "
+                    "installed and decode re-prefilled. Lifting this off zero "
+                    "is exactly what --kv-transfer-config would do."),
 
         _panel(14, "KV tokens computed during prefill p50 / p95",
                "histogram_quantile(0.50, sum by (le) "

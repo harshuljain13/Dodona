@@ -198,3 +198,39 @@ def test_every_exported_group_is_represented(name: str) -> None:
     expected = {"gateway": "orch_", "engine": "vllm:", "kv": "mooncake_",
                 "hardware": "DCGM_FI_DEV_"}[name]
     assert expected in blob, f"{name} never queries {expected}*"
+
+
+def test_the_kv_dashboard_claim_matches_the_engine_config() -> None:
+    """The KV screen must not claim a transfer the engine cannot perform.
+
+    This is the project's central claim, and it is the one place a dashboard
+    could mislead an audience. A real split needs placement, orchestration AND
+    transfer; transfer lives inside vLLM, behind `--kv-transfer-config`, because
+    vLLM owns the block table. `KVBus.transfer` writes a ledger row, and
+    `router/nccl.py` and `router/nixl.py` are `return` — so without that flag
+    decode re-prefills the whole prompt and no bytes move.
+
+    The assertion is tied to engine.sh rather than hardcoded, so it cuts both
+    ways: add a connector and this test tells you the dashboard now understates
+    what the fleet does. See docs/project/topology.md.
+    """
+    engine = (ROOT / "infra" / "setup" / "engine.sh").read_text()
+    start = engine.index("exec vllm serve")
+    has_connector = "--kv-transfer-config" in engine[start:]
+
+    text = " ".join(
+        p["options"]["content"]
+        for p in DASHBOARDS["kv"]()["panels"]
+        if p.get("type") == "text"
+    ).lower()
+
+    if not has_connector:
+        assert "re-prefill" in text, (
+            "engine.sh passes no --kv-transfer-config, so decode re-prefills and "
+            "the hop is a routing decision — the KV dashboard has to say so")
+        for claim in ("paying for itself", "transferred rather than recomputed"):
+            assert claim not in text, f"the KV screen claims {claim!r} with no connector"
+    else:
+        assert "re-prefill" not in text or "no connector" not in text, (
+            "a connector is configured now — the KV dashboard still describes the "
+            "ledger-only path and understates what the fleet does")
