@@ -220,7 +220,14 @@ supervise() {
 wait_for() {
   local name="$1" base="$2" tries="${3:-150}"
   for _ in $(seq "$tries"); do
-    if curl -sf -m 2 "$base/v1/models" 2>/dev/null | grep -q '"object"'; then
+    # Captured, not piped into grep. `grep -q` exits on the first match and
+    # closes the pipe, curl takes SIGPIPE, and `set -o pipefail` then reports
+    # the whole pipeline as failed — so a READY engine can read as not-ready.
+    # It works today only because /v1/models fits the 64 KB pipe buffer, which
+    # is luck rather than design, and "engines not ready" is a confusion this
+    # project has already paid for once.
+    body="$(curl -sf -m 2 "$base/v1/models" 2>/dev/null || true)"
+    if printf '%s' "$body" | grep -q '"object"'; then
       note "$name ready"
       return 0
     fi
