@@ -37,7 +37,38 @@ def _assistant_text(body: dict) -> str:
     return text if isinstance(text, str) else ""
 
 def sse_from_completion(body: dict, *, model: str = "text") -> bytes:
+    """Re-emit a buffered completion as one SSE chunk.
+
+    This gateway does not really stream: it holds the whole completion and
+    frames it once. That is a fair trade, and it was silently costing every
+    tool call.
+
+    The delta was built from the assistant TEXT alone, so `tool_calls` were
+    dropped on the floor. An agent streaming through here saw a reply with no
+    tool call in it and concluded it had no tools: it answered from the model's
+    memory while sounding exactly as confident, or — with a prompt that tells
+    it to speak first — read its own `<tool_call>` markup aloud, because the
+    only thing that survived was the text around the call.
+
+    `finish_reason` has to come from the engine too. Hardcoding "stop" tells the
+    client the turn is over when the engine said `tool_calls`, which is the
+    client's signal to run the tool and come back.
+    """
     text = _assistant_text(body)
+
+    choices = body.get("choices") or []
+    first = choices[0] if choices and isinstance(choices[0], dict) else {}
+    msg = first.get("message") if isinstance(first.get("message"), dict) else {}
+
+    delta: dict = {"role": "assistant", "content": text}
+    # Only when present: an empty `tool_calls` key is not the same as its
+    # absence, and some clients treat the empty list as "a tool call happened".
+    tool_calls = msg.get("tool_calls")
+    if tool_calls:
+        delta["tool_calls"] = tool_calls
+    if msg.get("function_call"):
+        delta["function_call"] = msg["function_call"]
+
     chunk = {
         "id": body.get("id") or "orch",
         "object": "chat.completion.chunk",
@@ -45,8 +76,8 @@ def sse_from_completion(body: dict, *, model: str = "text") -> bytes:
         "choices": [
             {
                 "index": 0,
-                "delta": {"role": "assistant", "content": text},
-                "finish_reason": "stop",
+                "delta": delta,
+                "finish_reason": first.get("finish_reason") or "stop",
             }
         ],
     }

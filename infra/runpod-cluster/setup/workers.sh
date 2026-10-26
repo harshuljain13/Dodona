@@ -366,7 +366,7 @@ if command -v grafana-server >/dev/null 2>&1 || command -v grafana >/dev/null 2>
   # Generated at start, not checked in, so they cannot drift from the generator.
   rm -f "$GF_DASH"/*.json
   if "$PY" "$ROOT/infra/runpod-cluster/observability/dashboards.py" "$GF_DASH" >/dev/null; then
-    note "dashboards: $(ls "$GF_DASH"/*.json 2>/dev/null | wc -l | tr -d ' ') generated — the request path, in order"
+    note "dashboards: $(ls "$GF_DASH"/*.json 2>/dev/null | wc -l | tr -d ' ') generated — overview, then the request path"
   else
     note "dashboards: generator failed; grafana will come up empty"
   fi
@@ -381,7 +381,7 @@ if command -v grafana-server >/dev/null 2>&1 || command -v grafana >/dev/null 2>
   supervise grafana env \
     GF_PATHS_PROVISIONING="$GF_PROV" \
     GF_SECURITY_ADMIN_PASSWORD="${GRAFANA_PASSWORD:-admin}" \
-    GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH="$GF_DASH/gateway.json" \
+    GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH="$GF_DASH/overview.json" \
     GF_SERVER_HTTP_PORT=31495 \
     bash -c 'command -v grafana-server >/dev/null && exec grafana-server || exec grafana server'
 

@@ -55,8 +55,9 @@ def _exprs(payload: dict) -> list[tuple[str, str]]:
             for t in panel.get("targets", [])]
 
 
-def test_the_four_screens_are_the_request_path() -> None:
-    assert set(DASHBOARDS) == {"gateway", "engine", "kv", "hardware"}
+def test_the_screens_are_the_request_path() -> None:
+    """Overview first, then the path a request travels through it."""
+    assert set(DASHBOARDS) == {"overview", "gateway", "engine", "kv", "hardware"}
     for name, payload in _dashboards().items():
         assert payload["uid"] == f"dodona-{name}", (
             f"{name}: the uid must be dodona-<filename>, because workers.sh "
@@ -207,6 +208,10 @@ def test_every_exported_group_is_represented(name: str) -> None:
     """
     blob = json.dumps(DASHBOARDS[name]())
     expected = {
+        # Overview is the one screen that spans everything, so it is required to
+        # carry the number a listener actually feels rather than any one
+        # component's metrics.
+        "overview": "vllm:time_to_first_token_seconds",
         "gateway": "orch_",
         "engine": "vllm:",
         "kv": "mooncake_" if SPLIT else "vllm:kv_cache_usage_perc",

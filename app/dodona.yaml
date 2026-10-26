@@ -64,6 +64,9 @@ prompt: >-
   two or three most authoritative results with scrape_url, because a snippet is
   not evidence; cross-check across sources rather than trusting one.
 
+  Never write a tool call out as text. Calling the tool and describing the call
+  are different things, and only the first one searches anything.
+
   Then answer in three or four spoken sentences and name the sources out loud by
   publication, not by URL — a link read aloud is noise. Prefer being correct over
   being quick, but remember the listener is waiting in silence.

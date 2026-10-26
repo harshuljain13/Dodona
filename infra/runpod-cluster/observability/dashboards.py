@@ -125,6 +125,15 @@ STORY_TAG = "dodona-path"
 TOPOLOGY = os.environ.get("LAB_TOPOLOGY", "aggregated")
 SPLIT = TOPOLOGY != "aggregated"
 
+#: How to label a per-engine series.
+#:
+#: `phase` on a vLLM series comes from the Prometheus target label, and on an
+#: aggregated fleet every engine serves both phases — so it is literally "both"
+#: on every line. "engine-0 (both)" is four characters of noise repeated down
+#: the legend, and a legend that carries no information teaches you not to read
+#: legends. Only worth printing when the pools are actually split.
+POD = "{{pod}} ({{phase}})" if SPLIT else "{{pod}}"
+
 
 def _target(expr: str, legend: str = "", ref: str = "A") -> dict:
     return {"datasource": PROM, "editorMode": "code", "expr": expr,
@@ -234,6 +243,160 @@ def _dash(uid: str, title: str, panels: list[dict], tags: list[str]) -> dict:
     }
 
 
+def overview() -> dict:
+    """Screen 0: the one you leave up.
+
+    Everything else on this path answers "why". This answers "what is happening
+    right now", in the numbers a listener actually experiences — time to first
+    token, the gap between tokens, how many requests are in flight, and whether
+    anything is being refused.
+
+    Deliberately no per-replica breakdowns: that is screen 1 and 2's job. A
+    dashboard that tries to be all of them is one nobody reads under pressure.
+    """
+    story = (
+        "## 0 · Overview — is it healthy, and is it fast?\n"
+        "The numbers a **listener** feels, not the ones a cluster reports. "
+        "**TTFT** is silence before the answer starts. **Inter-token latency** "
+        "is whether speech stutters once it has. **KV used** is the signal "
+        "admission control reads, and **shed** is it acting.\n\n"
+        "Healthy looks like: both replicas carrying requests, TTFT under a "
+        "couple of seconds, KV climbing under load and recovering after, and "
+        "shed at zero until you push it.\n\n"
+        "Then: **1 · Gateway** for why a request was refused or routed, "
+        "**2 · Engines** for which replica is struggling, **3 · KV** for "
+        "pressure and reuse, **4 · Hardware** for the cards."
+    )
+    return _dash("dodona-overview", "Dodona / 0 · Overview", [
+        _text(1, story),
+
+        # --- the four numbers worth a glance ---
+        _panel(2, "Time to first token (p95)",
+               "histogram_quantile(0.95, sum by (le) "
+               "(rate(vllm:time_to_first_token_seconds_bucket[5m]))) * 1000",
+               legend="p95", kind="stat", x=0, y=4, w=6, h=4, unit="ms",
+               desc="How long a listener waits in silence before the answer "
+                    "starts. Prefill plus queueing; the number that decides "
+                    "whether the agent feels alive."),
+        _panel(3, "Inter-token latency (p95)",
+               "histogram_quantile(0.95, sum by (le) "
+               "(rate(vllm:inter_token_latency_seconds_bucket[5m]))) * 1000",
+               legend="p95", kind="stat", x=6, y=4, w=6, h=4, unit="ms",
+               desc="The gap between tokens once generation starts. This is "
+                    "what makes synthesised speech stutter — a good TTFT with a "
+                    "bad ITL still sounds broken."),
+        _panel(4, "In flight",
+               "sum(vllm:num_requests_running)", legend="running",
+               kind="stat", x=12, y=4, w=6, h=4,
+               extra=[("sum(vllm:num_requests_waiting)", "waiting")],
+               desc="Requests on a GPU right now, and requests queued behind "
+                    "them. Waiting rising while running is flat means the "
+                    "engines are at their concurrency limit."),
+        _panel(5, "KV used (fullest replica)",
+               "max(vllm:kv_cache_usage_perc)", legend="KV",
+               kind="stat", x=18, y=4, w=6, h=4, unit="percentunit",
+               desc="The signal the admission policy reads. It sheds at 0.90 — "
+                    "if this never approaches it under load, the run is INERT "
+                    "and proves nothing about the policy."),
+
+        # --- latency, the three views that matter ---
+        _panel(6, "Time to first token — p50 / p95 / p99",
+               "histogram_quantile(0.50, sum by (le) "
+               "(rate(vllm:time_to_first_token_seconds_bucket[5m]))) * 1000",
+               legend="p50", x=0, y=8, unit="ms",
+               extra=[("histogram_quantile(0.95, sum by (le) "
+                       "(rate(vllm:time_to_first_token_seconds_bucket[5m]))) * 1000", "p95"),
+                      ("histogram_quantile(0.99, sum by (le) "
+                       "(rate(vllm:time_to_first_token_seconds_bucket[5m]))) * 1000", "p99")],
+               desc="The spread is the story: a p50 that stays flat while p99 "
+                    "climbs is a queue forming, and it shows here before any "
+                    "average moves."),
+        _panel(7, "Inter-token latency — p50 / p95 / p99",
+               "histogram_quantile(0.50, sum by (le) "
+               "(rate(vllm:inter_token_latency_seconds_bucket[5m]))) * 1000",
+               legend="p50", x=12, y=8, unit="ms",
+               extra=[("histogram_quantile(0.95, sum by (le) "
+                       "(rate(vllm:inter_token_latency_seconds_bucket[5m]))) * 1000", "p95"),
+                      ("histogram_quantile(0.99, sum by (le) "
+                       "(rate(vllm:inter_token_latency_seconds_bucket[5m]))) * 1000", "p99")],
+               desc="Rises when an engine is batching more work per step — "
+                    "better throughput, worse experience. The trade the "
+                    "scheduler is making, visible."),
+
+        _panel(8, "End-to-end latency — p50 / p95 / p99",
+               "histogram_quantile(0.50, sum by (le) "
+               "(rate(vllm:e2e_request_latency_seconds_bucket[5m])))",
+               legend="p50", x=0, y=16, unit="s",
+               extra=[("histogram_quantile(0.95, sum by (le) "
+                       "(rate(vllm:e2e_request_latency_seconds_bucket[5m])))", "p95"),
+                      ("histogram_quantile(0.99, sum by (le) "
+                       "(rate(vllm:e2e_request_latency_seconds_bucket[5m])))", "p99")],
+               desc="A whole request, queue to last token. In SECONDS, unlike "
+                    "the panels above — a research answer legitimately takes "
+                    "tens of seconds, and milliseconds would be six digits."),
+        _panel(9, "Queue time p95 vs prefill p95 vs decode p95",
+               "histogram_quantile(0.95, sum by (le) "
+               "(rate(vllm:request_queue_time_seconds_bucket[5m]))) * 1000",
+               legend="queued", x=12, y=16, unit="ms",
+               extra=[("histogram_quantile(0.95, sum by (le) "
+                       "(rate(vllm:request_prefill_time_seconds_bucket[5m]))) * 1000", "prefill"),
+                      ("histogram_quantile(0.95, sum by (le) "
+                       "(rate(vllm:request_decode_time_seconds_bucket[5m]))) * 1000", "decode")],
+               desc="Where the time actually went. Queue time climbing while "
+                    "prefill and decode stay flat means the fleet is "
+                    "admission-limited, not compute-limited — and more GPU "
+                    "would not help."),
+
+        # --- throughput and what is being refused ---
+        _panel(10, "Requests: arriving vs completed vs shed",
+               "sum(rate(orch_requests_total[1m]))", legend="arrived",
+               x=0, y=24, unit="reqps",
+               extra=[("sum(rate(orch_completed_total[1m]))", "completed"),
+                      ("sum(rate(orch_shed_total[1m]))", "shed (503)")],
+               desc="The three lines should sum. A gap between arrived and "
+                    "completed+shed is work still in flight; shed above zero is "
+                    "admission control doing its job, not a fault."),
+        _panel(11, "Tokens per second — prompt vs generated",
+               "sum(rate(vllm:prompt_tokens_total[1m]))", legend="prompt (read)",
+               x=12, y=24,
+               extra=[("sum(rate(vllm:generation_tokens_total[1m]))", "generated (written)")],
+               desc="Throughput in the only unit that matters on a GPU. Prompt "
+                    "tokens are prefill work, generated tokens are decode work; "
+                    "a research agent reads far more than it writes."),
+
+        # --- the fleet, and the cards under it ---
+        _panel(12, "KV cache usage, per replica",
+               "max by (pod) (vllm:kv_cache_usage_perc)", legend="{{pod}}",
+               x=0, y=32, unit="percentunit", maximum=1,
+               thresholds=[("green", None), ("orange", 0.75), ("red", 0.90)],
+               desc="Per engine, because the policy sheds on the FULLEST one. "
+                    "Two lines far apart means load is not being spread."),
+        _panel(13, "Replicas healthy, and the admission policy",
+               "sum(orch_replica_healthy)", legend="healthy replicas",
+               x=12, y=32,
+               extra=[("max by (policy) (admitperf_gate_active)", "gate: {{policy}}")],
+               desc="How many engines the gateway believes it can route to, and "
+                    "which policy is deciding. policy=none means the gate is "
+                    "OFF and nothing will ever be shed."),
+
+        _panel(14, "GPU utilisation, per card",
+               "max by (gpu, pod) (DCGM_FI_DEV_GPU_UTIL)",
+               legend="GPU {{gpu}} · {{pod}}", x=0, y=40, unit="percent",
+               maximum=100,
+               desc="Share of time the SMs were busy. Low utilisation with high "
+                    "KV is the memory-bound decode signature — the case where "
+                    "another card buys you nothing."),
+        _panel(15, "Preemptions and evictions",
+               "sum(rate(vllm:num_preemptions_total[5m]))", legend="preemptions/s",
+               x=12, y=40,
+               extra=[("sum(rate(orch_kv_evict_total[5m]))", "KV evictions/s")],
+               desc="Both are work being thrown away and redone. Any preemption "
+                    "means the gate admitted more than the fleet could hold, and "
+                    "the engine did admission control after the fact — which is "
+                    "the outcome the policy exists to prevent."),
+    ], ["overview", "slo"])
+
+
 def gateway() -> dict:
     """Stage 1: admit, queue, route. Everything here is the gateway's own view.
 
@@ -244,9 +407,15 @@ def gateway() -> dict:
     story = (
         "## 1 · Gateway — admit, queue, route\n"
         "A request arrives here first. The gateway **guards** it (known model? "
-        "sane `max_tokens`?), **admits or sheds** it against KV pressure, "
-        "**places** it on a pool, and **picks** a replica. Nothing below has "
-        "touched a GPU yet — this is the decision, and it costs about 90 ms.\n\n"
+        "sane `max_tokens`?), **admits or sheds** it against KV pressure, then "
+        "**picks a replica**. Nothing below has touched a GPU yet — this is the "
+        "decision, and it costs about 90 ms.\n\n"
+        "**Routing is load-aware, not capability-aware.** Every engine runs the "
+        "same model, so there is no text-vs-vision choice to make: `place()` "
+        "scores replicas on `active_requests` and `kv_utilisation` and sends the "
+        "request to the least loaded, with a prefix-affinity bonus when one of "
+        "them already holds the prompt. Least-loaded is the policy; sticky is "
+        "the optimisation on top of it.\n\n"
         "Next: **2 · Engines**, where the request becomes tokens."
     )
     return _dash("dodona-gateway", "Dodona / 1 · Gateway — admit, queue, route", [
@@ -265,10 +434,12 @@ def gateway() -> dict:
                     "policy=none means requests are admitted unconditionally."),
         _panel(5, "Gateway p95",
                "histogram_quantile(0.95, sum by (le) "
-               "(rate(orch_request_duration_seconds_bucket[5m])))",
-               legend="p95", kind="stat", x=18, y=4, w=6, h=4, unit="s",
+               "(rate(orch_request_duration_seconds_bucket[5m]))) * 1000",
+               legend="p95", kind="stat", x=18, y=4, w=6, h=4, unit="ms",
                desc="Time inside the gateway, end to end, including the engine "
-                    "it routed to."),
+                    "it routed to. In MILLISECONDS: the decision itself costs "
+                    "about 90ms, and seconds renders that as 0.09 — a number "
+                    "nobody can read at a glance or compare across a row."),
 
         _panel(6, "Arrivals vs completions vs shed",
                "sum(rate(orch_requests_total[1m]))", legend="arrived",
@@ -280,12 +451,15 @@ def gateway() -> dict:
                     "requests still in flight."),
         _panel(7, "Gateway latency p50 / p95 / p99",
                "histogram_quantile(0.50, sum by (le) "
-               "(rate(orch_request_duration_seconds_bucket[5m])))",
-               legend="p50", x=12, y=8, unit="s",
+               "(rate(orch_request_duration_seconds_bucket[5m]))) * 1000",
+               legend="p50", x=12, y=8, unit="ms",
                extra=[("histogram_quantile(0.95, sum by (le) "
-                       "(rate(orch_request_duration_seconds_bucket[5m])))", "p95"),
+                       "(rate(orch_request_duration_seconds_bucket[5m]))) * 1000", "p95"),
                       ("histogram_quantile(0.99, sum by (le) "
-                       "(rate(orch_request_duration_seconds_bucket[5m])))", "p99")]),
+                       "(rate(orch_request_duration_seconds_bucket[5m]))) * 1000", "p99")],
+               desc="How long a request spends inside the gateway, end to end, "
+                    "including the engine it routed to. The spread between p50 "
+                    "and p99 is what a queue looks like before it is a queue."),
 
         _panel(8, "Why requests were shed",
                "sum by (reason) (rate(orch_shed_total[5m]))", legend="{{reason}}",
@@ -303,11 +477,15 @@ def gateway() -> dict:
                legend="{{pod}} ({{pool}})", x=0, y=24,
                desc="Queued at the engine, as the gateway sees it. This is the "
                     "backlog place() is trying to even out."),
-        _panel(11, "Where requests were placed",
-               "sum by (capability) (rate(orch_place_total[5m]))",
-               legend="{{capability}}", x=12, y=24, unit="reqps",
-               desc="place() picks a pool by capability. With two decode "
-                    "workers answering, this is a real choice."),
+        _panel(11, "Where the work landed, per replica",
+               "sum by (pod) (rate(vllm:request_success_total[5m]))",
+               legend="{{pod}}", x=12, y=24, unit="reqps",
+               desc="Completed requests per engine — the outcome of every "
+                    "routing decision. This replaced a breakdown by capability "
+                    "(text vs vision), which answers a question this fleet does "
+                    "not ask: one model per card, so the choice is WHICH "
+                    "replica, never which kind. Two lines moving together is "
+                    "load-aware routing working; one flat at zero is not."),
 
         _panel(12, "Picks vs sticky reuse",
                "sum(rate(orch_pick_total[5m]))", legend="picks",
@@ -358,17 +536,35 @@ def engine() -> dict:
     decode: they do different work and fail differently.
     """
     story = (
-        "## 2 · Engines — prefill and decode\n"
-        "Three vLLM processes, one per card. **prefill** (`:8100`) turns the "
-        "prompt into KV; **decode-0** and **decode-1** (`:8101`, `:8102`) "
-        "generate tokens from it. They are the same model and the same binary — "
-        "what differs is the shape of the work, which is why their latency and "
-        "KV curves look nothing like each other.\n\n"
-        "Prefill is compute-bound and bursty. Decode is memory-bound and "
-        "steady, and it is decode that fills the KV cache.\n\n"
-        "Next: **3 · KV**, how prefill's work reaches decode."
+        (
+            "## 2 · Engines — one per card, both phases\n"
+            "One vLLM per GPU, every one running the same model and serving "
+            "**both phases** of every request it is given. There is no prefill "
+            "worker and no decode worker here — the router chooses an engine, "
+            "and that engine does the whole request.\n\n"
+            "The phases are still worth watching, because they load the card "
+            "differently and the panels below separate them per request: "
+            "**prefill** is one pass over the prompt, compute-bound and bursty; "
+            "**decode** is a token at a time, memory-bandwidth-bound and steady, "
+            "and it is decode that holds KV for the life of the answer.\n\n"
+            "Two engines moving together is `place()` spreading load. One flat "
+            "at zero is not.\n\n"
+            "Next: **3 · KV**, the pressure admission control reads."
+        ) if not SPLIT else (
+            "## 2 · Engines — prefill and decode\n"
+            "Separate pools: **prefill** turns the prompt into KV, **decode** "
+            "generates tokens. Same model, same binary — what differs is the "
+            "shape of the work, which is why their latency and KV curves look "
+            "nothing like each other.\n\n"
+            "Prefill is compute-bound and bursty. Decode is memory-bound and "
+            "steady, and it is decode that fills the KV cache.\n\n"
+            "Next: **3 · KV**, and what does or does not move between them."
+        )
     )
-    return _dash("dodona-engine", "Dodona / 2 · Engines — prefill and decode", [
+    return _dash("dodona-engine",
+                 "Dodona / 2 · Engines — prefill and decode" if SPLIT
+                 else "Dodona / 2 · Engines — one per card",
+                 [
         _text(1, story),
 
         _panel(2, "Running", "sum(vllm:num_requests_running)", legend="running",
@@ -409,24 +605,24 @@ def engine() -> dict:
 
         _panel(6, "Requests running, per engine",
                "sum by (pod, phase) (vllm:num_requests_running)",
-               legend="{{pod}} ({{phase}})", x=0, y=8,
+               legend=POD, x=0, y=8,
                desc="Two decode lines moving independently is place() spreading "
                     "load; one flat at zero means it is not."),
         _panel(7, "Requests waiting, per engine",
                "sum by (pod, phase) (vllm:num_requests_waiting)",
-               legend="{{pod}} ({{phase}})", x=12, y=8,
+               legend=POD, x=12, y=8,
                desc="An engine-side queue, distinct from the gateway's view on "
                     "screen 1."),
 
         _panel(8, "KV cache usage, per engine",
                "max by (pod, phase) (vllm:kv_cache_usage_perc)",
-               legend="{{pod}} ({{phase}})", x=0, y=16, unit="percentunit",
+               legend=POD, x=0, y=16, unit="percentunit",
                maximum=1, thresholds=[("green", None), ("orange", 0.75), ("red", 0.90)],
                desc="The signal the whole project is about. Red is 0.90, where "
                     "the admission policy starts shedding."),
         _panel(9, "Preemptions",
                "sum by (pod, phase) (rate(vllm:num_preemptions_total[5m]))",
-               legend="{{pod}} ({{phase}})", x=12, y=16,
+               legend=POD, x=12, y=16,
                desc="vLLM evicting a running request's KV to make room. Every "
                     "preemption is work thrown away and later redone — this is "
                     "what admission control exists to prevent."),
@@ -475,15 +671,21 @@ def engine() -> dict:
                extra=[("histogram_quantile(0.95, sum by (le) "
                        "(rate(vllm:e2e_request_latency_seconds_bucket[5m])))", "p95"),
                       ("histogram_quantile(0.99, sum by (le) "
-                       "(rate(vllm:e2e_request_latency_seconds_bucket[5m])))", "p99")]),
+                       "(rate(vllm:e2e_request_latency_seconds_bucket[5m])))", "p99")],
+               desc="A whole request as the engine measures it: queue plus "
+                    "prefill plus every decode step. Compare with the gateway's "
+                    "own p95 — the difference is what the control plane costs."),
 
         _panel(16, "Prompt tokens/s vs generated tokens/s",
                "sum by (phase) (rate(vllm:prompt_tokens_total[1m]))",
-               legend="prompt ({{phase}})", x=0, y=48,
+               legend="prompt" if not SPLIT else "prompt ({{phase}})", x=0, y=48,
                extra=[("sum by (phase) (rate(vllm:generation_tokens_total[1m]))",
-                       "generated ({{phase}})")],
-               desc="Prompt tokens land on prefill, generated tokens on decode. "
-                    "The ratio is the shape of your workload."),
+                       "generated" if not SPLIT else "generated ({{phase}})")],
+               desc="How fast the fleet reads versus how fast it writes. Prompt "
+                    "tokens are prefill work and generated tokens are decode "
+                    "work, and the ratio between the lines is the shape of your "
+                    "workload — a research agent is prompt-heavy, a chatbot is "
+                    "not."),
         _panel(17, "Batch size (tokens per engine iteration) p50 / p95",
                "histogram_quantile(0.50, sum by (le, pod) "
                "(rate(vllm:iteration_tokens_total_bucket[5m])))",
@@ -495,7 +697,7 @@ def engine() -> dict:
 
         _panel(18, "Successful requests/s, per engine",
                "sum by (pod, phase) (rate(vllm:request_success_total[5m]))",
-               legend="{{pod}} ({{phase}})", x=0, y=56, unit="reqps",
+               legend=POD, x=0, y=56, unit="reqps",
                desc="Completed by the engine. Compare with the gateway's "
                     "completion rate on screen 1."),
         _panel(19, "Local prefix cache hit rate",
@@ -724,15 +926,29 @@ def hardware() -> dict:
     a question this screen can answer.
     """
     story = (
-        "## 4 · Hardware — the three A100s\n"
-        "Where everything above actually happens. Each card is labelled with "
-        "the worker pinned to it, so `GPU 0 · prefill` is the card doing prompt "
-        "work and `GPU 1 · decode-0` / `GPU 2 · decode-1` are generating.\n\n"
-        "Read this against **2 · Engines**: utilisation high with KV low is "
-        "compute-bound prefill; KV high with utilisation low is memory-bound "
-        "decode, and no amount of GPU is going to help — which is the argument "
-        "for admission control rather than more cards.\n\n"
-        "Back to **1 · Gateway** to follow another request."
+        (
+            "## 4 · Hardware — the cards\n"
+            "Where everything above actually happens. Each card carries the "
+            "engine pinned to it, so a panel can say `GPU 1 · engine-1` rather "
+            "than `GPU 1` — real DCGM cannot do that, because it has no idea "
+            "what is running on a card.\n\n"
+            "Read this against **2 · Engines**. Both phases run on every card "
+            "here, so the two utilisation lines tell you which one dominates "
+            "right now: **compute high, memory bandwidth low** is prefill "
+            "working; **memory bandwidth high, compute low** is decode, and no "
+            "amount of GPU helps that — which is the argument for admission "
+            "control rather than more cards.\n\n"
+            "Back to **1 · Gateway** to follow another request."
+        ) if not SPLIT else (
+            "## 4 · Hardware — the cards\n"
+            "Where everything above actually happens. Each card is labelled "
+            "with the worker pinned to it, so `GPU 0 · prefill` is the card "
+            "doing prompt work and the decode cards are generating.\n\n"
+            "Read this against **2 · Engines**: utilisation high with KV low is "
+            "compute-bound prefill; KV high with utilisation low is "
+            "memory-bound decode, and no amount of GPU is going to help.\n\n"
+            "Back to **1 · Gateway** to follow another request."
+        )
     )
     return _dash("dodona-hardware", "Dodona / 4 · Hardware — GPUs", [
         _text(1, story),
@@ -837,6 +1053,7 @@ def hardware() -> dict:
 #: In the order a request travels. The numbers are in the titles so Grafana's
 #: alphabetical list is also the path.
 DASHBOARDS = {
+    "overview": overview,
     "gateway": gateway,
     "engine": engine,
     "kv": kv,

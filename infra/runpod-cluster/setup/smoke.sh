@@ -132,7 +132,7 @@ if curl -sf -m 5 localhost:31495/api/health >/dev/null 2>&1; then
   # Exactly four, and exactly these four: the request path, in order. An extra
   # one means a stale dashboard survived in Grafana's database from a previous
   # layout, which is how four blank Kubernetes screens stayed up for a week.
-  expected="dodona-gateway dodona-engine dodona-kv dodona-hardware"
+  expected="dodona-overview dodona-gateway dodona-engine dodona-kv dodona-hardware"
   uids=$(curl -sf -m 10 -u "admin:$GRAFANA_PASSWORD" 'localhost:31495/api/search?type=dash-db' 2>/dev/null \
     | python3 -c 'import sys,json; print(" ".join(sorted(d["uid"] for d in json.load(sys.stdin))))' 2>/dev/null)
   n=$(printf '%s' "$uids" | wc -w | tr -d ' ')
@@ -140,12 +140,12 @@ if curl -sf -m 5 localhost:31495/api/health >/dev/null 2>&1; then
   for u in $expected; do
     [[ " $uids " == *" $u "* ]] || missing="${missing:+$missing }$u"
   done
-  if [[ "${n:-0}" -eq 4 && -z "$missing" ]]; then
-    pass "4 dashboards: gateway -> engines -> kv -> hardware"
+  if [[ "${n:-0}" -eq 5 && -z "$missing" ]]; then
+    pass "5 dashboards: overview -> gateway -> engines -> kv -> hardware"
   elif [[ -n "$missing" ]]; then
     fail "missing dashboard(s): $missing (got: ${uids:-none})"
   else
-    fail "$n dashboards, expected 4 — a stale one survived: ${uids:-none}"
+    fail "$n dashboards, expected 5 — a stale one survived: ${uids:-none}"
   fi
   ds=$(curl -sf -m 10 -u "admin:$GRAFANA_PASSWORD" localhost:31495/api/datasources 2>/dev/null \
     | python3 -c 'import sys,json; print(",".join(d["uid"] for d in json.load(sys.stdin)))' 2>/dev/null)
