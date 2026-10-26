@@ -5,9 +5,6 @@
 <p align="center">
   <a href="https://github.com/vllm-project/vllm"><img src="https://img.shields.io/badge/vLLM-30A2FF?style=flat-square&logoColor=white" alt="vLLM"></a>
   <a href="https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-AWQ"><img src="https://img.shields.io/badge/Qwen2.5-615CED?style=flat-square" alt="Qwen2.5"></a>
-  <a href="https://github.com/Project-HAMi/HAMi"><img src="https://img.shields.io/badge/HAMi-00B0D7?style=flat-square" alt="HAMi"></a>
-  <a href="https://github.com/kvcache-ai/Mooncake"><img src="https://img.shields.io/badge/Mooncake-F59E0B?style=flat-square" alt="Mooncake"></a>
-  <a href="https://k3s.io"><img src="https://img.shields.io/badge/k3s-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="k3s"></a>
   <a href="https://prometheus.io"><img src="https://img.shields.io/badge/Prometheus-E6522C?style=flat-square&logo=prometheus&logoColor=white" alt="Prometheus"></a>
   <a href="https://grafana.com"><img src="https://img.shields.io/badge/Grafana-F46800?style=flat-square&logo=grafana&logoColor=white" alt="Grafana"></a>
   <a href="https://github.com/harshuljain13/AdmitPerf"><img src="https://img.shields.io/badge/AdmitPerf-F5C518?style=flat-square&labelColor=0B0B0B" alt="AdmitPerf"></a>
@@ -24,11 +21,10 @@
 citations — entirely on one GPU you rent.** No hosted chat API in the answer path.
 
 The agent is the easy half. One fetched source arrives as a **12,000-token
-prefill**, a single card split three ways serves only a handful of concurrent
-sequences, and a listener is waiting out loud — so latency is dead air rather
-than a percentile. The cluster has to decide what to let in —
-and most deployments make that decision by accident, when a queue fills and
-everything slows together.
+prefill**, a rented box holds a fixed and knowable amount of KV, and a listener
+is waiting out loud — so latency is dead air rather than a percentile. The
+cluster has to decide what to let in, and most deployments make that decision by
+accident, when a queue fills and everything slows together.
 
 Dodona makes it on purpose, and writes down what it saw.
 
@@ -69,45 +65,36 @@ flowchart TD
     VC <-->|"speech ⇄ text"| DG
     AG <-->|"search · scrape"| WB
 
-    UI["<b>Open WebUI</b><br/>hand testing · in-cluster :30030<br/>no agent, no tools"]
-
-    subgraph GW["Control plane · <b>orch-serve</b>"]
-      GD["<b>guard</b><br/>malformed → 400"]
-      AD{"<b>admit</b><br/>kv_pressure ≥ 0.90?"}
-      PL["<b>place</b><br/>least_loaded + queue depth"]
-      HP["<b>hop</b><br/>src ≠ dst → record"]
-      GD --> AD --> PL --> HP
+    subgraph GW["Control plane · <b>gateway</b> :8080 · one process"]
+      GD["<b>guard</b><br/>unknown model, bad max_tokens → 400"]
+      AD{"<b>admit</b><br/>kv_cache_usage ≥ 0.90?"}
+      PL["<b>place</b><br/>least-loaded + queue depth<br/>+ who holds this prefix"]
+      GD --> AD --> PL
       AP["<b>AdmitPerf</b><br/>policy · decision log"]
-      RF(["<b>503</b> · kv_free"])
+      IX[("<b>prefix index</b><br/>which replica holds which prompt")]
+      RF(["<b>503</b> · no kv_free"])
       OV{"<b>overflow gate</b><br/>503/529 may leave<br/>429 never does"}
       RP["<b>run report</b><br/>liveness verdict"]
     end
 
-
-    subgraph K8S["<b>k3s</b> + <b>HAMi</b> · one card, three slices"]
-      PF["<b>vLLM prefill-0</b><br/>slice 0 · builds the prompt's KV"]
-      D0["<b>vLLM decode-0</b><br/>slice 1 · generates"]
-      D1["<b>vLLM decode-1</b><br/>slice 2 · generates"]
-      PF -->|"decode RE-PREFILLS:<br/>no blocks move"| D0
-      PF --> D1
-      MC[("<b>KVBus</b><br/>records the hop<br/><i>bookkeeping only</i>")]
+    subgraph FLEET["<b>The fleet</b> · data parallel · one engine per card"]
+      D0["<b>vLLM engine-0</b><br/>whole card · prefill AND decode"]
+      D1["<b>vLLM engine-1</b><br/>whole card · prefill AND decode"]
       D0 ~~~ D1
     end
 
     SL["<b>Superlinked</b><br/>Qwen3.5-4B · 64 tok<br/>max 20 for the run"]
 
-    subgraph OPS["Observability + autoscale"]
-      PM[("<b>Prometheus</b><br/>+ DCGM exporter")]
-      GF["<b>Grafana</b><br/>8 dashboards"]
-      KD["<b>KEDA</b><br/>prefill-scaler on tokens-in-flight<br/>decode-scaler on kv_cache_usage"]
+    subgraph OPS["Observability"]
+      PM[("<b>Prometheus</b><br/>+ GPU exporter")]
+      GF["<b>Grafana</b><br/>4 dashboards, in request order"]
       PM --> GF
-      PM --> KD
     end
 
     AG --> GD
-    UI --> GD
-    HP --> PF
-    HP -.-> MC
+    PL --> D0
+    PL --> D1
+    PL <-.->|"prefix hit → send it back"| IX
     D0 --> AG
     D1 --> AG
     AD -->|"refused"| RF
@@ -118,21 +105,20 @@ flowchart TD
     AD <--> AP
     AP --> RP
     D0 -.->|"kv_cache_usage_perc"| AD
-    PF --> PM
+    D1 -.->|"kv_cache_usage_perc"| AD
     D0 --> PM
     D1 --> PM
-    KD -.->|"scales"| D0
 
     class L,RF actor
-    class DG,WB,UI ext
-    class GD,PL,HP,WEB ours
+    class DG,WB ext
+    class GD,PL,WEB ours
     class AD gate
-    class PF,D0,D1 engine
-    class MC store
+    class D0,D1 engine
+    class IX store
     class AP,AG,VC lib
     class OV gate
     class SL overflow
-    class PM,GF,KD obs
+    class PM,GF obs
     class RP out
 
     classDef actor    fill:#2B0F18,stroke:#FB7185,stroke-width:2px,color:#FECDD3
@@ -170,61 +156,72 @@ overflow gate and *may* leave for Superlinked. A tenant over quota gets `429`
 and **never leaves** — paying a provider for a request we are refusing on our
 own policy grounds is overspending, not a capacity event.
 
-**Two control loops, both dashed, both reading the same number.** `admit` takes
-`kv_cache_usage_perc` straight off decode and **sheds** when it crosses 0.90 —
-storing the value it read next to the verdict, which is the whole point. KEDA
-takes the same metric through Prometheus and **scales** instead. Same signal,
-opposite response.
+**One control loop, and it is the point of the project.** `admit` reads
+`kv_cache_usage_perc` off the engines and **sheds** when it crosses 0.90,
+storing the value it read next to the verdict. A refusal you can explain is
+worth more than a queue that silently grows.
 
-The fleet stays at three pods for any measured run: a fleet that resizes
-mid-comparison means the deployment moved, not the policy. KEDA is wired and
-left at `min 1 · max 2` so the mechanism is real and visible.
-
-```
-1 × NVIDIA GPU · 3 HAMi slices · 1 prefill + 2 decode · TP=1
-Qwen2.5-7B-Instruct-AWQ (int4) · max_model_len 16,384
-```
-
-The concurrency that follows depends on the card, so it is measured rather than
-quoted. `make fleet-lambda` prints it, and the arithmetic is in
-[`docs/project/01-capacity.md`](docs/project/01-capacity.md).
-
-Measured on 1 × A100-40GB with 12 GiB slices: **4.80 GiB of KV per worker, 5.5
-sequences each, decode pool 11.** On any other card these change, and nothing
-in this repo hardcodes them.
-
-### Two ways to start it
-
-The diagram above is `make fleet-lambda` — one GPU, three HAMi slices, KEDA scaling
-decode. It needs a **host**: a machine where systemd is PID 1. Most rented GPUs
-are containers, where k3s cannot install itself at all.
+**Not autoscaling.** Scaling takes minutes to load weights; KV pressure moves in
+seconds. That gap is the argument *for* admission control, and it is taught with
+the number rather than demonstrated with a scaler that cannot win the race.
+[`docs/PROJECT.md`](docs/PROJECT.md) has the reasoning.
 
 ```
-make fleet-lambda      k3s + HAMi + KEDA, 3 slices of one card     needs a host
-make fleet-runpod      1 vLLM per GPU, no orchestrator             runs in a container
+2 × A100-80GB · one vLLM per card · data parallel · TP=1
+Qwen2.5-32B-Instruct-AWQ (int4) · max_model_len 16,384
 ```
 
-**Everything between the listener and the engines is identical** — the same
-gateway, guard, admission policy, placement, queue, hop ledger, dashboards and
-reports. What differs is only how the workers get started, and what enforces
-their memory:
+Both replicas serve both phases, so `place()` is choosing where work goes rather
+than which phase goes where. The concurrency that follows depends on the card and
+on `SLICE_MIB`, so it is measured rather than quoted — see
+[`docs/project/01-capacity.md`](docs/project/01-capacity.md) for the arithmetic
+and [`benchmarking/04-routing-admission/`](benchmarking/04-routing-admission/)
+for the notebook that measures it on your box.
 
-| | `make fleet-lambda` | `make fleet-runpod` |
-|---|---|---|
-| Worker memory | HAMi hands each pod a 12 GiB device | `SLICE_MIB` → a utilisation fraction of the real card |
-| Enforcement | hard — a worker **cannot** exceed its slice | soft — vLLM takes what it is told to |
-| Compute share | `gpucores: 28` per worker | none, unless you run CUDA MPS |
-| Scaling | KEDA, decode 1 → 2 | none — and [the reason](docs/PROJECT.md) is that scaling takes minutes while pressure spikes in seconds |
+**The number that decides whether a run means anything.** The policy fires at
+0.90 KV, so the KV pool has to be fillable by load you can actually generate.
+Give a 32B the whole 80 GiB card and the pool is ~217k tokens — more than
+`MAX_NUM_SEQS` can hold at once, so the signal never arrives and the run comes
+back **INERT**: numbers indistinguishable from having no policy at all.
+`SLICE_MIB` shrinks the pool until the threshold is reachable. Notebook 04
+checks this before it generates any load, because it is the one mistake that
+invalidates everything downstream.
 
-HAMi exists in this project to compensate for having **one** card. With one GPU
-per worker there is nothing to slice, which is why `make fleet-runpod` loses less
-than it appears to.
+### How it runs
+
+```
+make fleet-runpod            one vLLM per card, the gateway in front
+make fleet-runpod-ssh        the tunnel — leave it open
+make fleet-runpod-status     model, KV pressure, placement, uptime
+make fleet-runpod-smoke-test does a request come back, with tools
+make fleet-runpod-down       stop it
+```
+
+It runs in a **container**, which is what most rented GPUs are — so there is no
+k3s, no HAMi and no KEDA on this branch, and nothing here needs systemd to be
+PID 1.
+
+### Other topologies live on their own branches
+
+Each is a real variant with its own trade-offs, kept separate so that `main` is
+one architecture explained honestly rather than four behind feature flags:
+
+| branch | what it is |
+|---|---|
+| `main` | **this** — RunPod, data-parallel replicas, admission control and routing |
+| [`lambda-cluster`](https://github.com/harshuljain13/Dodona/tree/lambda-cluster) | k3s + HAMi + KEDA on one card sliced three ways. Needs a host, not a container |
+| [`lambda-pd-disaggregation`](https://github.com/harshuljain13/Dodona/tree/lambda-pd-disaggregation) | prefill/decode split with vLLM's KV connector. Needs RDMA to be worth it — see [`docs/project/topology.md`](docs/project/topology.md) |
+| [`runpod-tp-cluster`](https://github.com/harshuljain13/Dodona/tree/runpod-tp-cluster) | one model sharded across cards with tensor parallel, for a model that will not fit on one |
+
+Everything between the listener and the engines is the same on every branch —
+the gateway, guard, admission policy, placement, queue, dashboards and reports.
+What differs is how the workers get started and what enforces their memory.
 
 ## Documentation
 
 | | |
 |---|---|
-| [**PREREQUISITES.md**](PREREQUISITES.md) | Accounts, keys, the SSH key and the GPU box — eight numbered steps, done once before `make fleet-lambda` |
+| [**PREREQUISITES.md**](PREREQUISITES.md) | Accounts, keys, the SSH key and the GPU box — numbered steps, done once before `make fleet-runpod` |
 | [**PROJECT.md**](docs/PROJECT.md) | The problem in full, the decision behind every choice, the C4 architecture levels, alternatives rejected, risks |
 | [**SUBMISSION.md**](docs/SUBMISSION.md) | The design answered part by part, with a decision tree per part |
 | [**COMMANDS.md**](docs/COMMANDS.md) | Every command in order, marked `[Mac]` or `[GPU]` |
@@ -257,8 +254,9 @@ root holds this README and the Makefile, nothing else.
 
 ## Quick start
 
-Needs an NVIDIA card you can ssh to **and have root on**, and Python 3.11+
-locally. Accounts, keys and the box, in order, are
+Needs **two NVIDIA cards** you can ssh to — two so that `place()` is choosing
+between replicas rather than routing to the only one — and Python 3.11+ locally.
+Accounts, keys and the box, in order, are
 [**PREREQUISITES.md**](PREREQUISITES.md) — about twenty minutes, once.
 
 ```bash
@@ -266,39 +264,27 @@ git clone https://github.com/harshuljain13/Dodona.git && cd Dodona
 cp .env.example .env     # set BOX, SSH_KEY, SSH_PORT — see PREREQUISITES.md
 make doctor              # is .env complete?
 
-make fleet-runpod        # a container box — ONE command, start to tunnel
-make fleet-lambda        # a host — then: make observability && make ssh
+make fleet-runpod        # ONE command: sync, install, start, tunnel
 ```
 
-`make fleet-runpod` syncs, installs vLLM, starts the fleet **detached** on the
-box, waits for the gateway to answer, then opens the tunnel in your terminal.
-One command, one terminal. `make fleet-runpod-down` stops it, `make fleet-runpod-logs`
-follows it.
+It syncs, installs vLLM, starts the fleet **detached** on the box, waits for
+every component to answer, then opens the tunnel in your terminal. One command,
+one terminal, and safe to re-run — it stops a running fleet first rather than
+silently doing nothing. `make fleet-runpod-down` stops it,
+`make fleet-runpod-logs` follows it.
 
-**Which of the two depends on your box, not your preference.** `make fleet-lambda`
-installs k3s as a systemd service; most rented GPUs are containers, where that
-cannot work. It checks and tells you before syncing anything:
-
-```
-root@… is a container, not a host — PID 1 is docker-init.
-```
-
-Then open **http://127.0.0.1:30030** and talk to it.
-
-**Five commands, and no more.** All run from your Mac and drive the box over
+**Four commands, and no more.** All run from your Mac and drive the box over
 ssh — there is no separate login step.
 
 | | |
 |---|---|
 | `make doctor` | **start here.** Is `.env` complete? Names every value and what its absence breaks, printing no secrets |
-| `make fleet-lambda` | syncs the project, then k3s + HAMi + KEDA, **1 prefill + 1 decode** across slices, the gateway in front of them, and **the capacity checks against a running pod** |
-| `make observability` | Prometheus + Grafana + DCGM, **for `fleet-lambda`** — Helm generates the Grafana password, read it from the cluster. `fleet-runpod` starts both itself, with `admin` / `$GRAFANA_PASSWORD` |
-| `make ssh` | the tunnel. Leave it open — every URL below is `127.0.0.1` |
-| `make app` | the voice app — the AgentShip service and the UI on `localhost:3000`. Talks to the GPU through the gateway, so `make ssh` first |
+| `make fleet-runpod` | syncs, installs vLLM, starts one engine per card with the gateway in front, Prometheus and Grafana beside it, then opens the tunnel. Safe to re-run: it stops a running fleet first |
+| `make app` | the voice app — the AgentShip service and the UI on `localhost:3000`. It reaches the GPU through the tunnel, so bring the fleet up first |
 | `make test` | the control plane, locally, **with no GPU** |
 
-Both bring-up targets are safe to re-run. Stopping, logs, load generation and
-the one-off tools are plain commands in [COMMANDS.md](docs/COMMANDS.md).
+Stopping, status, logs, the smoke test, load generation and the one-off tools
+are in [COMMANDS.md](docs/COMMANDS.md).
 
 When one step fails and you want to redo just that step, `make ssh` and then the
 `box-*` targets — `box-setup`, `box-serve`, `box-gate`, `box-cluster`,
@@ -337,9 +323,17 @@ arithmetic was misunderstood; one quietly retrofitted teaches nothing.
 [`docs/project/01-capacity.md`](docs/project/01-capacity.md) is the authority —
 everything else follows it, never the reverse.
 
-**A claim needs an artifact.** "The policy fired" needs decision rows carrying a
-signal value. "The hop works" needs a non-empty `/hops` *and*
-`KV_BACKEND=mooncake` confirmed. No artifact means `TBM`.
+**A claim needs an artifact.** "The policy fired" needs decision rows carrying
+the signal value it read. "Placement is a choice" needs two replicas with
+traffic on both. "Reuse saved a prefill" needs cached prompt tokens, not a
+hit-rate gauge read once. No artifact means `TBM`.
+
+**And a claim needs to be about this branch.** The honesty that cost the most
+here: a prefill/decode split records a *decision* in a ledger, while moving the
+bytes happens inside vLLM behind `--kv-transfer-config`. Miss that and the split
+is worse than not splitting, because decode re-prefills and one answer costs two
+prefills. `main` does not claim a hop, and
+[`docs/project/topology.md`](docs/project/topology.md) works through why.
 
 ```bash
 pytest tests/ && python3 -m compileall -q control tests
@@ -353,8 +347,6 @@ number that no longer matches the hardware, and a claim no scrape supports.
 ## Built on
 
 [vLLM](https://github.com/vllm-project/vllm) ·
-[HAMi](https://github.com/Project-HAMi/HAMi) ·
-[Mooncake](https://github.com/kvcache-ai/Mooncake) ·
 [AdmitPerf](https://github.com/harshuljain13/AdmitPerf) ·
 [AgentShip](https://github.com/Agent-Ship/agent-ship) ·
 [Deepgram](https://deepgram.com) ·
