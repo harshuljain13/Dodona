@@ -271,10 +271,32 @@ export default function Page() {
   // unchanged, because the frames are unchanged.
   const runTurn = useCallback(
     async (text: string) => {
+      // A hang must become an error, not an eternal "thinking".
+      //
+      // Silence is the worst failure this page can produce: a stale bundle, a
+      // dead service and a slow research turn all look identical, so there is
+      // nothing to act on. The abort fires only if NOTHING arrives — each frame
+      // resets it — so a genuinely long turn is never cut off, and a turn that
+      // produced no first frame in 90 seconds says so.
+      const ctrl = new AbortController();
+      let idle = setTimeout(() => ctrl.abort(), 90_000);
+      const alive = () => {
+        clearTimeout(idle);
+        idle = setTimeout(() => ctrl.abort(), 90_000);
+      };
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ input: text, session_id: session.current ?? undefined }),
+        signal: ctrl.signal,
+      }).catch((e) => {
+        throw new Error(
+          e?.name === "AbortError"
+            ? "no response in 90s. If the page was open across a `make app` restart, " +
+              "hard-reload it (Cmd-Shift-R) — the bundle is stale."
+            : `cannot reach /api/chat: ${e?.message ?? e}`,
+        );
       });
       if (!res.ok || !res.body) {
         const why = await res.json().catch(() => ({}));
@@ -289,8 +311,15 @@ export default function Page() {
       // half — so hold the tail until its terminator arrives rather than
       // parsing whatever happened to land in this read.
       for (;;) {
-        const { done, value } = await reader.read();
+        const { done, value } = await reader.read().catch((e) => {
+          throw new Error(
+            e?.name === "AbortError"
+              ? "the stream stalled with no frame for 90s — the agent may be stuck on a tool"
+              : `the stream broke: ${e?.message ?? e}`,
+          );
+        });
         if (done) break;
+        alive();
         buffer += decoder.decode(value, { stream: true });
         const frames = buffer.split("\n\n");
         buffer = frames.pop() ?? "";
@@ -304,6 +333,9 @@ export default function Page() {
             continue;
           }
           const d = (f.data ?? {}) as Record<string, string & Record<string, string>>;
+          // Every frame is proof of life, including a tool_call that will take
+          // 20 seconds to come back.
+          alive();
       switch (f.type) {
         case "session":
           // Kept and sent back on every later turn, which is what gives a typed
@@ -369,6 +401,7 @@ export default function Page() {
       }
         }
       }
+      clearTimeout(idle);
     },
     [extend, addStep, addSources],
   );
