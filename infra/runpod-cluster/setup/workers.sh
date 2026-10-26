@@ -155,7 +155,6 @@ else
 fi
 export LOCAL_BASE_URL="http://127.0.0.1:${PORTS[0]}/v1"
 export MOONCAKE_URL="http://127.0.0.1:50051"
-export LAB_TOPOLOGY="${LAB_TOPOLOGY:-disaggregated}"
 export ORCH_URL="${ORCH_URL:-http://127.0.0.1:8080/v1}"
 
 # The gateway's env, kept at parity with k8s/gateway/orch-serve.yaml.

@@ -2,7 +2,7 @@
 """Every value `.env` has to carry is present, named, and not a placeholder.
 
 The failure this prevents is finding a missing key twelve minutes into
-`make fleet-lambda`, reported by whatever happened to need it — a HuggingFace 401
+`make fleet-runpod`, reported by whatever happened to need it — a HuggingFace 401
 deep inside a weight download, or LiteLLM announcing "No API credentials" as
 though a cloud account were missing. Each of those names its own symptom and
 not its cause.
@@ -29,7 +29,7 @@ import sys
 #: of it being absent, because that is the question someone has when they read
 #: a failure here.
 REQUIRED = {
-    "BOX": "no box to drive — `make fleet-lambda` has nothing to ssh to",
+    "BOX": "no box to drive — `make fleet-runpod` has nothing to ssh to",
     "SSH_KEY": "no key to ssh with",
     "SSH_PORT": "defaults to 22; RunPod uses a high port, so a wrong one looks like a dead box",
     "HF_TOKEN": "the model download fails partway through bring-up",
@@ -41,6 +41,33 @@ REQUIRED = {
 OPTIONAL = {
     "OVERFLOW_API_KEY": "overflow never leaves — same as a cluster that is keeping up",
     "AGENTSHIP_OTEL_EXPORTERS": "the agent's spans are built and ship nowhere",
+}
+
+#: Set, but set to something that makes the demo show nothing.
+#:
+#: A different class from the two above: nothing fails, nothing logs, and the
+#: run produces numbers. They are just numbers about a question that was never
+#: asked. Each of these cost an evening to find from the outside.
+DEMO_KILLERS = {
+    "ADMISSION_POLICY": (
+        lambda v: bool(v),
+        "the gate is OFF — /metrics reports policy=\"none\" and nothing is "
+        "shed, on a fleet whose whole point is admission control",
+    ),
+    "TENANT_TOKENS_PER_MIN": (
+        lambda v: v.isdigit() and int(v) >= 100_000,
+        "a load test will be refused as 429 (client quota) long before KV "
+        "fills, and a 429 in a report looks exactly like the policy working",
+    ),
+    "PORT_BASE": (
+        lambda v: v != "8000",
+        "8000 puts the second engine on :8001, where RunPod's Jupyter nginx "
+        "already answers — vLLM crash-loops while the health check passes",
+    ),
+    "LAB_TOPOLOGY": (
+        lambda v: v in ("", "aggregated", "disaggregated"),
+        "not a topology pools.py knows; it will fall through to one pool",
+    ),
 }
 
 #: The older names, kept working so an existing `.env` needs no editing.
@@ -117,9 +144,20 @@ def main() -> int:
         else:
             print(f"  unset     {name:<24} {effect}")
 
+    # Warnings, never failures: a capacity sweep deliberately turns the policy
+    # off, so these are wrong for a demo and right for an experiment. Saying so
+    # beats refusing.
+    notes = [(n, why) for n, (ok, why) in DEMO_KILLERS.items()
+             if not ok(values.get(n, ""))]
+    if notes:
+        print()
+        print("  these will not fail the bring-up, but the demo will show nothing:")
+        for name, why in notes:
+            print(f"  WARN      {name:<24} {why}")
+
     print()
     if bad:
-        print(f"  {bad} to fix before `make fleet-lambda` — see PREREQUISITES.md")
+        print(f"  {bad} to fix before `make fleet-runpod` — see PREREQUISITES.md")
         return 1
 
     print("  .env is complete")
