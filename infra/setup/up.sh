@@ -155,6 +155,7 @@ cmd_fleet_runpod() {
   echo
   printf '    %-10s %-26s %s\n' "install" "python venv + vLLM"      "~/$REMOTE_DIR/.venv"
   printf '    %-10s %-26s %s\n' ""        "prometheus, grafana"     "/usr/local/bin"
+  printf '    %-10s %-26s %s\n' ""        "DCGM (if the host allows)" "GPU profiling fields"
   echo
   printf '    %-10s %-26s %s\n' "start"   "ledger     :50051"       "records KV routing decisions"
   # What actually starts depends on LAB_TOPOLOGY and on how many cards the box

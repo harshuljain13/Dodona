@@ -56,6 +56,19 @@ step "vllm (~10 GB)"     pip install -q "vllm>=0.28"
 # of binaries it will never run is a cost with no return.
 if [[ "${WITH_OBSERVABILITY:-0}" == "1" ]]; then
   bash "$PROJECT_ROOT/infra/runpod-cluster/setup/observability.sh" || true
+
+  # DCGM belongs HERE, in the install phase, not behind a separate command.
+  #
+  # workers.sh only probes — and a probe cannot install, so leaving this out
+  # meant `make fleet-runpod` silently kept the nvidia-smi exporter for ever
+  # and the profiling panels were never generated on any box. One command has
+  # to mean one command; an attendee is not going to discover `make dcgm`.
+  #
+  # `|| true` on purpose: this is an upgrade, not a requirement. The fleet
+  # serves identically without it, and a failed apt on somebody's image must
+  # not take down a bring-up. dcgm.sh prints why it failed, and the probe at
+  # start time decides what the dashboards claim.
+  bash "$PROJECT_ROOT/infra/runpod-cluster/setup/dcgm.sh" || true
 fi
 
 say "verify"

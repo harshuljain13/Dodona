@@ -581,3 +581,35 @@ def test_every_ssh_command_in_the_docs_names_a_key() -> None:
     assert not offenders, (
         "ssh commands in the docs with no -i, which will prompt for a "
         "password and look like a missing key:\n  " + "\n  ".join(offenders))
+
+
+def test_the_bring_up_installs_dcgm_rather_than_only_probing_it() -> None:
+    """`make fleet-runpod` has to be one command, including this.
+
+    workers.sh only PROBES for DCGM — and a probe cannot install, so with the
+    install left to a separate `make dcgm` the fleet quietly kept the
+    nvidia-smi exporter for ever and the profiling panels were never generated
+    on any box. Nobody was going to discover the other command.
+
+    Install happens in the package phase and the probe at start, in that order,
+    or the probe runs before the thing it is probing for exists.
+    """
+    packages = (SETUP / "box_packages.sh").read_text()
+    # The INVOCATION, not the string anywhere in the file. Checking the
+    # substring passed on the comment that explains the invocation, which is
+    # the same false pass this suite has now grown twice.
+    calls = [l for l in packages.splitlines()
+             if "dcgm.sh" in l and l.strip().startswith("bash ")]
+    assert calls, (
+        "box_packages.sh never runs dcgm.sh, so `make fleet-runpod` cannot "
+        "install DCGM — only a separate `make dcgm` would, and nobody will "
+        "find it")
+    # An upgrade, not a requirement: a failed apt must not fail a bring-up.
+    assert all("|| true" in l for l in calls), (
+        "a DCGM install failure would take down the whole bring-up")
+
+    up = (SETUP / "up.sh").read_text()
+    body = up[up.index("cmd_fleet_runpod() {"):]
+    assert body.index("install_packages") < body.index("workers.sh"), (
+        "packages are installed after the fleet starts, so the probe runs "
+        "before DCGM exists")
