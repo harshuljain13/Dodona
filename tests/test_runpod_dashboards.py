@@ -25,7 +25,6 @@ sys.path.insert(0, str(OBS))
 from dashboards import (  # noqa: E402
     DASHBOARDS,
     EXPORTED,
-    SPLIT,
     STORY_TAG,
     write_dashboards,
 )
@@ -214,29 +213,48 @@ def test_every_exported_group_is_represented(name: str) -> None:
         "overview": "vllm:time_to_first_token_seconds",
         "gateway": "orch_",
         "engine": "vllm:",
-        "kv": "mooncake_" if SPLIT else "vllm:kv_cache_usage_perc",
+        "kv": "vllm:kv_cache_usage_perc",
         "hardware": "DCGM_FI_DEV_",
     }[name]
     assert expected in blob, f"{name} never queries {expected}*"
 
 
-def test_the_ledger_is_not_plotted_when_it_cannot_move() -> None:
-    """In `aggregated` there is no hop, so mooncake_* must not be on a panel.
+def test_the_ledger_is_never_plotted() -> None:
+    """There is no hop on this branch, so the ledger is zero by construction.
 
-    `queue.py` short-circuits when the prefill and decode pools are the same
-    object — `handoff.decode is handoff.prefill` — so the bus is never called
-    and every ledger series stays at zero for the life of the fleet. Plotting
-    them would be four flat lines, which is the blank-panel failure this file
-    exists to prevent, in its most convincing disguise: the metric exists, the
-    target is up, and the graph is still meaningless.
+    One pool means `queue.py` short-circuits — `handoff.decode is
+    handoff.prefill` — and the bus is never called, so every mooncake_* series
+    stays at zero for the life of the fleet. Plotting them would be flat lines
+    under a target that is up and a metric that exists, which is the
+    blank-panel failure in its most convincing disguise.
+
+    The split version of these screens lives on `lambda-pd-disaggregation`.
+    This generator describes one topology, deliberately: it used to carry both
+    behind a SPLIT flag, and the half nobody ran is the half that went stale —
+    "three vLLM processes" and "prefill (:8100)" survived on screens generated
+    for a two-card fleet with neither.
     """
     exprs = " ".join(e for _, e in _exprs(DASHBOARDS["kv"]()))
-    if SPLIT:
-        assert "mooncake_" in exprs, "a split fleet should show the hop it attempts"
-    else:
-        assert "mooncake_" not in exprs, (
-            "aggregated fleets make no hops, so the ledger is flat zero by "
-            "construction and must not be given a panel")
+    assert "mooncake_" not in exprs, (
+        "this fleet makes no hops, so the ledger is flat zero by construction "
+        "and must not be given a panel")
+
+
+def test_the_generator_describes_exactly_one_topology() -> None:
+    """LAB_TOPOLOGY must not change what is generated.
+
+    Two versions of every screen behind a flag meant the one nobody looked at
+    rotted, and it rotted into the one people DID look at the moment the
+    default changed.
+    """
+    import dashboards as module
+
+    assert not hasattr(module, "SPLIT"), "the topology switch is back"
+    assert not hasattr(module, "TOPOLOGY"), "the topology switch is back"
+    source = (OBS / "dashboards.py").read_text()
+    assert "LAB_TOPOLOGY" not in source, (
+        "dashboards.py reads LAB_TOPOLOGY again — it should describe this "
+        "fleet and nothing else")
 
 
 def test_the_kv_dashboard_claim_matches_the_engine_config() -> None:

@@ -30,7 +30,6 @@ mislead an audience about the project's own central claim.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -114,25 +113,13 @@ EXPORTED = {
 #: happens instead of through a search box.
 STORY_TAG = "dodona-path"
 
-#: Which fleet these are being generated for. workers.sh exports LAB_TOPOLOGY
-#: before calling this, so the dashboards describe the fleet that is actually
-#: starting rather than a fleet someone might start.
+#: How a per-engine series is labelled.
 #:
-#: It changes real panels, not just prose. In `aggregated` there is no hop at
-#: all — queue.py short-circuits when the prefill and decode pools are the same
-#: object — so every mooncake_* series is flat zero by construction, and a
-#: screen of flat zeros is the blank-panel failure this file exists to prevent.
-TOPOLOGY = os.environ.get("LAB_TOPOLOGY", "aggregated")
-SPLIT = TOPOLOGY != "aggregated"
-
-#: How to label a per-engine series.
-#:
-#: `phase` on a vLLM series comes from the Prometheus target label, and on an
-#: aggregated fleet every engine serves both phases — so it is literally "both"
-#: on every line. "engine-0 (both)" is four characters of noise repeated down
-#: the legend, and a legend that carries no information teaches you not to read
-#: legends. Only worth printing when the pools are actually split.
-POD = "{{pod}} ({{phase}})" if SPLIT else "{{pod}}"
+#: Just the pod. `phase` on a vLLM target is "both" on this fleet, because
+#: every engine serves both phases — so printing it put "(both)" on every line
+#: of every legend. Noise repeated down a legend teaches people not to read
+#: legends.
+POD = "{{pod}}"
 
 
 def _target(expr: str, legend: str = "", ref: str = "A") -> dict:
@@ -536,72 +523,44 @@ def engine() -> dict:
     decode: they do different work and fail differently.
     """
     story = (
-        (
-            "## 2 · Engines — one per card, both phases\n"
-            "One vLLM per GPU, every one running the same model and serving "
-            "**both phases** of every request it is given. There is no prefill "
-            "worker and no decode worker here — the router chooses an engine, "
-            "and that engine does the whole request.\n\n"
-            "The phases are still worth watching, because they load the card "
-            "differently and the panels below separate them per request: "
-            "**prefill** is one pass over the prompt, compute-bound and bursty; "
-            "**decode** is a token at a time, memory-bandwidth-bound and steady, "
-            "and it is decode that holds KV for the life of the answer.\n\n"
-            "Two engines moving together is `place()` spreading load. One flat "
-            "at zero is not.\n\n"
-            "Next: **3 · KV**, the pressure admission control reads."
-        ) if not SPLIT else (
-            "## 2 · Engines — prefill and decode\n"
-            "Separate pools: **prefill** turns the prompt into KV, **decode** "
-            "generates tokens. Same model, same binary — what differs is the "
-            "shape of the work, which is why their latency and KV curves look "
-            "nothing like each other.\n\n"
-            "Prefill is compute-bound and bursty. Decode is memory-bound and "
-            "steady, and it is decode that fills the KV cache.\n\n"
-            "Next: **3 · KV**, and what does or does not move between them."
-        )
+        "## 2 · Engines — one per card, both phases\n"
+        "One vLLM per GPU, every one running the same model and serving "
+        "**both phases** of every request it is given. There is no prefill "
+        "worker and no decode worker here — the router chooses an engine, "
+        "and that engine does the whole request.\n\n"
+        "The phases are still worth watching, because they load the card "
+        "differently and the panels below separate them per request: "
+        "**prefill** is one pass over the prompt, compute-bound and bursty; "
+        "**decode** is a token at a time, memory-bandwidth-bound and steady, "
+        "and it is decode that holds KV for the life of the answer.\n\n"
+        "Two engines moving together is `place()` spreading load. One flat "
+        "at zero is not.\n\n"
+        "Next: **3 · KV**, the pressure admission control reads."
     )
-    return _dash("dodona-engine",
-                 "Dodona / 2 · Engines — prefill and decode" if SPLIT
-                 else "Dodona / 2 · Engines — one per card",
-                 [
+    return _dash("dodona-engine", "Dodona / 2 · Engines — one per card", [
         _text(1, story),
 
         _panel(2, "Running", "sum(vllm:num_requests_running)", legend="running",
                kind="stat", x=0, y=4, w=6, h=4,
-               desc="Requests on a GPU right now, all three engines."),
+               desc="Requests on a GPU right now, across every engine."),
         _panel(3, "Waiting", "sum(vllm:num_requests_waiting)", legend="waiting",
                kind="stat", x=6, y=4, w=6, h=4,
                desc="Queued inside the engines. Rises before latency does."),
-        *([
-            _panel(4, "KV used — decode (max)",
-                   "max(vllm:kv_cache_usage_perc{phase=\"decode\"})", legend="decode",
-                   kind="stat", x=12, y=4, w=6, h=4, unit="percentunit",
-                   desc="The fullest decode worker's KV cache. The admission "
-                        "policy is thresholded at 0.90; if this never "
-                        "approaches it, the run is INERT and proves nothing."),
-            _panel(5, "KV used — prefill",
-                   "max(vllm:kv_cache_usage_perc{phase=\"prefill\"})", legend="prefill",
-                   kind="stat", x=18, y=4, w=6, h=4, unit="percentunit",
-                   desc="Prefill holds KV only until it hops to decode, so this "
-                        "stays low even while prefill is busy."),
-        ] if SPLIT else [
-            # Every engine serves both phases, so `phase` is "both" on every
-            # series and filtering by it would empty the panel. The question
-            # becomes which replica is fullest, which is what admission reads.
-            _panel(4, "KV used — fullest engine",
-                   "max(vllm:kv_cache_usage_perc)", legend="fullest",
-                   kind="stat", x=12, y=4, w=6, h=4, unit="percentunit",
-                   desc="The fullest engine's KV cache. The admission policy is "
-                        "thresholded at 0.90; if this never approaches it the "
-                        "run is INERT — lower SLICE_MIB until it does."),
-            _panel(5, "KV used — fleet average",
-                   "avg(vllm:kv_cache_usage_perc)", legend="average",
-                   kind="stat", x=18, y=4, w=6, h=4, unit="percentunit",
-                   desc="Averaged across engines. A wide gap between this and "
-                        "the fullest engine means place() is not spreading "
-                        "load evenly."),
-        ]),
+        # Every engine serves both phases, so `phase` is "both" on every
+        # series and filtering by it would empty the panel. The question
+        # becomes which replica is fullest, which is what admission reads.
+        _panel(4, "KV used — fullest engine",
+               "max(vllm:kv_cache_usage_perc)", legend="fullest",
+               kind="stat", x=12, y=4, w=6, h=4, unit="percentunit",
+               desc="The fullest engine's KV cache. The admission policy is "
+                    "thresholded at 0.90; if this never approaches it the "
+                    "run is INERT — lower SLICE_MIB until it does."),
+        _panel(5, "KV used — fleet average",
+               "avg(vllm:kv_cache_usage_perc)", legend="average",
+               kind="stat", x=18, y=4, w=6, h=4, unit="percentunit",
+               desc="Averaged across engines. A wide gap between this and "
+                    "the fullest engine means place() is not spreading "
+                    "load evenly."),
 
         _panel(6, "Requests running, per engine",
                "sum by (pod, phase) (vllm:num_requests_running)",
@@ -678,9 +637,9 @@ def engine() -> dict:
 
         _panel(16, "Prompt tokens/s vs generated tokens/s",
                "sum by (phase) (rate(vllm:prompt_tokens_total[1m]))",
-               legend="prompt" if not SPLIT else "prompt ({{phase}})", x=0, y=48,
+               legend="prompt", x=0, y=48,
                extra=[("sum by (phase) (rate(vllm:generation_tokens_total[1m]))",
-                       "generated" if not SPLIT else "generated ({{phase}})")],
+                       "generated")],
                desc="How fast the fleet reads versus how fast it writes. Prompt "
                     "tokens are prefill work and generated tokens are decode "
                     "work, and the ratio between the lines is the shape of your "
@@ -733,121 +692,47 @@ def kv() -> dict:
     What is real in both: KV pressure, which is the signal admission control
     reads, and prefix reuse, which is the saving prefix-aware routing buys.
     """
-    if SPLIT:
-        story = (
-            "## 3 · KV — the hop, as a routing decision\n"
-            "Prefill and decode run on **different cards**, so the KV prefill "
-            "computes would have to reach decode. The ledger on `:50051` "
-            "records every hop the router decided to make.\n\n"
-            "**On this fleet the ledger is all there is.** Moving the blocks "
-            "needs `--kv-transfer-config` inside vLLM, and the process path "
-            "does not pass it — so decode **re-prefills the whole prompt**, and "
-            "one answer costs two prefills. Placement and orchestration are "
-            "real; the transfer is not.\n\n"
-            "**External prefix cache hits sitting at zero is the proof**, and "
-            "it is what a real connector would change. "
-            "See `docs/project/topology.md`.\n\n"
-            "Next: **4 · Hardware**, the cards all of this runs on."
-        )
-        hop_panels = [
-            _panel(2, "Hops decided", "sum(mooncake_hops_total)", legend="hops",
-                   kind="stat", x=0, y=4, w=6, h=4,
-                   desc="Times the router routed a request prefill -> decode. A "
-                        "decision count, not a transfer count: nothing moved."),
-            _panel(3, "Tokens the hop would have moved",
-                   "sum(mooncake_hop_tokens_total)", legend="tokens",
-                   kind="stat", x=6, y=4, w=6, h=4,
-                   desc="Tokens of KV a real connector WOULD have moved. Here "
-                        "decode recomputed all of them, so read this as the size "
-                        "of the transfer the architecture is asking for."),
-            _panel(4, "Blocks in the ledger", "sum(mooncake_blocks)", legend="blocks",
-                   kind="stat", x=12, y=4, w=6, h=4,
-                   desc="Rows the ledger is currently tracking."),
-            _panel(5, "Fleet KV headroom", "min(orch_kv_free_ratio)", legend="free",
-                   kind="stat", x=18, y=4, w=6, h=4, unit="percentunit",
-                   desc="Free fraction across the fleet, as the gateway computes it."),
-            _panel(6, "Hop rate", "sum(rate(mooncake_hops_total[1m]))",
-                   legend="hops/s", x=0, y=8,
-                   desc="One per request that prefilled on one card and decoded "
-                        "on another, so under normal routing this tracks "
-                        "arrivals. It measures the router, not the network."),
-            _panel(7, "Tokens per second the hop would carry",
-                   "sum(rate(mooncake_hop_tokens_total[1m]))", legend="tokens/s",
-                   x=12, y=8,
-                   desc="What the hop WOULD cost in bandwidth. At 256 KiB of KV "
-                        "per token for this model, 1000 tokens/s is ~250 MiB/s — "
-                        "the number to weigh against recomputing."),
-            _panel(8, "Transfers the gateway recorded vs tokens counted",
-                   "sum(rate(orch_kv_transfer_total[5m]))", legend="transfers/s",
-                   x=0, y=16,
-                   extra=[("sum(rate(orch_kv_transfer_tokens[5m]))", "tokens/s")],
-                   desc="The gateway's own count, independent of the ledger. The "
-                        "two should agree; a divergence means one is missing "
-                        "events."),
-            _panel(9, "KV usage: prefill vs decode",
-                   "max by (phase) (vllm:kv_cache_usage_perc)", legend="{{phase}}",
-                   x=12, y=16, unit="percentunit", maximum=1,
-                   thresholds=[("green", None), ("orange", 0.75), ("red", 0.90)],
-                   desc="The asymmetry disaggregation is built around: prefill's "
-                        "KV drains after each request, decode's accumulates for "
-                        "the life of the generation."),
-            _panel(10, "External prefix cache hit rate",
-                   "sum(rate(vllm:external_prefix_cache_hits_total[5m])) / "
-                   "clamp_min(sum(rate(vllm:external_prefix_cache_queries_total[5m])), 1)",
-                   legend="hit rate", x=0, y=24, unit="percentunit", maximum=1,
-                   desc="KV found outside this engine — i.e. arriving across a "
-                        "hop. Flat at zero is the honest signal that no connector "
-                        "is installed and decode re-prefilled. Lifting this off "
-                        "zero is exactly what --kv-transfer-config would do."),
-            _panel(11, "KV headroom per pool",
-                   "min by (pool) (orch_replica_kv_free_ratio)", legend="{{pool}}",
-                   x=12, y=24, unit="percentunit", maximum=1,
-                   desc="Free fraction by pool. Decode is the one that runs out."),
-        ]
-        base_y = 32
-        pid = 12
-    else:
-        story = (
-            "## 3 · KV — pressure and reuse\n"
-            "Every engine serves both phases here, so there is **no hop**: "
-            "`queue.py` short-circuits when the prefill and decode pools are the "
-            "same object, and the ledger on `:50051` stays at zero by design. "
-            "That is why no hop panels are on this screen — flat zeros teach you "
-            "to ignore empty graphs.\n\n"
-            "What is on it is real. **KV usage is the signal admission control "
-            "reads**: the policy sheds at 0.90, so if the top panels never climb "
-            "there the run is INERT and proves nothing — lower `SLICE_MIB` until "
-            "they do. **Prefix reuse** is what prefix-aware routing buys: a "
-            "request sent back to the engine already holding its prompt skips "
-            "the prefill entirely.\n\n"
-            "Why no hop: a real split needs placement, orchestration AND "
-            "transfer, and transfer lives inside vLLM behind "
-            "`--kv-transfer-config`. See `docs/project/topology.md`.\n\n"
-            "Next: **4 · Hardware**, the cards all of this runs on."
-        )
-        hop_panels = [
-            _panel(2, "Fleet KV headroom", "min(orch_kv_free_ratio)", legend="free",
-                   kind="stat", x=0, y=4, w=6, h=4, unit="percentunit",
-                   desc="Free fraction across the fleet, as the gateway computes "
-                        "it. This is what place() and admit both read."),
-            _panel(3, "Fullest engine", "max(vllm:kv_cache_usage_perc)",
-                   legend="KV used", kind="stat", x=6, y=4, w=6, h=4,
-                   unit="percentunit",
-                   desc="The engine closest to its KV limit. Admission is "
-                        "thresholded at 0.90; this is the number that has to "
-                        "reach it for the demo to show anything."),
-            _panel(4, "Admission policy",
-                   "max by (policy) (admitperf_gate_active)", legend="{{policy}}",
-                   kind="stat", x=12, y=4, w=6, h=4,
-                   desc="1 while the named policy is deciding. policy=none means "
-                        "ADMISSION_POLICY is unset and nothing is being shed."),
-            _panel(5, "Shed", "sum(rate(orch_shed_total[1m]))", legend="503/s",
-                   kind="stat", x=18, y=4, w=6, h=4, unit="reqps",
-                   desc="Refused for capacity. Non-zero means the KV threshold "
-                        "fired — which is the whole point of the fleet."),
-        ]
-        base_y = 8
-        pid = 6
+    story = (
+        "## 3 · KV — pressure and reuse\n"
+        "Every engine serves both phases here, so there is **no hop**: "
+        "`queue.py` short-circuits when the prefill and decode pools are the "
+        "same object, and the ledger on `:50051` stays at zero by design. "
+        "That is why no hop panels are on this screen — flat zeros teach you "
+        "to ignore empty graphs.\n\n"
+        "What is on it is real. **KV usage is the signal admission control "
+        "reads**: the policy sheds at 0.90, so if the top panels never climb "
+        "there the run is INERT and proves nothing — lower `SLICE_MIB` until "
+        "they do. **Prefix reuse** is what prefix-aware routing buys: a "
+        "request sent back to the engine already holding its prompt skips "
+        "the prefill entirely.\n\n"
+        "Why no hop: a real split needs placement, orchestration AND "
+        "transfer, and transfer lives inside vLLM behind "
+        "`--kv-transfer-config`. See `docs/project/topology.md`.\n\n"
+        "Next: **4 · Hardware**, the cards all of this runs on."
+    )
+    hop_panels = [
+        _panel(2, "Fleet KV headroom", "min(orch_kv_free_ratio)", legend="free",
+               kind="stat", x=0, y=4, w=6, h=4, unit="percentunit",
+               desc="Free fraction across the fleet, as the gateway computes "
+                    "it. This is what place() and admit both read."),
+        _panel(3, "Fullest engine", "max(vllm:kv_cache_usage_perc)",
+               legend="KV used", kind="stat", x=6, y=4, w=6, h=4,
+               unit="percentunit",
+               desc="The engine closest to its KV limit. Admission is "
+                    "thresholded at 0.90; this is the number that has to "
+                    "reach it for the demo to show anything."),
+        _panel(4, "Admission policy",
+               "max by (policy) (admitperf_gate_active)", legend="{{policy}}",
+               kind="stat", x=12, y=4, w=6, h=4,
+               desc="1 while the named policy is deciding. policy=none means "
+                    "ADMISSION_POLICY is unset and nothing is being shed."),
+        _panel(5, "Shed", "sum(rate(orch_shed_total[1m]))", legend="503/s",
+               kind="stat", x=18, y=4, w=6, h=4, unit="reqps",
+               desc="Refused for capacity. Non-zero means the KV threshold "
+                    "fired — which is the whole point of the fleet."),
+    ]
+    base_y = 8
+    pid = 6
 
     # Real in both topologies: the pressure admission reads, and the reuse that
     # prefix-aware routing earns. Laid out after whatever the branch above put
@@ -911,10 +796,9 @@ def kv() -> dict:
                     "build. Lower than the prompt length means cache reuse."),
     ]
 
-    title = ("Dodona / 3 · KV — the hop (a routing decision here)" if SPLIT
-             else "Dodona / 3 · KV — pressure and reuse")
+    title = "Dodona / 3 · KV — pressure and reuse"
     return _dash("dodona-kv", title, [_text(1, story), *hop_panels, *shared],
-                 ["kv", "admission", "disaggregation" if SPLIT else "reuse"])
+                 ["kv", "admission", "reuse"])
 
 
 def hardware() -> dict:
@@ -926,29 +810,18 @@ def hardware() -> dict:
     a question this screen can answer.
     """
     story = (
-        (
-            "## 4 · Hardware — the cards\n"
-            "Where everything above actually happens. Each card carries the "
-            "engine pinned to it, so a panel can say `GPU 1 · engine-1` rather "
-            "than `GPU 1` — real DCGM cannot do that, because it has no idea "
-            "what is running on a card.\n\n"
-            "Read this against **2 · Engines**. Both phases run on every card "
-            "here, so the two utilisation lines tell you which one dominates "
-            "right now: **compute high, memory bandwidth low** is prefill "
-            "working; **memory bandwidth high, compute low** is decode, and no "
-            "amount of GPU helps that — which is the argument for admission "
-            "control rather than more cards.\n\n"
-            "Back to **1 · Gateway** to follow another request."
-        ) if not SPLIT else (
-            "## 4 · Hardware — the cards\n"
-            "Where everything above actually happens. Each card is labelled "
-            "with the worker pinned to it, so `GPU 0 · prefill` is the card "
-            "doing prompt work and the decode cards are generating.\n\n"
-            "Read this against **2 · Engines**: utilisation high with KV low is "
-            "compute-bound prefill; KV high with utilisation low is "
-            "memory-bound decode, and no amount of GPU is going to help.\n\n"
-            "Back to **1 · Gateway** to follow another request."
-        )
+        "## 4 · Hardware — the cards\n"
+        "Where everything above actually happens. Each card carries the "
+        "engine pinned to it, so a panel can say `GPU 1 · engine-1` rather "
+        "than `GPU 1` — real DCGM cannot do that, because it has no idea "
+        "what is running on a card.\n\n"
+        "Read this against **2 · Engines**. Both phases run on every card "
+        "here, so the two utilisation lines tell you which one dominates "
+        "right now: **compute high, memory bandwidth low** is prefill "
+        "working; **memory bandwidth high, compute low** is decode, and no "
+        "amount of GPU helps that — which is the argument for admission "
+        "control rather than more cards.\n\n"
+        "Back to **1 · Gateway** to follow another request."
     )
     return _dash("dodona-hardware", "Dodona / 4 · Hardware — GPUs", [
         _text(1, story),
@@ -1024,23 +897,16 @@ def hardware() -> dict:
         # every card is `phase="both"`, so this would draw a single line under a
         # title promising two — and a panel whose title overstates it is how an
         # audience learns to stop reading titles.
-        _panel(14,
-               ("Utilisation by role: prefill vs decode" if SPLIT
-                else "Compute vs memory bandwidth, per card"),
-               ("avg by (phase) (DCGM_FI_DEV_GPU_UTIL)" if SPLIT
-                else "max by (gpu, pod) (DCGM_FI_DEV_GPU_UTIL)"),
-               legend="{{phase}}" if SPLIT else "compute · GPU {{gpu}}",
+        _panel(14, "Compute vs memory bandwidth, per card",
+               "max by (gpu, pod) (DCGM_FI_DEV_GPU_UTIL)",
+               legend="compute · GPU {{gpu}}",
                x=0, y=40, unit="percent", maximum=100,
-               extra=[("avg by (phase) (DCGM_FI_DEV_MEM_COPY_UTIL)",
-                       "{{phase}} memory bw")] if SPLIT else
-                     [("max by (gpu, pod) (DCGM_FI_DEV_MEM_COPY_UTIL)",
+               extra=[("max by (gpu, pod) (DCGM_FI_DEV_MEM_COPY_UTIL)",
                        "memory bw · GPU {{gpu}}")],
-               desc=("The whole argument on one panel: the two roles load the "
-                     "hardware differently, which is why they get separate "
-                     "pools and separate scaling decisions." if SPLIT else
-                     "Prefill is compute-bound and decode is memory-bound, and "
-                     "every card here does both — so the two lines crossing is "
-                     "the workload changing shape, not the router moving it.")),
+               desc="Which phase is dominating a card right now. Prefill is "
+                    "compute-bound and decode is memory-bound, and every card "
+                    "here does both — so the two lines crossing is the workload "
+                    "changing shape, not the router moving it."),
         _panel(15, "Framebuffer free, per card",
                "min by (gpu, pod) (DCGM_FI_DEV_FB_FREE)",
                legend="GPU {{gpu}} · {{pod}}", x=12, y=40, unit="decmbytes",
