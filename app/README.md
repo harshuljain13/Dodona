@@ -61,3 +61,15 @@ agent sounds slow and deep, with nothing reporting an error.
 **The page is told the state of the cluster before anyone clicks.** If the
 gateway is unreachable the UI says so and the agent says so out loud when it
 joins, rather than answering with silence.
+
+## Do not `next build` while `make app` is running
+
+Both write to `app/web/.next/`. A production build overwrites the chunk map
+the dev server is serving from, and the next request fails with
+
+    Cannot find module './611.js'
+
+which names a file nobody wrote and points at webpack internals. The fix is
+`rm -rf app/web/.next` and restart `make app`, but the better move is not to
+run it: `npx tsc --noEmit` type-checks without touching `.next`, and the dev
+server already reports compile errors in its own output.
