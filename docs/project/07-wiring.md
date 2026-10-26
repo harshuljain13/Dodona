@@ -116,7 +116,7 @@ one tool call per reply above.
 ## The access path
 
 Most GPU hosts allow only SSH inbound, so everything goes through one tunnel
-(`infra/lambda-cluster/setup/ssh.sh`). Open only `127.0.0.1` URLs, never the public IP.
+(`make fleet-runpod-ssh`). Open only `127.0.0.1` URLs, never the public IP.
 
 | URL | What |
 |---|---|

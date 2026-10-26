@@ -272,9 +272,22 @@ def test_workers_sets_up_its_own_environment_on_the_box() -> None:
     environment it was run in.
     """
     src = (ROOT / "infra" / "runpod-cluster" / "setup" / "workers.sh").read_text()
-    assert "export PYTHONPATH=" in src, "workers.sh must set PYTHONPATH itself"
-    assert "infra/control" in src and "infra/lambda-cluster" in src, "both import roots"
-    assert "export PATH=" in src and ".venv/bin" in src, "the venv must be on PATH for vllm"
+
+    # The export LINE, not the string anywhere in the file. The old version
+    # asserted `"infra/lambda-cluster" in src`, and kept passing after that
+    # directory was deleted — because a comment explaining the removal still
+    # contained the words. This file's own docstring warns about exactly that:
+    # grepping for a substring passes on a script that is nonsense but
+    # mentions the right noun.
+    line = next((l for l in src.splitlines() if l.startswith("export PYTHONPATH=")), None)
+    assert line, "workers.sh must set PYTHONPATH itself"
+    assert "infra/control" in line, f"the import root is missing from: {line}"
+    assert "lambda-cluster" not in line, (
+        f"PYTHONPATH still points at a directory that is on another branch: {line}")
+
+    path_line = next((l for l in src.splitlines() if l.startswith("export PATH=")), None)
+    assert path_line and ".venv/bin" in path_line, (
+        "the venv must be on PATH, or engine.sh's bare `vllm` is command-not-found")
 
 
 def test_port_probe_survives_a_free_port() -> None:

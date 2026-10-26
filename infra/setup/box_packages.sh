@@ -4,7 +4,7 @@
 # torch and vLLM import and can see the device. No Kubernetes here.
 set -euo pipefail
 
-# This script is at infra/lambda-cluster/setup/, so the repo root is three levels up,
+# This script is at infra/setup/, so the repo root is two levels up,
 # not two. It was two — PROJECT_ROOT landed on infra/, pip looked for
 # infra/requirements.txt, and the venv would have been built there as well,
 # where workers.sh does not look for it. Found on the first real box.
