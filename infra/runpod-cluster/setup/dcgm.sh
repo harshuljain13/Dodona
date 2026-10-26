@@ -102,7 +102,13 @@ else
   # Two entries for one repo: keep the signed one, set the others aside. Moved
   # to .disabled rather than deleted, and restored if apt is still unhappy —
   # a repair that cannot be undone is not a repair.
-  if apt-get update 2>&1 | grep -q "Conflicting values set for option Signed-By"; then
+  # Captured, not piped. `set -o pipefail` is on, and `apt-get update | grep -q`
+  # reports APT's exit status, not grep's — apt exits non-zero precisely when
+  # the conflict exists, so the test was false exactly when it should have been
+  # true and this repair silently skipped itself on every run. The symptom was
+  # indistinguishable from the repair not being there at all.
+  upd="$(apt-get update 2>&1 || true)"
+  if printf '%s' "$upd" | grep -q "Conflicting values set for option Signed-By"; then
     bad "duplicate CUDA sources — apt cannot read its lists"
     # read, not mapfile: mapfile is bash 4+ and this should not depend on the
     # shell version of a box we do not control.
@@ -130,7 +136,8 @@ else
       done
       note "keeping $keep"
 
-      if apt-get update 2>&1 | grep -q "Conflicting values set for option Signed-By"; then
+      upd="$(apt-get update 2>&1 || true)"
+      if printf '%s' "$upd" | grep -q "Conflicting values set for option Signed-By"; then
         bad "still conflicting — putting them back exactly as they were"
         for f in ${moved[@]+"${moved[@]}"}; do mv "$f.disabled" "$f"; done
       else
