@@ -18,7 +18,12 @@ providers:
     orgId: 1
     folder: Dodona
     type: file
-    disableDeletion: true
+    # false, or a dashboard removed from the directory stays in Grafana's
+    # database for ever. Four Kubernetes dashboards survived the filter that
+    # stopped provisioning them — Grafana had been told to keep what it already
+    # had, and its db persists across restarts. The provisioning directory is
+    # the source of truth; what is not in it should not be in Grafana.
+    disableDeletion: false
     # Edits made in the UI are overwritten on restart. Deliberate: a dashboard
     # that only exists in someone's browser is not a dashboard this repo has.
     allowUiUpdates: false
