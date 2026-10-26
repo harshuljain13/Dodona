@@ -40,13 +40,33 @@ button.cta.ghost { background: transparent; color: var(--muted); border: 1px sol
 .who { display: block; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
 .empty { color: var(--muted); font-size: 14px; margin: auto; text-align: center; max-width: 280px; }
 
-/* What the agent is doing rather than saying — a tool firing, or a guardrail
-   refusing. In a spoken turn this is the silence; in a typed one it is the only
-   place the research is visible while it happens. */
-.turn .note {
-  display: block; margin-top: 5px; font-size: 12px; font-style: italic;
-  color: var(--muted); letter-spacing: 0.2px;
+/* The speaker line carries the time on the right, so a turn says when it
+   started without the timestamp competing with the name. */
+.who time { float: right; letter-spacing: 0.5px; opacity: 0.75; font-variant-numeric: tabular-nums; }
+
+/* What the agent is doing rather than saying — a tool firing, what it searched
+   for, what came back, or a guardrail refusing. In a spoken turn this is the
+   silence; in a typed one it is the only place the research is visible while it
+   happens, which is why each step carries its own clock: the gaps between them
+   are where the thirty seconds went. */
+.turn .step {
+  display: block; margin: 4px 0; padding: 4px 8px; font-size: 12px;
+  border-left: 2px solid var(--line); border-radius: 0 6px 6px 0;
+  background: rgba(255, 255, 255, 0.025); color: var(--muted);
 }
+.turn .step time { font-variant-numeric: tabular-nums; opacity: 0.6; margin-right: 8px; }
+.turn .step b { font-weight: 600; letter-spacing: 0.3px; }
+/* The query or URL, which is the part worth reading. Wraps rather than
+   truncating: a search that misread the question is the thing you are looking
+   for, and it is usually visible in the last few words. */
+.turn .step i {
+  display: block; margin-top: 2px; font-style: normal; color: var(--fg);
+  opacity: 0.85; word-break: break-word;
+}
+.turn .step.tool     { border-left-color: #4f8cc9; }
+.turn .step.result   { border-left-color: #3f9d6b; }
+.turn .step.guard    { border-left-color: #c9804f; }
+.turn .step.thinking { border-left-color: var(--muted); font-style: italic; }
 
 /* Typing is a first-class way in, not a fallback, so the composer is always
    there — including before the microphone is connected. */

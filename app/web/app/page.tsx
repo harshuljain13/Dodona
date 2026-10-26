@@ -7,9 +7,73 @@ import { Orb } from "@/components/Orb";
 // kinds arrive as JSON text on the same socket that carries audio as binary —
 // a browser tells them apart by payload type, which is the whole protocol.
 type State = "disconnected" | "connecting" | "initializing" | "listening" | "thinking" | "speaking";
-// `pending` marks a turn still being streamed into; `note` is what the agent is
-// doing rather than saying — a tool call, or a guardrail refusing it.
-type Turn = { id: number; who: "you" | "agent"; text: string; pending?: boolean; note?: string };
+// One thing the agent did on the way to answering. A research turn makes several
+// of these and they are the most interesting part of the screen: without them a
+// thirty-second silence is indistinguishable from a hang, and you cannot tell an
+// agent that searched from one that answered out of the model's memory.
+type Step = {
+  at: number;
+  kind: "thinking" | "tool" | "result" | "guard";
+  label: string;
+  detail?: string;
+};
+
+// `pending` marks a turn still being streamed into. `at` is when it started, not
+// when it finished, so the gap to the next timestamp is how long the turn took.
+type Turn = {
+  id: number;
+  who: "you" | "agent";
+  text: string;
+  at: number;
+  pending?: boolean;
+  steps?: Step[];
+};
+
+// The first words of `voice.fallback_text` in app/dodona.yaml. A failed voice
+// turn is spoken, not signalled — the adapter pushes this as a TextFrame and the
+// socket relays it as a normal `said` — so the agreed sentence is the only way
+// the browser can know. Prefix, not equality: TTS framing can append.
+//
+// If you change the line in dodona.yaml, change it here. That coupling is ugly
+// and it is the whole mechanism, so it is written down rather than inferred.
+const FAILED_TURN = "Sorry, that turn failed.";
+
+// Local time, seconds included: a research turn is tens of seconds and minute
+// resolution would show three steps all claiming the same moment.
+//
+// Called only from turns created by interaction, never during server rendering —
+// `toLocaleTimeString` on the server and in the browser disagree, and that is a
+// hydration mismatch. The transcript is empty on first paint, so there is
+// nothing to disagree about.
+const clock = (at: number) =>
+  new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+// A tool result is a JSON blob of whole scraped pages. Nobody reads that in a
+// transcript, but "3 results · firecrawl" vs "0 results" is the difference
+// between a working key and a silent fallback to the model's own memory.
+function summariseResult(raw: unknown): string | undefined {
+  if (raw == null) return undefined;
+  let data: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return raw.length > 90 ? `${raw.slice(0, 90)}…` : raw;
+    }
+  }
+  if (typeof data !== "object" || data === null) return String(data).slice(0, 90);
+  const o = data as Record<string, unknown>;
+  const results = Array.isArray(o.results) ? o.results : undefined;
+  const parts: string[] = [];
+  if (results) parts.push(`${results.length} result${results.length === 1 ? "" : "s"}`);
+  if (typeof o.provider === "string") parts.push(o.provider);
+  // Firecrawl returns a page as markdown rather than a result list.
+  if (!results && typeof o.markdown === "string") {
+    parts.push(`${o.markdown.length.toLocaleString()} chars`);
+  }
+  if (typeof o.error === "string") parts.push(o.error.slice(0, 70));
+  return parts.length ? parts.join(" · ") : undefined;
+}
 
 // What the agent is doing, in words a listener would use.
 const SAID: Record<State, string> = {
@@ -24,16 +88,25 @@ const SAID: Record<State, string> = {
 // Four failures reach this one button and have nothing to do with each other.
 // Naming the wrong one sends you to the wrong machine — a media failure is this
 // laptop, and the cluster is a separate thing with its own banner.
-function explain(raw: string): string {
+// `channel` because the same failures reach here from two different sockets, and
+// a typed message that failed used to be reported as "the voice socket did not
+// open" — which sends you looking at the microphone for a text bug.
+function explain(raw: string, channel: "voice" | "text" = "voice"): string {
   if (/permission|NotAllowed|denied/i.test(raw))
     return "Microphone permission was refused. Allow the mic for localhost:3000, then start again.";
   if (/4403/.test(raw))
-    return "The voice service refused the key. `make app` mints it — restart rather than reloading.";
+    // Reload, not restart. The key is minted per `make app` run and handed to
+    // the browser by /api/voice, so a tab left open across a restart presents
+    // the previous run's key — and a reload is all it takes to get the current
+    // one. The old advice here sent people to restart the thing that was fine.
+    return "The service refused the key. It is minted fresh by each `make app` run, so reload this page — a tab open across a restart still holds the old one.";
   if (/4404/.test(raw))
     return "This agent has no `voice:` block, so there is nothing to talk to. Check app/dodona.yaml.";
   if (/4503/.test(raw))
     return "The voice packages are missing on the server: pip install -r requirements-app.txt.";
   if (/DODONA_DEV_KEY|not set/i.test(raw)) return raw;
+  if (channel === "text")
+    return "The text socket did not open. If `make app` restarted since this page loaded, reload — the key is per run. Otherwise, is the AgentShip service still running?";
   return "The voice socket did not open. The AgentShip service is part of `make app` — is it still running?";
 }
 
@@ -49,6 +122,12 @@ export default function Page() {
   const [sending, setSending] = useState(false);
 
   const socket = useRef<WebSocket | null>(null);
+  // True while the agent is researching — not while it is speaking.
+  //
+  // A ref, not state: the capture callback is created once when the microphone
+  // starts, so it would close over whatever `state` was at that moment and read
+  // "connecting" for the rest of the call.
+  const researching = useRef(false);
   const capture = useRef<AudioContext | null>(null);
   const playback = useRef<AudioContext | null>(null);
   const mic = useRef<MediaStream | null>(null);
@@ -84,9 +163,24 @@ export default function Page() {
       if (last?.who === "agent" && last.pending) {
         return [...prev.slice(0, -1), patch(last)];
       }
-      return [...prev, patch({ id: nextId.current++, who: "agent", text: "", pending: true })];
+      return [
+        ...prev,
+        patch({ id: nextId.current++, who: "agent", text: "", at: Date.now(), pending: true }),
+      ];
     });
   }, []);
+
+  // Appends to the open turn's trail. Separate from `extend` only because every
+  // caller would otherwise repeat the spread.
+  const addStep = useCallback(
+    (kind: Step["kind"], label: string, detail?: string) => {
+      extend((t) => ({
+        ...t,
+        steps: [...(t.steps ?? []), { at: Date.now(), kind, label, detail }],
+      }));
+    },
+    [extend],
+  );
 
   const openLive = useCallback(async (): Promise<WebSocket> => {
     if (live.current?.readyState === WebSocket.OPEN) return live.current;
@@ -108,22 +202,51 @@ export default function Page() {
           break;
         case "token":
         case "content":
-          extend((t) => ({ ...t, text: t.text + (d.content ?? ""), note: undefined }));
+          extend((t) => ({ ...t, text: t.text + (d.content ?? "") }));
           break;
         case "tool_call":
-          // Worth showing. In voice this is the silence the agent apologises
-          // for; in text it is the research actually happening.
-          extend((t) => ({ ...t, note: `${d.name ?? d.tool ?? "tool"}…` }));
+          // The query, not just the tool name. "web_search…" tells you it did
+          // something; `web_search · llm inference` tells you whether it
+          // understood the question — which is the thing you actually want to
+          // see when it comes back with a bad answer.
+          addStep(
+            "tool",
+            String(d.tool ?? d.name ?? "tool"),
+            typeof d.args?.query === "string" ? d.args.query
+              : typeof d.args?.url === "string" ? d.args.url
+              : d.args ? JSON.stringify(d.args).slice(0, 120)
+              : undefined,
+          );
+          break;
+        case "tool_result":
+          // This event was arriving and being dropped, so the trail stopped at
+          // "searching" and never said whether anything came back. A search that
+          // returns nothing and a search that was never made look identical
+          // otherwise, and only one of them is a missing API key.
+          addStep("result", String(d.tool ?? "tool"), summariseResult(d.result));
           break;
         case "guard":
-          extend((t) => ({ ...t, note: `guardrail: ${d.reason ?? d.detail ?? "refused"}` }));
+          addStep("guard", "guardrail", String(d.reason ?? d.detail ?? "refused"));
           break;
         case "error":
           extend((t) => ({ ...t, text: t.text || `— ${d.detail ?? "the turn failed"}`, pending: false }));
+          // Abandon the thread, do not reuse it.
+          //
+          // `durability: checkpoint` keys the conversation on this id, so a turn
+          // that died between a tool call and its result leaves an AIMessage
+          // with tool_calls and no ToolMessage in the saved state. langgraph
+          // validates history on entry, so EVERY later turn on this id then
+          // fails with "Found AIMessages with tool_calls that do not have a
+          // corresponding ToolMessage" — the session is poisoned, permanently,
+          // and the agent apologises forever while the fleet is perfectly
+          // healthy. One interruption mid-research is enough to cause it.
+          //
+          // Dropping the id costs the thread's memory and buys a working agent.
+          session.current = null;
           setSending(false);
           break;
         case "done":
-          extend((t) => ({ ...t, pending: false, note: undefined }));
+          extend((t) => ({ ...t, pending: false }));
           setSending(false);
           break;
       }
@@ -146,16 +269,19 @@ export default function Page() {
     const text = typed.trim();
     if (!text || sending) return;
     setTyped("");
-    setTurns((prev) => [...prev, { id: nextId.current++, who: "you", text }]);
+    setTurns((prev) => [...prev, { id: nextId.current++, who: "you", text, at: Date.now() }]);
     setSending(true);
     try {
       const ws = await openLive();
       ws.send(JSON.stringify({ input: text, session_id: session.current ?? undefined }));
+      // Before any event arrives. A research turn can take tens of seconds to
+      // its first tool call, and an empty screen for that long reads as broken.
+      addStep("thinking", "thinking");
     } catch (e) {
       const detail = e instanceof Error ? e.message : String(e);
       setTurns((prev) => [
         ...prev,
-        { id: nextId.current++, who: "agent", text: `— ${explain(detail)}` },
+        { id: nextId.current++, who: "agent", text: `— ${explain(detail, "text")}`, at: Date.now() },
       ]);
       setSending(false);
     }
@@ -164,6 +290,9 @@ export default function Page() {
   // Only the voice half. The text socket outlives a spoken session on purpose:
   // ending the call should not throw away the conversation.
   const stop = useCallback(() => {
+    // So the next call starts with an open microphone whatever state this one
+    // ended in.
+    researching.current = false;
     socket.current?.close(1000, "listener left");
     socket.current = null;
     mic.current?.getTracks().forEach((t) => t.stop());
@@ -217,13 +346,41 @@ export default function Page() {
         if (typeof ev.data === "string") {
           const msg = JSON.parse(ev.data);
           if (msg.type === "heard" || msg.type === "said") {
+            // Anything the agent says means the turn is over, including the
+            // apology for a failed one. Without this a turn that dies without
+            // ever emitting `idle` would leave the microphone shut for the rest
+            // of the call — a worse bug than the one the gate fixes, and a
+            // silent one.
+            if (msg.type === "said") researching.current = false;
             setTurns((prev) => [
               ...prev,
-              { id: nextId.current++, who: msg.type === "heard" ? "you" : "agent", text: msg.text },
+              {
+                id: nextId.current++,
+                who: msg.type === "heard" ? "you" : "agent",
+                text: msg.text,
+                at: Date.now(),
+                // A failed turn arrives as an ordinary `said` — the adapter
+                // catches the exception, speaks the fallback and emits nothing
+                // structured — so the agreed string in dodona.yaml's
+                // `fallback_text` is the only signal there is. Matching our own
+                // text, not a library default, which is why it is set there.
+                steps:
+                  msg.type === "said" && String(msg.text ?? "").startsWith(FAILED_TURN)
+                    ? [{ at: Date.now(), kind: "guard" as const,
+                         label: "session needs reconnecting",
+                         detail: "Interruptions are on, so a stray word during a silent research turn can cancel it. Press Stop, then Start Talking — this call's history cannot be continued." }]
+                    : undefined,
+              },
             ]);
           } else if (msg.type === "idle") {
+            researching.current = false;
             setState("listening");
           } else if (["listening", "thinking", "speaking"].includes(msg.type)) {
+            // Only `thinking` closes the microphone. `speaking` deliberately
+            // does not: cutting the agent off mid-answer is the barge-in worth
+            // having, and it is safe — there is no half-finished tool call to
+            // strand, because the tools already ran.
+            researching.current = msg.type === "thinking";
             setState(msg.type as State);
           }
           // `timings` also arrives, carrying the turn's trace. Not shown here —
@@ -257,20 +414,57 @@ export default function Page() {
       // Input. The hardware rate is whatever it is — 48 kHz on most Macs — so
       // decimate to the rate the socket runs at rather than asking the browser
       // for a rate it may quietly ignore.
-      const ctx = new AudioContext();
+      // Ask for the socket's rate up front. Chrome and Safari both honour this
+      // now, and when they do `ratio` is 1 and there is no resampling at all —
+      // which is the only resampling that is certainly correct. The fallback
+      // below handles a browser that ignores it.
+      const ctx = new AudioContext({ sampleRate: cfg.sampleRate });
       capture.current = ctx;
       const source = ctx.createMediaStreamSource(stream);
       // ScriptProcessor rather than an AudioWorklet: a worklet needs a second
       // file fetched over the network before the first word can be captured,
       // and this runs for one listener on localhost. Deprecated, not broken.
-      const node = ctx.createScriptProcessor(2048, 1, 1);
+      //
+      // 4096 frames, not 2048: this callback runs on the MAIN thread, so it
+      // competes with React rendering the transcript. At 2048 it had ~43ms to
+      // run; a re-render that overran that dropped audio, and dropped audio is
+      // a clipped first word, not an error anybody sees.
+      const node = ctx.createScriptProcessor(4096, 1, 1);
       const ratio = ctx.sampleRate / cfg.sampleRate;
       node.onaudioprocess = (e) => {
         if (ws.readyState !== WebSocket.OPEN) return;
+        // Stop feeding the recogniser while the agent is researching.
+        //
+        // Interruptions stay ON — this is not that switch. The problem is that
+        // pipecat drops its word floor to 1 whenever the bot is not SPEAKING,
+        // and a research turn is half a minute of not speaking. Observed in one
+        // 30-second window: two interruptions, both from 2-word INTERIM
+        // transcripts, each cancelling the run between a tool result arriving
+        // and it being written to the checkpoint. langgraph then refuses every
+        // later turn on that session for a dangling tool call.
+        //
+        // An interruption during research cannot do anything useful — there is
+        // no speech to cut off — so the only thing it can do is destroy the
+        // turn. Sending nothing is how the browser declines to offer it.
+        // Barge-in during the answer is untouched.
+        if (researching.current) return;
         const input = e.inputBuffer.getChannelData(0);
         const out16 = new Int16Array(Math.floor(input.length / ratio));
         for (let i = 0; i < out16.length; i++) {
-          const s = Math.max(-1, Math.min(1, input[Math.floor(i * ratio)]));
+          // Average each window instead of picking one sample out of it.
+          //
+          // Taking every Nth sample is decimation without a low-pass, so
+          // everything above half the target rate folds back into the band as
+          // noise — and at 48k -> 24k that is everything above 12 kHz, which is
+          // where sibilants live. "s", "sh" and "f" arrived as mid-frequency
+          // mush and the recogniser guessed at them. Averaging is a crude box
+          // filter, but a crude low-pass beats none, and it costs one add per
+          // sample. When ratio is 1 this is the identity.
+          const from = Math.floor(i * ratio);
+          const to = Math.min(input.length, Math.floor((i + 1) * ratio)) || from + 1;
+          let sum = 0;
+          for (let j = from; j < to; j++) sum += input[j];
+          const s = Math.max(-1, Math.min(1, sum / Math.max(1, to - from)));
           out16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
         }
         ws.send(out16.buffer);
@@ -330,7 +524,9 @@ export default function Page() {
                 Local inference cluster unavailable. You can talk and be heard, but nothing
                 can answer — the agent will say so too.
                 <span className="detail">
-                  <code>make cluster &amp;&amp; make ssh</code> — the gateway is expected on 127.0.0.1:8080
+                  <code>make fleet-runpod &amp;&amp; make fleet-runpod-ssh</code> — the gateway is
+                  expected on 127.0.0.1:8080. On the Kubernetes path:{" "}
+                  <code>make fleet-lambda &amp;&amp; make ssh</code>
                 </span>
               </div>
             )}
@@ -349,9 +545,27 @@ export default function Page() {
           ) : (
             turns.map((t) => (
               <div key={t.id} className={`turn ${t.who}`}>
-                <span className="who">{t.who === "you" ? "You" : "Dodona"}</span>
+                <span className="who">
+                  {t.who === "you" ? "You" : "Dodona"}
+                  <time dateTime={new Date(t.at).toISOString()}>{clock(t.at)}</time>
+                </span>
+                {/* Above the answer, in the order it happened: what it decided to
+                    look up, and what came back. */}
+                {t.steps?.map((s, i) => (
+                  <span key={i} className={`step ${s.kind}`}>
+                    <time dateTime={new Date(s.at).toISOString()}>{clock(s.at)}</time>
+                    <b>{s.label}</b>
+                    {s.detail && <i>{s.detail}</i>}
+                  </span>
+                ))}
                 {t.text}
-                {t.note && <span className="note">{t.note}</span>}
+                {/* A turn with steps but no text yet is mid-research, which the
+                    steps already say. A turn with neither has not started. */}
+                {t.pending && !t.text && !t.steps?.length && (
+                  <span className="step thinking">
+                    <b>working…</b>
+                  </span>
+                )}
               </div>
             ))
           )}

@@ -129,7 +129,7 @@ logs:
 kv:
 	@bash $(SETUP)/up.sh kv
 
-app: ## the voice app — LiveKit, the agent worker, and the UI
+app: ## the voice app — AgentShip (agent, ears, mouth) and the UI
 	@bash app/run.sh
 
 # Names every value .env must carry and what its absence breaks, printing no

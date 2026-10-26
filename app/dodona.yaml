@@ -9,13 +9,38 @@
 name: dodona
 engine: langgraph
 template: single
-model: openai/Qwen/Qwen2.5-7B-Instruct-AWQ
+# Named explicitly, which means this line and .env have to agree: the gateway's
+# guard allows only `text`, `vision`, and whatever $TEXT_MODEL / $LOCAL_MODEL
+# names, so a model the fleet is not serving is 400 model_not_allowed on every
+# turn. Verified against the running gateway:
+#
+#   Qwen/Qwen2.5-32B-Instruct-AWQ   200   (what LOCAL_MODEL names)
+#   Qwen/Qwen2.5-7B-Instruct-AWQ    400   model_not_allowed
+#
+# `openai/text` is the alias and needs no edit when the fleet's model changes.
+# This is the explicit form: change the fleet, change this line too.
+model: openai/Qwen/Qwen2.5-32B-Instruct-AWQ
 durability: checkpoint
 
 params:
-  # The gateway, reached through `make ssh`. Not a vLLM pod: the point of the
-  # experiment is what the control plane does to a request on its way through.
+  # The gateway, reached through the tunnel — `make fleet-runpod-ssh` on a
+  # rented box, `make ssh` on the Kubernetes path. Not a vLLM pod: the point of
+  # the experiment is what the control plane does to a request on its way
+  # through. Nothing here is reachable until the tunnel is open, which is what
+  # the app's "cluster unavailable" banner is reporting.
   api_base: http://127.0.0.1:8080/v1
+  # Off, because this gateway does not really stream: it buffers the whole
+  # completion and `sse_from_completion` re-emits it as ONE chunk built from the
+  # assistant text alone — `tool_calls` are not copied into the delta at all.
+  #
+  # The symptom is not slow output, it is `web_search` and `scrape_url` silently
+  # never running: a streamed tool call arrives in fragments the client
+  # reassembles, and a single buffered chunk gives it nothing to reassemble, so
+  # the call is dropped with no error. Dodona then says it will look something
+  # up and answers from memory instead, which is the hardest kind of failure to
+  # notice out loud. AgentShip measured it as: streaming on -> 0 tool calls,
+  # off -> 1.
+  streaming: false
   # Spoken answers are short. This also keeps a turn inside the 30s budget when
   # research runs long.
   max_tokens: 400
@@ -69,3 +94,19 @@ voice:
   greeting: Dodona here. Ask me something and I will go and read the sources.
   # Runs locally, costs nothing, needs no key.
   vad: silero
+  # Spoken when a turn raises, and it names the recovery because the most likely
+  # cause needs one.
+  #
+  # Interruptions are on, and pipecat lowers its word floor to 1 whenever the bot
+  # is not SPEAKING — which includes the half minute it spends researching in
+  # silence. So a cough mid-turn cancels the run between a tool call and its
+  # result, `durability: checkpoint` saves that half-finished state against the
+  # session, and langgraph then refuses every later turn on it:
+  # "Found AIMessages with tool_calls that do not have a corresponding
+  # ToolMessage". The session is dead and the fleet is perfectly healthy.
+  #
+  # Reconnecting is what clears it, so the apology says so rather than leaving a
+  # listener to ask the same question louder. The web UI matches this exact
+  # string to show the same hint on screen — the voice socket sends a failed turn
+  # as an ordinary `said`, so the text IS the signal.
+  fallback_text: Sorry, that turn failed. Stop the call and start talking again, and I will be fine.

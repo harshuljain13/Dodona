@@ -191,7 +191,9 @@ def main() -> int:
     # is the only place that already aggregates across them.
     ap.add_argument("--prom-url", default="http://127.0.0.1:31490",
                     help="where to read the scarcity signal from")
-    ap.add_argument("--model", default="Qwen/Qwen2.5-7B-Instruct-AWQ")
+    # An alias the gateway maps onto whatever it serves, so the load test does
+    # not have to be told which model is loaded.
+    ap.add_argument("--model", default="text")
     ap.add_argument("--sessions", type=int, default=8)
     ap.add_argument("--max-tokens", type=int, default=200)
     ap.add_argument("--tool-gap", type=float, default=1.0, help="quiet time between turns")

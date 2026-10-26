@@ -220,7 +220,10 @@ def _post(prompt: str, *, max_tokens: int,
           timeout: float) -> tuple[int, float, str]:
     import time
     body = json.dumps({
-        "model": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+        # The alias, not a model name: the gateway resolves it to whatever it
+        # serves. Pinning "...7B..." here sent every benchmark request to a 32B
+        # fleet as model_not_allowed, and the run came back as all-errors.
+        "model": "text",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": max_tokens, "temperature": 0.0,
     }).encode()

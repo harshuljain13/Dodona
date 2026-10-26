@@ -69,7 +69,8 @@ reclaim "$AGENTSHIP_PORT"
 
 if ! curl -sf -m 2 http://127.0.0.1:8080/v1/models >/dev/null 2>&1; then
   echo "    WARNING: the gateway is not answering on :8080."
-  echo "    Run 'make ssh' first, or the agent will have nothing to think with."
+  echo "    Open the tunnel first, or the agent will have nothing to think with:"
+  echo "      make fleet-runpod-ssh   (rented box)   |   make ssh   (kubernetes)"
 fi
 
 # Fresh clone: the app's deps are in requirements-app.txt, not requirements.txt,
