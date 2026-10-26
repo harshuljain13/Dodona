@@ -67,15 +67,75 @@ else
   # Failures here are PRINTED. The first version sent apt to /dev/null and
   # reported "could not install" with no reason, which is unactionable — and
   # is the exact habit that has cost this project hours today.
-  if ! dpkg -l cuda-keyring 2>/dev/null | grep -q '^ii'; then
+  #
+  # DO NOT install cuda-keyring blindly. The RunPod CUDA images already ship a
+  # source for this exact repo, and adding a second entry for the same URL with
+  # a different Signed-By makes apt refuse to read ANY list:
+  #
+  #   E: Conflicting values set for option Signed-By regarding source
+  #      https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/ /:
+  #      /usr/share/keyrings/cuda-archive-keyring.gpg !=
+  #   E: The list of sources could not be read.
+  #
+  # That breaks apt for EVERY package on the box, not just this one — a
+  # best-effort install for two optional panels left the machine worse than it
+  # found it. So: look first, and add nothing if a source already exists.
+  CUDA_REPO="developer.download.nvidia.com/compute/cuda"
+  existing="$(grep -rlF "$CUDA_REPO" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null || true)"
+
+  if [[ -n "$existing" ]]; then
+    note "a CUDA apt source is already configured, using it:"
+    printf '%s\n' "$existing" | sed 's/^/        /'
+  else
     KEYRING_URL="https://developer.download.nvidia.com/compute/cuda/repos/${DISTRO}/${ARCH}/cuda-keyring_1.1-1_all.deb"
-    note "fetching $KEYRING_URL"
+    note "no CUDA source found — fetching $KEYRING_URL"
     if curl -fsSL -o /tmp/cuda-keyring.deb "$KEYRING_URL"; then
       dpkg -i /tmp/cuda-keyring.deb 2>&1 | tail -2 | sed 's/^/      /'
     else
       bad "no CUDA repo published for ${DISTRO}/${ARCH}"
       note "this image is not one NVIDIA ships DCGM for — see"
       note "https://developer.download.nvidia.com/compute/cuda/repos/"
+    fi
+  fi
+
+  # Repair the conflict if an earlier run (or the image) already created one.
+  # Two entries for one repo: keep the signed one, set the others aside. Moved
+  # to .disabled rather than deleted, and restored if apt is still unhappy —
+  # a repair that cannot be undone is not a repair.
+  if apt-get update 2>&1 | grep -q "Conflicting values set for option Signed-By"; then
+    bad "duplicate CUDA sources — apt cannot read its lists"
+    # read, not mapfile: mapfile is bash 4+ and this should not depend on the
+    # shell version of a box we do not control.
+    dupes=()
+    while IFS= read -r f; do
+      [[ -n "$f" ]] && dupes+=("$f")
+    done < <(grep -rlF "$CUDA_REPO" /etc/apt/sources.list.d/ 2>/dev/null || true)
+
+    if (( ${#dupes[@]} < 2 )); then
+      note "only ${#dupes[@]} CUDA source — the conflict is not a duplicate here"
+    else
+      # Keep the signed entry: it is the one NVIDIA's own keyring package
+      # installs, and the modern form. Fall back to the first if none is signed.
+      keep=""
+      for f in "${dupes[@]}"; do
+        grep -qF "signed-by=" "$f" && { keep="$f"; break; }
+      done
+      [[ -z "$keep" ]] && keep="${dupes[0]}"
+
+      moved=()
+      for f in "${dupes[@]}"; do
+        [[ "$f" == "$keep" ]] && continue
+        note "setting aside $f"
+        mv "$f" "$f.disabled" && moved+=("$f")
+      done
+      note "keeping $keep"
+
+      if apt-get update 2>&1 | grep -q "Conflicting values set for option Signed-By"; then
+        bad "still conflicting — putting them back exactly as they were"
+        for f in ${moved[@]+"${moved[@]}"}; do mv "$f.disabled" "$f"; done
+      else
+        ok "apt reads its lists again"
+      fi
     fi
   fi
 
