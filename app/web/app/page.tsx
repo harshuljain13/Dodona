@@ -648,20 +648,38 @@ export default function Page() {
         const input = e.inputBuffer.getChannelData(0);
         const out16 = new Int16Array(Math.floor(input.length / ratio));
         for (let i = 0; i < out16.length; i++) {
-          // Average each window instead of picking one sample out of it.
-          //
-          // Taking every Nth sample is decimation without a low-pass, so
-          // everything above half the target rate folds back into the band as
-          // noise — and at 48k -> 24k that is everything above 12 kHz, which is
-          // where sibilants live. "s", "sh" and "f" arrived as mid-frequency
-          // mush and the recogniser guessed at them. Averaging is a crude box
-          // filter, but a crude low-pass beats none, and it costs one add per
-          // sample. When ratio is 1 this is the identity.
-          const from = Math.floor(i * ratio);
-          const to = Math.min(input.length, Math.floor((i + 1) * ratio)) || from + 1;
-          let sum = 0;
-          for (let j = from; j < to; j++) sum += input[j];
-          const s = Math.max(-1, Math.min(1, sum / Math.max(1, to - from)));
+          let s: number;
+          if (ratio === 1) {
+            // The good case, and the common one: nothing to do at all.
+            s = input[i];
+          } else if (ratio > 1) {
+            // Downsample. Average the window rather than picking one sample
+            // from it: taking every Nth sample is decimation with no low-pass,
+            // so everything above half the target rate folds back into the band
+            // — at 48k -> 24k that is everything above 12 kHz, which is where
+            // sibilants live. "s", "sh" and "f" become mid-frequency mush and
+            // the recogniser guesses at them.
+            const from = Math.floor(i * ratio);
+            const to = Math.min(input.length, Math.max(from + 1, Math.floor((i + 1) * ratio)));
+            let sum = 0;
+            for (let j = from; j < to; j++) sum += input[j];
+            s = sum / (to - from);
+          } else {
+            // Upsample, by interpolating between neighbours.
+            //
+            // The previous version wrote SILENCE here: with ratio < 1 the
+            // window collapses to zero width, the averaging loop never runs,
+            // and it emitted a zero. Every other sample was a hole — a square
+            // wave at half the rate, audible as a buzz and nonsense to a
+            // recogniser. Interpolation cannot invent detail, but it is not
+            // noise.
+            const at = i * ratio;
+            const lo = Math.floor(at);
+            const hi = Math.min(input.length - 1, lo + 1);
+            const frac = at - lo;
+            s = input[lo] * (1 - frac) + input[hi] * frac;
+          }
+          s = Math.max(-1, Math.min(1, s));
           out16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
         }
         ws.send(out16.buffer);
