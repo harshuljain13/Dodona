@@ -59,6 +59,12 @@ DEMO_KILLERS = {
         "a load test will be refused as 429 (client quota) long before KV "
         "fills, and a 429 in a report looks exactly like the policy working",
     ),
+    "DODONA_DEV_KEY": (
+        lambda v: bool(v),
+        "unset, so `make app` mints a random key per run and every restart "
+        "logs out every open browser tab — the page then reports a dead socket "
+        "while the service is healthy",
+    ),
     "PORT_BASE": (
         lambda v: v != "8000",
         "8000 puts the second engine on :8001, where RunPod's Jupyter nginx "

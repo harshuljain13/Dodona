@@ -256,18 +256,54 @@ export default function Page() {
     [extend],
   );
 
-  const openLive = useCallback(async (): Promise<WebSocket> => {
-    if (live.current?.readyState === WebSocket.OPEN) return live.current;
-    const res = await fetch("/api/voice");
-    const cfg = await res.json();
-    if (!res.ok) throw new Error(cfg.error ?? "no live config");
+  // One typed turn, over SSE.
+  //
+  // NOT the /live websocket, which a browser cannot open at all: AgentShip
+  // carries the credential in the subprotocol list because a browser cannot set
+  // handshake headers, and RFC 6455 makes a browser fail the connection when it
+  // offered a subprotocol and the server selected none. `/voice` echoes it back
+  // (voice.py:67); `/live` does not (live.py:54). So voice worked and text never
+  // did — while every probe from Python succeeded, because Python's client
+  // tolerates the missing echo.
+  //
+  // `/api/chat` proxies to `:stream`, which carries the identical frames and
+  // lets the server set an Authorization header. The frame handling below is
+  // unchanged, because the frames are unchanged.
+  const runTurn = useCallback(
+    async (text: string) => {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: text, session_id: session.current ?? undefined }),
+      });
+      if (!res.ok || !res.body) {
+        const why = await res.json().catch(() => ({}));
+        throw new Error(why.error ?? `the service answered ${res.status}`);
+      }
 
-    const ws = new WebSocket(cfg.liveUrl, ["bearer", cfg.key]);
-    live.current = ws;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
 
-    ws.onmessage = (ev) => {
-      const f = JSON.parse(ev.data as string);
-      const d = f.data ?? {};
+      // SSE frames are separated by a blank line, and a chunk can split one in
+      // half — so hold the tail until its terminator arrives rather than
+      // parsing whatever happened to land in this read.
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const frames = buffer.split("\n\n");
+        buffer = frames.pop() ?? "";
+        for (const frame of frames) {
+          const line = frame.split("\n").find((l) => l.startsWith("data:"));
+          if (!line) continue;
+          let f: { type?: string; data?: Record<string, unknown> };
+          try {
+            f = JSON.parse(line.slice(5).trim());
+          } catch {
+            continue;
+          }
+          const d = (f.data ?? {}) as Record<string, string & Record<string, string>>;
       switch (f.type) {
         case "session":
           // Kept and sent back on every later turn, which is what gives a typed
@@ -331,40 +367,11 @@ export default function Page() {
           setSending(false);
           break;
       }
-    };
-    ws.onclose = () => {
-      live.current = null;
-      setSending(false);
-    };
-
-    await new Promise<void>((resolve, reject) => {
-      ws.onopen = () => resolve();
-      ws.addEventListener("close", (e) => reject(new Error(`${e.code} ${e.reason}`.trim())), {
-        once: true,
-      });
-    });
-    return ws;
-  }, [extend, addStep, addSources]);
-
-  // One retry, then report.
-  //
-  // The service gets restarted often — a spec edit needs it — and for the
-  // second or two that takes, an open page gets a refused socket and a dead
-  // end. Worse, two services briefly overlapped here, so the page was holding
-  // a key minted by the one that was going away.
-  //
-  // The retry re-fetches /api/voice, so the second attempt carries whatever
-  // key is current. Once only: if it fails twice the service really is gone,
-  // and a page that retries forever hides that.
-  const openLiveOrRetry = useCallback(async (): Promise<WebSocket> => {
-    try {
-      return await openLive();
-    } catch {
-      live.current = null;
-      await new Promise((r) => setTimeout(r, 600));
-      return openLive();
-    }
-  }, [extend, addStep, addSources]);
+        }
+      }
+    },
+    [extend, addStep, addSources],
+  );
 
   const send = useCallback(async () => {
     const text = typed.trim();
@@ -373,20 +380,36 @@ export default function Page() {
     setTurns((prev) => [...prev, { id: nextId.current++, who: "you", text, at: Date.now() }]);
     setSending(true);
     try {
-      const ws = await openLiveOrRetry();
-      ws.send(JSON.stringify({ input: text, session_id: session.current ?? undefined }));
-      // Before any event arrives. A research turn can take tens of seconds to
+      // Before any frame arrives. A research turn can take tens of seconds to
       // its first tool call, and an empty screen for that long reads as broken.
       addStep("thinking", "thinking");
+      await runTurn(text);
+      // `done` clears this, but a stream that ends without one must not leave
+      // the composer disabled for the rest of the session.
+      setSending(false);
     } catch (e) {
       const detail = e instanceof Error ? e.message : String(e);
+      // Show the RAW failure next to the friendly line, always.
+      //
+      // This swallowed it, and that cost real time: the page said "the text
+      // socket did not open — did make app restart?" while the service was
+      // healthy and the keys matched, and the one thing that would have
+      // identified the cause — the close code and reason the server sent — was
+      // thrown away. A guess rendered as an explanation is worse than no
+      // explanation, because it sends you to check the thing it names.
       setTurns((prev) => [
         ...prev,
-        { id: nextId.current++, who: "agent", text: `— ${explain(detail, "text")}`, at: Date.now() },
+        {
+          id: nextId.current++,
+          who: "agent",
+          text: `— ${explain(detail, "text")}`,
+          at: Date.now(),
+          steps: [{ at: Date.now(), kind: "guard" as const, label: "turn failed", detail }],
+        },
       ]);
       setSending(false);
     }
-  }, [typed, sending, openLiveOrRetry]);
+  }, [typed, sending, runTurn, addStep]);
 
   // Only the voice half. The text socket outlives a spoken session on purpose:
   // ending the call should not throw away the conversation.
