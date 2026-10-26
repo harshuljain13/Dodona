@@ -279,25 +279,47 @@ are typing in. The `make` targets read it themselves, but a bare `ssh` does
 not, so load it first:
 
 ```bash
-source .env                      # now $BOX and $SSH_PORT exist in this shell
-ssh $BOX -p $SSH_PORT nvidia-smi
+source .env                      # $BOX, $SSH_PORT and $SSH_KEY in this shell
+ssh -i $SSH_KEY $BOX -p $SSH_PORT nvidia-smi
 ```
 
-(`make doctor` also prints this line with your values already filled in, if you
+**`-i $SSH_KEY` is not optional.** `ssh` does not read `.env` and will not
+guess: without it, it tries its own default keys, fails, and falls back to
+asking for a password — which looks exactly like the key never being installed,
+and sends you to fix a problem you do not have.
+
+(`make doctor` prints this whole line with your values already in it, if you
 would rather copy it than source anything.)
 
-Being asked for a **password** means the key is not on the box — RunPod injects
-keys at launch, so adding one to your account afterwards does nothing for a pod
-that is already running. Fix it from the pod's web terminal:
+**Gate: two A100s listed.** That is the box proved end to end — the address,
+the port and the key all correct — before anything is synced to it.
+
+Being asked for a **password even with `-i`** is the different failure, and it
+means the key really is not on the box. RunPod injects keys at launch, so
+adding one to your account afterwards does nothing for a pod already running.
+Fix it from the pod's web terminal:
 
 ```bash
 mkdir -p ~/.ssh && chmod 700 ~/.ssh
-echo '<paste the contents of ~/.ssh/dodona_ed25519.pub>' >> ~/.ssh/authorized_keys
+echo '<paste the contents of your key's .pub half>' >> ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
 ```
 
 Then add the key to Account Settings as well (step 5), or the next box you
 launch will do the same thing.
+
+### If you relaunch the pod, `.env` goes stale
+
+A new pod gets a **new address and a new port**. Both are in that same Direct
+TCP line, and the old port does not politely time out — it refuses, which reads
+as the box being down rather than as the wrong port:
+
+```
+ssh: connect to host 154.54.102.40 port 19494: Connection refused
+```
+
+So after any relaunch, update `BOX` and `SSH_PORT` before anything else. The
+key survives, as long as it was on your account before the new pod started.
 
 And the laptop, which needs no GPU and no box at all:
 

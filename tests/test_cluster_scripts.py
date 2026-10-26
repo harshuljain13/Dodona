@@ -541,3 +541,43 @@ def test_the_readiness_poll_does_not_assume_three_workers() -> None:
     assert "base+2" not in poll.replace(" ", ""), (
         "the readiness poll still hardcodes a third worker port, so an "
         "aggregated fleet on two cards waits for a port nothing will serve")
+
+
+def test_every_ssh_command_in_the_docs_names_a_key() -> None:
+    """`ssh` does not read .env, and will not guess.
+
+    PREREQUISITES told you to `source .env` and then run
+
+        ssh $BOX -p $SSH_PORT nvidia-smi
+
+    which sets SSH_KEY in the shell and then never passes it. ssh tries its own
+    default identities, fails, and falls back to asking for a password — which
+    is indistinguishable from the key never having been installed on the box.
+    So the doc sent you to fix a problem you did not have, at the one step
+    whose whole job is proving the key works.
+
+    Any `ssh` line we ask someone to type has to carry `-i`. The scripts are
+    exempt because they build an SSH array once, with the key in it.
+    """
+    offenders = []
+    for doc in sorted(ROOT.glob("*.md")) + sorted((ROOT / "docs").glob("*.md")):
+        in_code = False
+        for line_no, line in enumerate(doc.read_text().splitlines(), 1):
+            if line.lstrip().startswith("```"):
+                in_code = not in_code
+                continue
+            # Only inside a fence. Prose wraps, and a sentence beginning "ssh"
+            # is not a command anyone is going to paste.
+            if not in_code:
+                continue
+            stripped = line.strip()
+            if not stripped.startswith("ssh "):
+                continue
+            # A provider's own connect string is being quoted, not instructed.
+            if "make " in stripped or stripped.startswith("ssh:"):
+                continue
+            if " -i " not in stripped:
+                offenders.append(f"{doc.name}:{line_no}: {stripped[:70]}")
+    assert not offenders, (
+        "ssh commands in the docs with no -i, which will prompt for a "
+        "password and look like a missing key:\n  " + "\n  ".join(offenders))
