@@ -56,19 +56,13 @@ say()  { printf '\033[1;36m==> %s\033[0m\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
 fail() { printf '\033[1;31m%s\033[0m\n' "$*" >&2; exit 1; }
 
-# ── the card, and the slice we are pretending to have ──────────────────────
+# ── the shape of the fleet ─────────────────────────────────────────────────
+# GPUS, LAB_TOPOLOGY, WORKER_COUNT, NAMES, DEVICES, PORTS — shared with
+# status.sh and smoke.sh, because all three drifted apart when this was inline.
 command -v nvidia-smi >/dev/null 2>&1 || fail "no nvidia-smi — this script runs on the GPU box."
-mapfile -t GPU_MIB < <(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | tr -d ' ')
-GPUS=${#GPU_MIB[@]}
+source "$(dirname "$0")/layout.sh"
 (( GPUS > 0 )) || fail "nvidia-smi reports no GPUs."
-
-# One worker per card when there are three. Fewer cards means sharing, which is
-# what HAMi used to arbitrate — here it is just two processes on one device.
-case "$GPUS" in
-  1) DEVICES=(0 0 0) ;;
-  2) DEVICES=(0 1 1) ;;
-  *) DEVICES=(0 1 2) ;;
-esac
+export LAB_TOPOLOGY
 
 # THE number that decides whether any of this is worth measuring.
 #
@@ -102,21 +96,8 @@ util_for() {
   awk -v s="$SLICE_MIB" -v t="$total" 'BEGIN { u = s / t; if (u > 0.92) u = 0.92; printf "%.3f", u }'
 }
 
-# ── ports ──────────────────────────────────────────────────────────────────
-# A rented box is not empty. RunPod's Jupyter template runs nginx, and it holds
-# :8001 — which is decode-0's port in the default layout. vLLM then failed with
-# "Address already in use" on a loop while the health check reported ready,
-# because nginx answers.
-#
-# PORT_BASE moves the whole block if something is in the way.
-# 8100 rather than 8000: RunPod's Jupyter template runs nginx on :8001, which
-# is decode-0's port if the block starts at 8000. Every attendee on that
-# template would hit it, and the fix would be an edit they have to be told
-# about. 8100-8102 is free there and on a bare VM alike.
-PORT_BASE="${PORT_BASE:-8100}"
-PREFILL_PORT=$(( PORT_BASE ))
-DECODE0_PORT=$(( PORT_BASE + 1 ))
-DECODE1_PORT=$(( PORT_BASE + 2 ))
+# Kept for the messages and for anything reading the old name.
+PREFILL_PORT="${PORTS[0]}"
 
 # Always succeeds, printing a name or nothing.
 #
@@ -135,7 +116,7 @@ port_holder() {
 
 check_ports() {
   local busy=0 holder
-  for port in "$PREFILL_PORT" "$DECODE0_PORT" "$DECODE1_PORT" 8080 50051; do
+  for port in "${PORTS[@]}" 8080 50051; do
     holder="$(port_holder "$port")"
     if [[ -n "$holder" ]]; then
       note "port $port is held by: $holder"
@@ -158,9 +139,23 @@ check_ports() {
 # the model, the thresholds. Which URL a worker listens on is implied by the
 # launcher, and leaving stale pool URLs in .env is how a cluster run ends up
 # talking to localhost.
-export PREFILL_URLS="http://127.0.0.1:$PREFILL_PORT"
-export DECODE_URLS="http://127.0.0.1:$DECODE0_PORT,http://127.0.0.1:$DECODE1_PORT"
-export LOCAL_BASE_URL="http://127.0.0.1:$PREFILL_PORT/v1"
+ALL_URLS=""
+for _p in "${PORTS[@]}"; do
+  ALL_URLS="${ALL_URLS:+$ALL_URLS,}http://127.0.0.1:$_p"
+done
+if [[ "$LAB_TOPOLOGY" == "aggregated" ]]; then
+  # Every worker in BOTH lists. pools.py takes its one-pool branch on either
+  # `topology == "aggregated"` or `decode_urls == prefill_urls`, and satisfying
+  # both means the topology survives someone setting only one of them. The
+  # pool's workers are then named engine-0..N, which is what the prometheus
+  # labels below and `orch_replica_*{pod=...}` both use.
+  export PREFILL_URLS="$ALL_URLS"
+  export DECODE_URLS="$ALL_URLS"
+else
+  export PREFILL_URLS="http://127.0.0.1:${PORTS[0]}"
+  export DECODE_URLS="http://127.0.0.1:${PORTS[1]},http://127.0.0.1:${PORTS[2]}"
+fi
+export LOCAL_BASE_URL="http://127.0.0.1:${PORTS[0]}/v1"
 export MOONCAKE_URL="http://127.0.0.1:50051"
 export LAB_TOPOLOGY="${LAB_TOPOLOGY:-disaggregated}"
 export ORCH_URL="${ORCH_URL:-http://127.0.0.1:8080/v1}"
@@ -260,15 +255,19 @@ start_worker() {
     bash "$ROOT/infra/setup/engine.sh"
 }
 
-say "engines  —  $GPUS GPU(s), 1 prefill + 2 decode"
+if [[ "$LAB_TOPOLOGY" == "aggregated" ]]; then
+  say "engines  —  $WORKER_COUNT on $GPUS GPU(s), each serving both phases"
+  note "the router chooses between them; there is no hop to make"
+else
+  say "engines  —  $WORKER_COUNT on $GPUS GPU(s), 1 prefill + 2 decode"
+  note "orchestration only — decode re-prefills, see docs/project/topology.md"
+fi
 # Sequentially, not together: two processes profiling free memory on the same
 # card at the same moment can each believe the other's allocation is available.
-start_worker prefill  "$PREFILL_PORT" "${DEVICES[0]}"
-wait_for prefill  "http://127.0.0.1:$PREFILL_PORT"
-start_worker decode-0 "$DECODE0_PORT" "${DEVICES[1]}"
-wait_for decode-0 "http://127.0.0.1:$DECODE0_PORT"
-start_worker decode-1 "$DECODE1_PORT" "${DEVICES[2]}"
-wait_for decode-1 "http://127.0.0.1:$DECODE1_PORT"
+for _i in $(seq 0 $(( WORKER_COUNT - 1 ))); do
+  start_worker "${NAMES[$_i]}" "${PORTS[$_i]}" "${DEVICES[$_i]}"
+  wait_for "${NAMES[$_i]}" "http://127.0.0.1:${PORTS[$_i]}"
+done
 
 # ── the control plane ──────────────────────────────────────────────────────
 # Only once the pools answer: the gateway reads their /metrics to decide, and
@@ -295,13 +294,12 @@ wait_for gateway "http://127.0.0.1:8080"
 # the truth about that card, so it is labelled "shared" rather than whichever
 # role happened to be assigned last.
 declare -A _role_of=()
-_worker_names=(prefill decode-0 decode-1)
-for _i in 0 1 2; do
+for _i in $(seq 0 $(( WORKER_COUNT - 1 ))); do
   _dev="${DEVICES[$_i]}"
   if [[ -n "${_role_of[$_dev]:-}" ]]; then
     _role_of[$_dev]="shared"
   else
-    _role_of[$_dev]="${_worker_names[$_i]}"
+    _role_of[$_dev]="${NAMES[$_i]}"
   fi
 done
 GPU_ROLES=""
@@ -320,10 +318,26 @@ if command -v prometheus >/dev/null 2>&1; then
   # config scrapes wherever it was written for, which is how every dashboard
   # came up empty while the workers were healthy on different ports.
   PROM_CFG="$LOGS/prometheus.yml"
-  sed -e "s/__PREFILL__/$PREFILL_PORT/" \
-      -e "s/__DECODE0__/$DECODE0_PORT/" \
-      -e "s/__DECODE1__/$DECODE1_PORT/" \
-      "$ROOT/infra/runpod-cluster/observability/prometheus.yml.tmpl" > "$PROM_CFG"
+  # Built from the fleet that actually started, not from three fixed ports.
+  # `phase` is what the dashboards split on: prefill/decode when the pools are
+  # split, `both` when every engine serves both — which is true, and better
+  # than labelling a full engine "decode" to keep a panel company.
+  VLLM_TARGETS=""
+  for _i in $(seq 0 $(( WORKER_COUNT - 1 ))); do
+    case "${NAMES[$_i]}" in
+      prefill*)  _phase=prefill ;;
+      decode*)   _phase=decode ;;
+      *)         _phase=both ;;
+    esac
+    VLLM_TARGETS+="      - targets: [\"127.0.0.1:${PORTS[$_i]}\"]"$'\n'
+    VLLM_TARGETS+="        labels: { phase: $_phase, pod: ${NAMES[$_i]} }"$'\n'
+  done
+  python3 - "$ROOT/infra/runpod-cluster/observability/prometheus.yml.tmpl" \
+            "$PROM_CFG" "$VLLM_TARGETS" <<'RENDER'
+import sys
+tmpl, out, targets = sys.argv[1], sys.argv[2], sys.argv[3]
+open(out, "w").write(open(tmpl).read().replace("__VLLM_TARGETS__\n", targets))
+RENDER
   supervise prometheus prometheus \
     --config.file="$PROM_CFG" \
     --storage.tsdb.path="$LOGS/prometheus" \
@@ -408,7 +422,11 @@ fi
 
 say "up"
 note "gateway    http://127.0.0.1:8080/v1"
-note "workers    $PREFILL_PORT (prefill)  $DECODE0_PORT $DECODE1_PORT (decode)"
+_report=""
+for _i in $(seq 0 $(( WORKER_COUNT - 1 ))); do
+  _report="${_report:+$_report  }${PORTS[$_i]} (${NAMES[$_i]})"
+done
+note "workers    $_report"
 note "grafana    http://127.0.0.1:31495"
 note "logs       $LOGS"
 note ""

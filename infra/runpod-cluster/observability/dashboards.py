@@ -30,6 +30,7 @@ mislead an audience about the project's own central claim.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -112,6 +113,17 @@ EXPORTED = {
 #: link as a row of buttons at the top, so the path is walkable in the order it
 #: happens instead of through a search box.
 STORY_TAG = "dodona-path"
+
+#: Which fleet these are being generated for. workers.sh exports LAB_TOPOLOGY
+#: before calling this, so the dashboards describe the fleet that is actually
+#: starting rather than a fleet someone might start.
+#:
+#: It changes real panels, not just prose. In `aggregated` there is no hop at
+#: all — queue.py short-circuits when the prefill and decode pools are the same
+#: object — so every mooncake_* series is flat zero by construction, and a
+#: screen of flat zeros is the blank-panel failure this file exists to prevent.
+TOPOLOGY = os.environ.get("LAB_TOPOLOGY", "aggregated")
+SPLIT = TOPOLOGY != "aggregated"
 
 
 def _target(expr: str, legend: str = "", ref: str = "A") -> dict:
@@ -365,17 +377,35 @@ def engine() -> dict:
         _panel(3, "Waiting", "sum(vllm:num_requests_waiting)", legend="waiting",
                kind="stat", x=6, y=4, w=6, h=4,
                desc="Queued inside the engines. Rises before latency does."),
-        _panel(4, "KV used — decode (max)",
-               "max(vllm:kv_cache_usage_perc{phase=\"decode\"})", legend="decode",
-               kind="stat", x=12, y=4, w=6, h=4, unit="percentunit",
-               desc="The fullest decode worker's KV cache. The admission policy "
-                    "is thresholded at 0.90; if this never approaches it, the "
-                    "run is INERT and proves nothing."),
-        _panel(5, "KV used — prefill",
-               "max(vllm:kv_cache_usage_perc{phase=\"prefill\"})", legend="prefill",
-               kind="stat", x=18, y=4, w=6, h=4, unit="percentunit",
-               desc="Prefill holds KV only until it hops to decode, so this "
-                    "stays low even while prefill is busy."),
+        *([
+            _panel(4, "KV used — decode (max)",
+                   "max(vllm:kv_cache_usage_perc{phase=\"decode\"})", legend="decode",
+                   kind="stat", x=12, y=4, w=6, h=4, unit="percentunit",
+                   desc="The fullest decode worker's KV cache. The admission "
+                        "policy is thresholded at 0.90; if this never "
+                        "approaches it, the run is INERT and proves nothing."),
+            _panel(5, "KV used — prefill",
+                   "max(vllm:kv_cache_usage_perc{phase=\"prefill\"})", legend="prefill",
+                   kind="stat", x=18, y=4, w=6, h=4, unit="percentunit",
+                   desc="Prefill holds KV only until it hops to decode, so this "
+                        "stays low even while prefill is busy."),
+        ] if SPLIT else [
+            # Every engine serves both phases, so `phase` is "both" on every
+            # series and filtering by it would empty the panel. The question
+            # becomes which replica is fullest, which is what admission reads.
+            _panel(4, "KV used — fullest engine",
+                   "max(vllm:kv_cache_usage_perc)", legend="fullest",
+                   kind="stat", x=12, y=4, w=6, h=4, unit="percentunit",
+                   desc="The fullest engine's KV cache. The admission policy is "
+                        "thresholded at 0.90; if this never approaches it the "
+                        "run is INERT — lower SLICE_MIB until it does."),
+            _panel(5, "KV used — fleet average",
+                   "avg(vllm:kv_cache_usage_perc)", legend="average",
+                   kind="stat", x=18, y=4, w=6, h=4, unit="percentunit",
+                   desc="Averaged across engines. A wide gap between this and "
+                        "the fullest engine means place() is not spreading "
+                        "load evenly."),
+        ]),
 
         _panel(6, "Requests running, per engine",
                "sum by (pod, phase) (vllm:num_requests_running)",
@@ -479,128 +509,210 @@ def engine() -> dict:
 
 
 def kv() -> dict:
-    """Stage 3: the KV cache, and the hop — which on this path is a LEDGER.
+    """Stage 3: KV pressure and reuse — and, when the pools are split, the hop.
 
     Read `docs/project/topology.md` before presenting this screen. A real split
-    needs three things: placement, orchestration, and transfer. This fleet has
-    the first two. It does not have the third, because `--kv-transfer-config` is
-    Kubernetes-specific as written (RDMA `mlx5_0`, `vllm-prefill:8998`) and
-    `infra/setup/engine.sh` does not pass it.
+    needs three things: placement, orchestration, and transfer. Transfer lives
+    INSIDE vLLM, behind `--kv-transfer-config`, because vLLM owns the block
+    table — and `infra/setup/engine.sh` cannot pass the manifests' version,
+    which names an RDMA device and a cluster DNS name.
 
-    So no KV bytes move here. `KVBus.transfer` writes a row — `{src, dst,
-    req_id, tokens}` — and POSTs it to the mooncake ledger; `router/nccl.py` and
-    `router/nixl.py` are `return`. Transfer lives INSIDE the engine, because
-    vLLM owns the block table, and no amount of control-plane bookkeeping can
-    hand blocks to another process.
+    So no KV bytes move on this path in either topology. `KVBus.transfer` writes
+    a row and POSTs it to the ledger; `router/nccl.py` and `router/nixl.py` are
+    `return`. What differs is whether a hop is even attempted:
 
-    Every panel below is therefore an honest count of a DECISION, not of a byte.
-    The wording says so, because a dashboard that implies otherwise is the one
-    place this project could mislead someone about its own central claim.
+      aggregated     one pool, so queue.py short-circuits and there is no hop.
+                     Every mooncake_* series is zero BY CONSTRUCTION, so those
+                     panels are not built — a screen of flat zeros is exactly
+                     the blank-panel failure this file exists to prevent.
+      disaggregated  the hop is attempted and recorded as a decision. The
+                     panels say "would have moved", because that is the truth.
+
+    What is real in both: KV pressure, which is the signal admission control
+    reads, and prefix reuse, which is the saving prefix-aware routing buys.
     """
-    story = (
-        "## 3 · KV — the hop, as a routing decision\n"
-        "Prefill and decode run on **different cards**, so the KV prefill "
-        "computes would have to reach decode. The mooncake ledger on `:50051` "
-        "records every hop the router decided to make.\n\n"
-        "**On this fleet the ledger is all there is.** Moving the blocks needs "
-        "`--kv-transfer-config` inside vLLM, and the process path does not pass "
-        "it — so decode **re-prefills the whole prompt**, and the prompt is "
-        "prefilled twice to produce one answer. Placement and orchestration are "
-        "real; the transfer is not.\n\n"
-        "That makes this the most useful screen here: **external prefix cache "
-        "hits sitting at zero is the proof**, and it is what a real connector "
-        "would change. See `docs/project/topology.md`.\n\n"
-        "Next: **4 · Hardware**, the cards all of this runs on."
-    )
-    return _dash("dodona-kv", "Dodona / 3 · KV — the hop (a routing decision here)", [
-        _text(1, story),
+    if SPLIT:
+        story = (
+            "## 3 · KV — the hop, as a routing decision\n"
+            "Prefill and decode run on **different cards**, so the KV prefill "
+            "computes would have to reach decode. The ledger on `:50051` "
+            "records every hop the router decided to make.\n\n"
+            "**On this fleet the ledger is all there is.** Moving the blocks "
+            "needs `--kv-transfer-config` inside vLLM, and the process path "
+            "does not pass it — so decode **re-prefills the whole prompt**, and "
+            "one answer costs two prefills. Placement and orchestration are "
+            "real; the transfer is not.\n\n"
+            "**External prefix cache hits sitting at zero is the proof**, and "
+            "it is what a real connector would change. "
+            "See `docs/project/topology.md`.\n\n"
+            "Next: **4 · Hardware**, the cards all of this runs on."
+        )
+        hop_panels = [
+            _panel(2, "Hops decided", "sum(mooncake_hops_total)", legend="hops",
+                   kind="stat", x=0, y=4, w=6, h=4,
+                   desc="Times the router routed a request prefill -> decode. A "
+                        "decision count, not a transfer count: nothing moved."),
+            _panel(3, "Tokens the hop would have moved",
+                   "sum(mooncake_hop_tokens_total)", legend="tokens",
+                   kind="stat", x=6, y=4, w=6, h=4,
+                   desc="Tokens of KV a real connector WOULD have moved. Here "
+                        "decode recomputed all of them, so read this as the size "
+                        "of the transfer the architecture is asking for."),
+            _panel(4, "Blocks in the ledger", "sum(mooncake_blocks)", legend="blocks",
+                   kind="stat", x=12, y=4, w=6, h=4,
+                   desc="Rows the ledger is currently tracking."),
+            _panel(5, "Fleet KV headroom", "min(orch_kv_free_ratio)", legend="free",
+                   kind="stat", x=18, y=4, w=6, h=4, unit="percentunit",
+                   desc="Free fraction across the fleet, as the gateway computes it."),
+            _panel(6, "Hop rate", "sum(rate(mooncake_hops_total[1m]))",
+                   legend="hops/s", x=0, y=8,
+                   desc="One per request that prefilled on one card and decoded "
+                        "on another, so under normal routing this tracks "
+                        "arrivals. It measures the router, not the network."),
+            _panel(7, "Tokens per second the hop would carry",
+                   "sum(rate(mooncake_hop_tokens_total[1m]))", legend="tokens/s",
+                   x=12, y=8,
+                   desc="What the hop WOULD cost in bandwidth. At 256 KiB of KV "
+                        "per token for this model, 1000 tokens/s is ~250 MiB/s — "
+                        "the number to weigh against recomputing."),
+            _panel(8, "Transfers the gateway recorded vs tokens counted",
+                   "sum(rate(orch_kv_transfer_total[5m]))", legend="transfers/s",
+                   x=0, y=16,
+                   extra=[("sum(rate(orch_kv_transfer_tokens[5m]))", "tokens/s")],
+                   desc="The gateway's own count, independent of the ledger. The "
+                        "two should agree; a divergence means one is missing "
+                        "events."),
+            _panel(9, "KV usage: prefill vs decode",
+                   "max by (phase) (vllm:kv_cache_usage_perc)", legend="{{phase}}",
+                   x=12, y=16, unit="percentunit", maximum=1,
+                   thresholds=[("green", None), ("orange", 0.75), ("red", 0.90)],
+                   desc="The asymmetry disaggregation is built around: prefill's "
+                        "KV drains after each request, decode's accumulates for "
+                        "the life of the generation."),
+            _panel(10, "External prefix cache hit rate",
+                   "sum(rate(vllm:external_prefix_cache_hits_total[5m])) / "
+                   "clamp_min(sum(rate(vllm:external_prefix_cache_queries_total[5m])), 1)",
+                   legend="hit rate", x=0, y=24, unit="percentunit", maximum=1,
+                   desc="KV found outside this engine — i.e. arriving across a "
+                        "hop. Flat at zero is the honest signal that no connector "
+                        "is installed and decode re-prefilled. Lifting this off "
+                        "zero is exactly what --kv-transfer-config would do."),
+            _panel(11, "KV headroom per pool",
+                   "min by (pool) (orch_replica_kv_free_ratio)", legend="{{pool}}",
+                   x=12, y=24, unit="percentunit", maximum=1,
+                   desc="Free fraction by pool. Decode is the one that runs out."),
+        ]
+        base_y = 32
+        pid = 12
+    else:
+        story = (
+            "## 3 · KV — pressure and reuse\n"
+            "Every engine serves both phases here, so there is **no hop**: "
+            "`queue.py` short-circuits when the prefill and decode pools are the "
+            "same object, and the ledger on `:50051` stays at zero by design. "
+            "That is why no hop panels are on this screen — flat zeros teach you "
+            "to ignore empty graphs.\n\n"
+            "What is on it is real. **KV usage is the signal admission control "
+            "reads**: the policy sheds at 0.90, so if the top panels never climb "
+            "there the run is INERT and proves nothing — lower `SLICE_MIB` until "
+            "they do. **Prefix reuse** is what prefix-aware routing buys: a "
+            "request sent back to the engine already holding its prompt skips "
+            "the prefill entirely.\n\n"
+            "Why no hop: a real split needs placement, orchestration AND "
+            "transfer, and transfer lives inside vLLM behind "
+            "`--kv-transfer-config`. See `docs/project/topology.md`.\n\n"
+            "Next: **4 · Hardware**, the cards all of this runs on."
+        )
+        hop_panels = [
+            _panel(2, "Fleet KV headroom", "min(orch_kv_free_ratio)", legend="free",
+                   kind="stat", x=0, y=4, w=6, h=4, unit="percentunit",
+                   desc="Free fraction across the fleet, as the gateway computes "
+                        "it. This is what place() and admit both read."),
+            _panel(3, "Fullest engine", "max(vllm:kv_cache_usage_perc)",
+                   legend="KV used", kind="stat", x=6, y=4, w=6, h=4,
+                   unit="percentunit",
+                   desc="The engine closest to its KV limit. Admission is "
+                        "thresholded at 0.90; this is the number that has to "
+                        "reach it for the demo to show anything."),
+            _panel(4, "Admission policy",
+                   "max by (policy) (admitperf_gate_active)", legend="{{policy}}",
+                   kind="stat", x=12, y=4, w=6, h=4,
+                   desc="1 while the named policy is deciding. policy=none means "
+                        "ADMISSION_POLICY is unset and nothing is being shed."),
+            _panel(5, "Shed", "sum(rate(orch_shed_total[1m]))", legend="503/s",
+                   kind="stat", x=18, y=4, w=6, h=4, unit="reqps",
+                   desc="Refused for capacity. Non-zero means the KV threshold "
+                        "fired — which is the whole point of the fleet."),
+        ]
+        base_y = 8
+        pid = 6
 
-        _panel(2, "Hops decided", "sum(mooncake_hops_total)", legend="hops",
-               kind="stat", x=0, y=4, w=6, h=4,
-               desc="Times the router routed a request prefill -> decode since "
-                    "the ledger started. A decision count, not a transfer "
-                    "count: nothing moved."),
-        _panel(3, "Tokens moved", "sum(mooncake_hop_tokens_total)", legend="tokens",
-               kind="stat", x=6, y=4, w=6, h=4,
-               desc="Tokens of KV that a real connector WOULD have moved. "
-                    "Here decode recomputed all of them, so read this as the "
-                    "size of the transfer the architecture is asking for."),
-        _panel(4, "Blocks in the ledger", "sum(mooncake_blocks)", legend="blocks",
-               kind="stat", x=12, y=4, w=6, h=4,
-               desc="KV blocks the ledger is currently tracking."),
-        _panel(5, "Fleet KV headroom", "min(orch_kv_free_ratio)", legend="free",
-               kind="stat", x=18, y=4, w=6, h=4, unit="percentunit",
-               desc="Free fraction across the fleet, as the gateway computes it."),
-
-        _panel(6, "Hop rate",
-               "sum(rate(mooncake_hops_total[1m]))", legend="hops/s",
-               x=0, y=8,
-               desc="One per request that prefilled on one card and decoded on "
-                    "another, so under normal routing this tracks arrivals. It "
-                    "measures the router, not the network."),
-        _panel(7, "Tokens hopped per second",
-               "sum(rate(mooncake_hop_tokens_total[1m]))", legend="tokens/s",
-               x=12, y=8,
-               desc="What the hop WOULD cost in bandwidth. At 256 KiB of KV per "
-                    "token for this model, 1000 tokens/s is ~250 MiB/s — the "
-                    "number to weigh against recomputing. No bytes move here."),
-
-        _panel(8, "Transfers the gateway recorded vs tokens transferred",
-               "sum(rate(orch_kv_transfer_total[5m]))", legend="transfers/s",
-               x=0, y=16,
-               extra=[("sum(rate(orch_kv_transfer_tokens[5m]))", "tokens/s")],
-               desc="The gateway's own count, independent of the ledger. The two "
-                    "should agree; a divergence means one of them is missing "
-                    "events."),
-        _panel(9, "KV evictions",
-               "sum(rate(orch_kv_evict_total[5m]))", legend="evictions/s",
-               x=12, y=16,
-               desc="KV dropped to make room. Every eviction is a future "
-                    "recompute — the cost admission control is trading against. "
-                    "This one is real: the pool it evicts from is vLLM's own."),
-
-        _panel(10, "KV usage: prefill vs decode",
-               "max by (phase) (vllm:kv_cache_usage_perc)", legend="{{phase}}",
-               x=0, y=24, unit="percentunit", maximum=1,
+    # Real in both topologies: the pressure admission reads, and the reuse that
+    # prefix-aware routing earns. Laid out after whatever the branch above put
+    # on the screen.
+    shared = [
+        _panel(pid, "KV cache usage, per engine",
+               "max by (pod) (vllm:kv_cache_usage_perc)", legend="{{pod}}",
+               x=0, y=base_y, unit="percentunit", maximum=1,
                thresholds=[("green", None), ("orange", 0.75), ("red", 0.90)],
-               desc="The asymmetry that makes disaggregation work: prefill's KV "
-                    "drains after each hop, decode's accumulates for the life of "
-                    "the request."),
-        _panel(11, "KV headroom per pool",
-               "min by (pool) (orch_replica_kv_free_ratio)", legend="{{pool}}",
-               x=12, y=24, unit="percentunit", maximum=1,
-               desc="Free fraction by pool. Decode is the one that runs out."),
+               desc="The signal the whole project is about, per replica. Red is "
+                    "0.90, where the admission policy starts shedding."),
+        _panel(pid + 1, "KV headroom per replica",
+               "min by (pod, pool) (orch_replica_kv_free_ratio)",
+               legend="{{pod}} ({{pool}})", x=12, y=base_y, unit="percentunit",
+               maximum=1, thresholds=[("green", None), ("red", 0.10)],
+               desc="The same pressure as the gateway sees it, which is what "
+                    "place() scores replicas on. Red is under 10% free."),
 
-        _panel(12, "Prefill skipped: cached vs computed prompt tokens",
-               "sum(rate(vllm:prompt_tokens_cached_total[5m]))", legend="cached (reused)",
-               x=0, y=32,
+        _panel(pid + 2, "Preemptions",
+               "sum by (pod) (rate(vllm:num_preemptions_total[5m]))",
+               legend="{{pod}}", x=0, y=base_y + 8,
+               desc="vLLM evicting a running request's KV to make room. Every "
+                    "preemption is work thrown away and later redone — this is "
+                    "what admission control exists to prevent."),
+        _panel(pid + 3, "KV evictions recorded by the gateway",
+               "sum(rate(orch_kv_evict_total[5m]))", legend="evictions/s",
+               x=12, y=base_y + 8,
+               desc="Entries the gateway dropped from its prefix index, so the "
+                    "next request with that prefix will be prefilled again."),
+
+        _panel(pid + 4, "Prefill skipped: cached vs total prompt tokens",
+               "sum(rate(vllm:prompt_tokens_cached_total[5m]))",
+               legend="cached (reused)", x=0, y=base_y + 16,
                extra=[("sum(rate(vllm:prompt_tokens_total[5m]))", "total prompt tokens")],
                desc="Cached tokens had their KV already and were not prefilled "
-                    "again. The gap between the lines is real prefill work."),
-        _panel(13, "External prefix cache hit rate",
-               "sum(rate(vllm:external_prefix_cache_hits_total[5m])) / "
-               "clamp_min(sum(rate(vllm:external_prefix_cache_queries_total[5m])), 1)",
-               legend="hit rate", x=12, y=32, unit="percentunit", maximum=1,
-               desc="KV found outside this engine — i.e. arriving across a hop. "
-                    "Flat at zero is the honest signal that no connector is "
-                    "installed and decode re-prefilled. Lifting this off zero "
-                    "is exactly what --kv-transfer-config would do."),
+                    "again. The gap between the lines is real prefill work, and "
+                    "closing it is what prefix-aware routing is for."),
+        _panel(pid + 5, "Prefix cache hit rate",
+               "sum(rate(vllm:prefix_cache_hits_total[5m])) / "
+               "clamp_min(sum(rate(vllm:prefix_cache_queries_total[5m])), 1)",
+               legend="hit rate", x=12, y=base_y + 16, unit="percentunit",
+               maximum=1,
+               desc="Prompt prefixes already in an engine's cache, so prefill was "
+                    "skipped. clamp_min keeps this at 0 rather than blank when "
+                    "there is no traffic."),
 
-        _panel(14, "KV tokens computed during prefill p50 / p95",
+        _panel(pid + 6, "Sticky routing — sent back to the replica holding the KV",
+               "sum(rate(orch_sticky_total[5m]))", legend="sticky/s",
+               x=0, y=base_y + 24, unit="reqps",
+               desc="The cheapest outcome available: no hop and no recompute, "
+                    "because the KV is already where the request landed. Compare "
+                    "with the hit rate beside it."),
+        _panel(pid + 7, "KV tokens computed during prefill p50 / p95",
                "histogram_quantile(0.50, sum by (le) "
                "(rate(vllm:request_prefill_kv_computed_tokens_bucket[5m])))",
-               legend="p50", x=0, y=40,
+               legend="p50", x=12, y=base_y + 24,
                extra=[("histogram_quantile(0.95, sum by (le) "
                        "(rate(vllm:request_prefill_kv_computed_tokens_bucket[5m])))",
                        "p95")],
                desc="Per request, how many tokens of KV prefill actually had to "
-                    "build. Lower than prompt length means cache reuse."),
-        _panel(15, "Sticky routing — requests sent back to the replica holding their KV",
-               "sum(rate(orch_sticky_total[5m]))", legend="sticky/s",
-               x=12, y=40, unit="reqps",
-               desc="The cheapest possible outcome: no hop and no recompute, "
-                    "because the KV is already where the request landed."),
-    ], ["kv", "mooncake", "disaggregation"])
+                    "build. Lower than the prompt length means cache reuse."),
+    ]
+
+    title = ("Dodona / 3 · KV — the hop (a routing decision here)" if SPLIT
+             else "Dodona / 3 · KV — pressure and reuse")
+    return _dash("dodona-kv", title, [_text(1, story), *hop_panels, *shared],
+                 ["kv", "admission", "disaggregation" if SPLIT else "reuse"])
 
 
 def hardware() -> dict:
@@ -692,14 +804,27 @@ def hardware() -> dict:
                legend="GPU {{gpu}} · {{pod}}", x=12, y=32, unit="rothz",
                desc="HBM clock. Constant on a healthy A100."),
 
-        _panel(14, "Utilisation by role: prefill vs decode",
-               "avg by (phase) (DCGM_FI_DEV_GPU_UTIL)", legend="{{phase}}",
+        # Only a comparison when there are two roles to compare. With one pool
+        # every card is `phase="both"`, so this would draw a single line under a
+        # title promising two — and a panel whose title overstates it is how an
+        # audience learns to stop reading titles.
+        _panel(14,
+               ("Utilisation by role: prefill vs decode" if SPLIT
+                else "Compute vs memory bandwidth, per card"),
+               ("avg by (phase) (DCGM_FI_DEV_GPU_UTIL)" if SPLIT
+                else "max by (gpu, pod) (DCGM_FI_DEV_GPU_UTIL)"),
+               legend="{{phase}}" if SPLIT else "compute · GPU {{gpu}}",
                x=0, y=40, unit="percent", maximum=100,
                extra=[("avg by (phase) (DCGM_FI_DEV_MEM_COPY_UTIL)",
-                       "{{phase}} memory bw")],
-               desc="The whole argument on one panel: the two roles load the "
-                    "hardware differently, which is why they get separate pools "
-                    "and separate scaling decisions."),
+                       "{{phase}} memory bw")] if SPLIT else
+                     [("max by (gpu, pod) (DCGM_FI_DEV_MEM_COPY_UTIL)",
+                       "memory bw · GPU {{gpu}}")],
+               desc=("The whole argument on one panel: the two roles load the "
+                     "hardware differently, which is why they get separate "
+                     "pools and separate scaling decisions." if SPLIT else
+                     "Prefill is compute-bound and decode is memory-bound, and "
+                     "every card here does both — so the two lines crossing is "
+                     "the workload changing shape, not the router moving it.")),
         _panel(15, "Framebuffer free, per card",
                "min by (gpu, pod) (DCGM_FI_DEV_FB_FREE)",
                legend="GPU {{gpu}} · {{pod}}", x=12, y=40, unit="decmbytes",

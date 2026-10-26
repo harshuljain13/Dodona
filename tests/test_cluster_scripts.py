@@ -467,3 +467,55 @@ def test_the_gateway_env_is_the_same_on_both_fleet_paths() -> None:
     assert not missing, (
         "the manifests set these and workers.sh does not, so the process path "
         "runs on code defaults meant for a capacity sweep: " + ", ".join(missing))
+
+
+def test_the_three_fleet_scripts_agree_on_the_fleet_shape() -> None:
+    """workers.sh starts it, status.sh reports it, smoke.sh checks it.
+
+    They disagreed. workers.sh learned to start one engine per card; the other
+    two went on asking about `prefill decode-0 decode-1` on three fixed ports.
+    On a two-card aggregated fleet that means status inventing a worker that was
+    never started, and a smoke test checking a port nothing listens on — a
+    PASS/FAIL pair that are both wrong.
+
+    layout.sh is the single definition. Each script must source it rather than
+    recompute, because a copy is how this happened the first time.
+    """
+    runpod = ROOT / "infra" / "runpod-cluster" / "setup"
+    layout = runpod / "layout.sh"
+    assert layout.is_file(), "layout.sh is gone — the three scripts will drift again"
+
+    for name in ("workers.sh", "status.sh", "smoke.sh"):
+        text = (runpod / name).read_text()
+        assert "layout.sh" in text, f"{name} does not source layout.sh"
+        # A local redefinition silently wins over the sourced value.
+        for var in ("WORKER_COUNT=", "NAMES=("):
+            assert not re.search(rf"^{re.escape(var)}", text, re.M), (
+                f"{name} redefines {var} instead of using layout.sh's")
+
+    # And the shape itself has to be derived, not a constant.
+    body = layout.read_text()
+    assert "LAB_TOPOLOGY" in body, "layout.sh ignores the topology"
+    assert "GPUS" in body, "layout.sh does not count the cards"
+
+
+def test_the_readiness_poll_does_not_assume_three_workers() -> None:
+    """`make fleet-runpod` waited 40 minutes on a fleet that was already up.
+
+    The poll asked for $base, +1 and +2 by name. An aggregated fleet on two
+    cards starts two engines, so :8102 never answered and the loop ran to its
+    timeout while the fleet served requests the whole time. It reads the worker
+    list off the box now, from the same layout.sh the fleet started from.
+    """
+    text = (SETUP / "up.sh").read_text()
+    assert "layout.sh" in text, (
+        "up.sh no longer reads the fleet's shape from the box, so its readiness "
+        "poll is guessing how many workers to wait for")
+    # Scoped to the poll. The tunnel forwarding a spare port is harmless — the
+    # bind succeeds whether or not anything is behind it — and the plan
+    # printout is prose. What must not be hardcoded is what we WAIT for.
+    poll = text[text.index("Ask the components, do not read a log"):]
+    poll = poll[:poll.index("announce \"fleet up\"")]
+    assert "base+2" not in poll.replace(" ", ""), (
+        "the readiness poll still hardcodes a third worker port, so an "
+        "aggregated fleet on two cards waits for a port nothing will serve")

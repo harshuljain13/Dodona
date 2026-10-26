@@ -22,7 +22,13 @@ ROOT = Path(__file__).resolve().parents[1]
 OBS = ROOT / "infra" / "runpod-cluster" / "observability"
 sys.path.insert(0, str(OBS))
 
-from dashboards import DASHBOARDS, EXPORTED, STORY_TAG, write_dashboards  # noqa: E402
+from dashboards import (  # noqa: E402
+    DASHBOARDS,
+    EXPORTED,
+    SPLIT,
+    STORY_TAG,
+    write_dashboards,
+)
 
 #: Every metric family the fleet exports, suffix-stripped, as one set.
 FAMILIES = {m for group in EXPORTED.values() for m in group}
@@ -193,11 +199,39 @@ def test_every_exported_group_is_represented(name: str) -> None:
     """Each screen must actually use the component it is named after.
 
     Catches a dashboard that is all framing text and no data.
+
+    `kv` is the exception, and deliberately: in the aggregated topology there is
+    no hop, so every `mooncake_*` series is zero by construction and the panels
+    are not built. What the screen must still show is the KV pressure admission
+    reads — so the requirement is `vllm:kv_cache_usage_perc`, not the ledger.
     """
     blob = json.dumps(DASHBOARDS[name]())
-    expected = {"gateway": "orch_", "engine": "vllm:", "kv": "mooncake_",
-                "hardware": "DCGM_FI_DEV_"}[name]
+    expected = {
+        "gateway": "orch_",
+        "engine": "vllm:",
+        "kv": "mooncake_" if SPLIT else "vllm:kv_cache_usage_perc",
+        "hardware": "DCGM_FI_DEV_",
+    }[name]
     assert expected in blob, f"{name} never queries {expected}*"
+
+
+def test_the_ledger_is_not_plotted_when_it_cannot_move() -> None:
+    """In `aggregated` there is no hop, so mooncake_* must not be on a panel.
+
+    `queue.py` short-circuits when the prefill and decode pools are the same
+    object — `handoff.decode is handoff.prefill` — so the bus is never called
+    and every ledger series stays at zero for the life of the fleet. Plotting
+    them would be four flat lines, which is the blank-panel failure this file
+    exists to prevent, in its most convincing disguise: the metric exists, the
+    target is up, and the graph is still meaningless.
+    """
+    exprs = " ".join(e for _, e in _exprs(DASHBOARDS["kv"]()))
+    if SPLIT:
+        assert "mooncake_" in exprs, "a split fleet should show the hop it attempts"
+    else:
+        assert "mooncake_" not in exprs, (
+            "aggregated fleets make no hops, so the ledger is flat zero by "
+            "construction and must not be given a panel")
 
 
 def test_the_kv_dashboard_claim_matches_the_engine_config() -> None:
@@ -225,9 +259,13 @@ def test_the_kv_dashboard_claim_matches_the_engine_config() -> None:
     ).lower()
 
     if not has_connector:
-        assert "re-prefill" in text, (
-            "engine.sh passes no --kv-transfer-config, so decode re-prefills and "
-            "the hop is a routing decision — the KV dashboard has to say so")
+        # Either explanation is honest; which one applies depends on topology.
+        # Split pools attempt a hop and decode re-prefills; one pool never
+        # attempts one at all.
+        assert "re-prefill" in text or "no hop" in text, (
+            "engine.sh passes no --kv-transfer-config, so no KV bytes move — "
+            "the KV dashboard has to say why, either because decode re-prefills "
+            "or because there is no hop to make")
         for claim in ("paying for itself", "transferred rather than recomputed"):
             assert claim not in text, f"the KV screen claims {claim!r} with no connector"
     else:

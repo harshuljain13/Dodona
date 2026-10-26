@@ -17,7 +17,10 @@ ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 [[ -f .env ]] && set -a && source .env && set +a
 
-PORT_BASE="${PORT_BASE:-8100}"
+# GPUS, LAB_TOPOLOGY, WORKER_COUNT, NAMES, DEVICES, PORTS. Shared with
+# workers.sh so this cannot report workers the fleet never started — it used to
+# ask for `prefill decode-0 decode-1` whatever was actually running.
+source "$(dirname "$0")/layout.sh"
 LOGS="$ROOT/infra/metrics/local"
 
 say()  { printf '\033[1;36m==> %s\033[0m\n' "$*"; }
@@ -29,9 +32,9 @@ problems=0
 
 # ── the workers ────────────────────────────────────────────────────────────
 say "workers"
-i=0
-for role in prefill decode-0 decode-1; do
-  port=$(( PORT_BASE + i )); i=$(( i + 1 ))
+note "$LAB_TOPOLOGY — $WORKER_COUNT engine(s) on $GPUS card(s)"
+for i in $(seq 0 $(( WORKER_COUNT - 1 ))); do
+  role="${NAMES[$i]}"; port="${PORTS[$i]}"
 
   model=$(curl -sf -m 5 "localhost:$port/v1/models" 2>/dev/null \
     | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"][0]["id"])' 2>/dev/null)
@@ -78,7 +81,7 @@ done
 # times before settling is worth knowing about — but it is not a fault now,
 # and a status that exits non-zero for it cannot be used as a health check.
 hist=0
-for role in prefill decode-0 decode-1; do
+for role in "${NAMES[@]}"; do
   n=$(grep -ac "^\[$role\] exited" "$LOGS/$role.log" 2>/dev/null); n=${n:-0}
   hist=$(( hist + n ))
 done

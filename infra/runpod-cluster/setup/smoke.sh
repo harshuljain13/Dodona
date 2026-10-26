@@ -16,7 +16,10 @@ ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 [[ -f .env ]] && set -a && source .env && set +a
 
-PORT_BASE="${PORT_BASE:-8100}"
+# GPUS, LAB_TOPOLOGY, WORKER_COUNT, NAMES, DEVICES, PORTS — shared with
+# workers.sh. Checking three fixed ports on a fleet that started two is how a
+# smoke test passes while the thing it tests is absent.
+source "$(dirname "$0")/layout.sh"
 MODEL="${LOCAL_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}"
 GRAFANA_PASSWORD="${GRAFANA_PASSWORD:-admin}"
 
@@ -27,9 +30,9 @@ fail() { printf '    \033[1;31mFAIL\033[0m  %s\n' "$*"; fails=$(( fails + 1 )); 
 skip() { printf '    ....  %s\n' "$*"; }
 
 say "workers"
-i=0
-for role in prefill decode-0 decode-1; do
-  port=$(( PORT_BASE + i )); i=$(( i + 1 ))
+say "  $LAB_TOPOLOGY — $WORKER_COUNT engine(s) on $GPUS card(s)"
+for i in $(seq 0 $(( WORKER_COUNT - 1 ))); do
+  role="${NAMES[$i]}"; port="${PORTS[$i]}"
   got=$(curl -sf -m 10 "localhost:$port/v1/models" 2>/dev/null \
     | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"][0]["id"])' 2>/dev/null)
   if [[ "$got" == "$MODEL" ]]; then
@@ -89,16 +92,17 @@ case "${tool_reply:-}" in
     ;;
 esac
 
-# Placement is only a decision if more than one decode worker can take work.
-# One answering decode is routing, not choosing.
+# Placement is only a decision if more than one worker can take the work. One
+# answering replica is routing, not choosing — and `place()` picking from a set
+# of one is the quiet way this fleet stops demonstrating anything.
 alive=0
-for p in $(( PORT_BASE + 1 )) $(( PORT_BASE + 2 )); do
+for p in "${PORTS[@]}"; do
   curl -sf -m 5 "localhost:$p/v1/models" >/dev/null 2>&1 && alive=$(( alive + 1 ))
 done
-if (( alive == 2 )); then
-  pass "two decode workers answering — place() is a real choice"
+if (( alive >= 2 )); then
+  pass "$alive replicas answering — place() is a real choice"
 else
-  fail "$alive decode worker(s) — place() degenerates to routing"
+  fail "$alive replica(s) — place() degenerates to routing. Two is the floor."
 fi
 
 say "observability"
@@ -154,11 +158,18 @@ else
   fail "grafana not healthy"
 fi
 
-say "the hop"
+say "the KV ledger"
 if curl -sf -m 5 localhost:50051/metrics >/dev/null 2>&1; then
-  pass "mooncake answering"
+  if [[ "$LAB_TOPOLOGY" == "aggregated" ]]; then
+    # One pool, so queue.py never calls the bus and the ledger stays at zero by
+    # design. It is still checked because kvbus POSTs to it and a dead port
+    # would time out on a path that is meant to be unused.
+    pass "ledger answering (aggregated: no hops to record, by design)"
+  else
+    pass "ledger answering — records the hop as a decision, not a transfer"
+  fi
 else
-  fail "mooncake not answering — kvbus will time out on every hop"
+  fail "ledger not answering on :50051 — kvbus will time out on every hop"
 fi
 
 echo

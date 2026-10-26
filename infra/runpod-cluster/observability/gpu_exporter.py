@@ -123,8 +123,18 @@ def render(roles: dict[str, str] | None = None) -> str:
             pod = roles.get(index, f"gpu-{index}")
             # `phase` matches the label Prometheus puts on the vLLM targets, so
             # a hardware panel and an engine panel can be read side by side.
-            phase = "prefill" if pod.startswith("prefill") else (
-                "decode" if pod.startswith("decode") else "unknown")
+            # `both` for an aggregated engine, which really does serve both
+            # phases — calling it "decode" to keep a panel company is how a
+            # graph starts lying. `unknown` only for a card with no worker
+            # mapped to it at all.
+            if pod.startswith("prefill"):
+                phase = "prefill"
+            elif pod.startswith("decode"):
+                phase = "decode"
+            elif pod.startswith("gpu-"):
+                phase = "unknown"
+            else:
+                phase = "both"
             lines.append(
                 f'{metric}{{gpu="{index}",pod="{pod}",phase="{phase}"}} {value}')
     return "\n".join(lines) + "\n"

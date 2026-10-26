@@ -223,10 +223,17 @@ cmd_fleet_runpod() {
   printf '    %-10s %-26s %s\n' "install" "python venv + vLLM"      "~/$REMOTE_DIR/.venv"
   printf '    %-10s %-26s %s\n' ""        "prometheus, grafana"     "/usr/local/bin"
   echo
-  printf '    %-10s %-26s %s\n' "start"   "mooncake   :50051"       "the KV hop ledger"
-  printf '    %-10s %-26s %s\n' ""        "prefill    :$base  GPU 0"  "builds the prompt KV"
-  printf '    %-10s %-26s %s\n' ""        "decode-0   :$((base+1))  GPU 1"  "generates"
-  printf '    %-10s %-26s %s\n' ""        "decode-1   :$((base+2))  GPU 2"  "generates"
+  printf '    %-10s %-26s %s\n' "start"   "ledger     :50051"       "records KV routing decisions"
+  # What actually starts depends on LAB_TOPOLOGY and on how many cards the box
+  # has, and the card count is not known until we are on it — so describe the
+  # rule rather than invent three workers. Claiming "1 prefill + 2 decode" to a
+  # two-card aggregated fleet is a plan that disagrees with its own run.
+  if [[ "${LAB_TOPOLOGY:-aggregated}" == "aggregated" ]]; then
+    printf '    %-10s %-26s %s\n' ""      "engine-N   :$base +N"     "one per card, both phases"
+  else
+    printf '    %-10s %-26s %s\n' ""      "prefill    :$base  GPU 0" "builds the prompt KV"
+    printf '    %-10s %-26s %s\n' ""      "decode-*   :$((base+1))+" "generate; decode re-prefills"
+  fi
   printf '    %-10s %-26s %s\n' ""        "gateway    :8080"        "guard · admit · place · queue"
   printf '    %-10s %-26s %s\n' ""        "prometheus :9090"        "scrapes all of the above"
   printf '    %-10s %-26s %s\n' ""        "grafana    :31495"       "the dashboards"
@@ -306,17 +313,36 @@ cmd_fleet_runpod() {
   local probe=(ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new
                -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=2
                -o BatchMode=yes)
+
+  # Ask the BOX how many workers there will be, rather than assuming three.
+  #
+  # The poll used to wait on $base, +1 and +2 by name. An aggregated fleet on
+  # two cards starts two engines, so :8102 never answered and this loop sat
+  # there until its 40-minute timeout on a fleet that was already serving.
+  # layout.sh is the one place that knows the shape, so read it from there.
+  local worker_names worker_count
+  worker_names="$(on_box 'source infra/runpod-cluster/setup/layout.sh 2>/dev/null \
+    && printf "%s " "${NAMES[@]}"' 2>/dev/null || true)"
+  # shellcheck disable=SC2206
+  local names_arr=(${worker_names:-prefill decode-0 decode-1})
+  worker_count=${#names_arr[@]}
+
+  local worker_ports=""
+  for (( wi = 0; wi < worker_count; wi++ )); do
+    worker_ports+=" $(( base + wi ))"
+  done
+
   local waited=0 last="" state=""
   while (( waited < 2400 )); do
     state="$("${probe[@]}" "$BOX" "
-      for p in 50051 9400 $base $((base+1)) $((base+2)) 8080 9090 31495; do
+      for p in 50051 9400$worker_ports 8080 9090 31495; do
         curl -sf -m 2 \"localhost:\$p/metrics\" >/dev/null 2>&1 ||
         curl -sf -m 2 \"localhost:\$p/v1/models\" >/dev/null 2>&1 ||
         curl -sf -m 2 \"localhost:\$p/api/health\" >/dev/null 2>&1 && printf 'y' || printf 'n'
       done" 2>/dev/null || true)"
 
-    # Eight characters, one per component, in start order.
-    local names=(mooncake gpu prefill decode-0 decode-1 gateway prometheus grafana)
+    # One character per component, in start order.
+    local names=(mooncake gpu "${names_arr[@]}" gateway prometheus grafana)
     local shown="" i=0
     for n in "${names[@]}"; do
       case "${state:$i:1}" in
@@ -335,12 +361,15 @@ cmd_fleet_runpod() {
       printf '    [%2dm%02ds]  %s\n' $(( waited / 60 )) $(( waited % 60 )) "$shown"
     fi
 
-    # All three workers AND the gateway. Breaking on the gateway alone is how
+    # EVERY worker and the gateway. Breaking on the gateway alone is how
     # `make fleet-runpod` reported success with every worker dead: the gateway
     # serves /v1/models from its own allowlist, so it answers with or without a
-    # pool behind it.
-    if [[ "${state:2:1}" == "y" && "${state:3:1}" == "y" \
-       && "${state:4:1}" == "y" && "${state:5:1}" == "y" ]]; then
+    # pool behind it. Workers occupy positions 2..2+count-1, the gateway next.
+    local all_up=1 gi
+    for (( gi = 2; gi < 2 + worker_count + 1; gi++ )); do
+      [[ "${state:$gi:1}" == "y" ]] || { all_up=0; break; }
+    done
+    if (( all_up )); then
       echo; announce "fleet up"; break
     fi
     sleep 5

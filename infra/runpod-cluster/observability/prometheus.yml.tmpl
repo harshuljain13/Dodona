@@ -1,13 +1,19 @@
 # Prometheus for the no-orchestrator path — `make workers`.
 #
 # The Kubernetes path discovers targets: a ServiceMonitor matches pods by label
-# and the list changes as KEDA scales. There is nothing to discover here. Three
-# workers on fixed ports, named by the role they play, because the dashboards
-# and the admission policy both read `phase`.
+# and the list changes as KEDA scales. There is nothing to discover here, so
+# workers.sh renders __VLLM_TARGETS__ from the fleet it actually started — one
+# entry per worker, on the ports that run, with the `pod` name pools.py gave it.
 #
-# `phase` is not cosmetic: keda-decode.yaml queries
-# `avg(vllm:kv_cache_usage_perc{phase="decode"})` and admit reads the same
-# series. Mislabel a worker and the policy reads the wrong card's pressure.
+# Hardcoding three was wrong twice over: the count follows the card count now,
+# and the roles follow LAB_TOPOLOGY. `phase` is prefill/decode when the pools
+# are split and `both` when every engine serves both phases, which is the
+# honest label for the aggregated default — calling a full engine "decode"
+# to keep a dashboard panel company is how a graph starts lying.
+#
+# The admission policy does NOT read these labels: it reads each worker's
+# /metrics directly through `VLLMWorker.snapshot`, so a mislabelled target
+# costs you a confusing dashboard, not a wrong decision.
 
 global:
   scrape_interval: 5s      # admission decides on seconds; a 15s default would
@@ -17,12 +23,7 @@ scrape_configs:
   - job_name: vllm
     metrics_path: /metrics
     static_configs:
-      - targets: ["127.0.0.1:__PREFILL__"]
-        labels: { phase: prefill, pod: prefill }
-      - targets: ["127.0.0.1:__DECODE0__"]
-        labels: { phase: decode, pod: decode-0 }
-      - targets: ["127.0.0.1:__DECODE1__"]
-        labels: { phase: decode, pod: decode-1 }
+__VLLM_TARGETS__
 
   # guard / admit / place / queue counters, and the decision log's gate series.
   - job_name: gateway
