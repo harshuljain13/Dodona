@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
-# Install and start the real DCGM exporter. Run on: the GPU box.
+# Install DCGM and report whether this box will give up profiling fields.
+# Run on: the GPU box.
 #
 #   bash infra/runpod-cluster/setup/dcgm.sh          install, start, report
 #   bash infra/runpod-cluster/setup/dcgm.sh --probe  report only, change nothing
+#
+# You do not normally run this by hand. `make fleet-runpod` installs it through
+# box_packages.sh and then calls `--probe` to decide which hardware panels to
+# generate. Run it directly when the panels are missing and you want the reason.
 #
 # WHY, given we already have an exporter:
 #
@@ -136,8 +141,11 @@ fi
 # ── what the fleet should use ──────────────────────────────────────────────
 say "verdict"
 if (( PROF_OK )); then
-  ok "use dcgm-exporter: the roofline and bandwidth-wall panels will have data"
-  note "workers.sh picks this up on the next \`make fleet-runpod\`"
+  ok "the roofline and bandwidth-wall panels will have data"
+  note "gpu_exporter.py reads these through \`dcgmi\` alongside the nvidia-smi"
+  note "fields, on the same port. Nothing else to start."
+  note "Nothing to set: workers.sh runs this with --probe on every bring-up"
+  note "and generates the profiling panels when the answer is yes."
 else
   note "keep observability/gpu_exporter.py (nvidia-smi)"
   note "utilisation, memory, clocks, power and temperature all still work."
