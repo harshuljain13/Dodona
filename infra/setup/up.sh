@@ -7,6 +7,7 @@
 #   up.sh fleet-runpod-status     what the fleet is actually doing
 #   up.sh fleet-runpod-ssh        tunnel for the fleet's ports
 #   up.sh fleet-runpod-smoke-test prove it works, end to end
+#   up.sh dcgm                    install real DCGM, report profiling support
 #   up.sh engine                  ONE worker on the whole card, for comparison only
 #   up.sh down                    stop that engine
 #   up.sh load [args]             run a load test ON THE BOX, pull the bundle back
@@ -456,6 +457,13 @@ cmd_load() {
   echo "    bundles under infra/metrics/"
 }
 
+# Needs the current script on the box, like every other remote step.
+cmd_dcgm() {
+  sync_project
+  announce "dcgm  —  install, then ask the driver what it will report"
+  on_box_tty "bash infra/runpod-cluster/setup/dcgm.sh"
+}
+
 # Syncs first: this deletes things, so it must be the current script doing it.
 cmd_clean() {
   sync_project
@@ -468,7 +476,7 @@ cmd_clean() {
 main() {
   local command="${1:-}"
   case "$command" in
-    fleet-runpod|fleet-runpod-down|fleet-runpod-logs|fleet-runpod-status|fleet-runpod-ssh|fleet-runpod-smoke-test|engine|down|clean|load) ;;
+    dcgm|fleet-runpod|fleet-runpod-down|fleet-runpod-logs|fleet-runpod-status|fleet-runpod-ssh|fleet-runpod-smoke-test|engine|down|clean|load) ;;
     # Print the header block by shape, not by line number: `sed -n '2,14p'`
     # dropped `clean` off the end the moment two commands were added, and the
     # test that catches it is the only reason anyone noticed.
@@ -477,6 +485,7 @@ main() {
   esac
   load_env
   case "$command" in
+    dcgm)          cmd_dcgm ;;
     fleet-runpod)  cmd_fleet_runpod ;;
     fleet-runpod-down)    cmd_fleet_down ;;
     fleet-runpod-logs)    cmd_logs_fleet ;;

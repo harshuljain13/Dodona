@@ -30,10 +30,29 @@ mislead an audience about the project's own central claim.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
 PROM = {"type": "prometheus", "uid": "prometheus"}
+
+#: Whether this box can read DCGM *profiling* fields.
+#:
+#: Set by workers.sh, which asks the driver rather than guessing — profiling is
+#: gated by `NVreg_RestrictProfilingToAdminUsers` on the HOST, and a rented
+#: container cannot change it however root it is inside.
+#:
+#: This is a capability probe, not a configuration switch. The difference
+#: matters: a flag someone sets by hand drifts out of date, which is why the
+#: topology flag was removed. This one is measured on the machine the
+#: dashboards are being generated for, moments before they are written.
+#:
+#: Four panels depend on it, and they are the ones the roofline and
+#: bandwidth-wall arguments need. When the answer is no they are not generated
+#: at all, because four permanently blank graphs on the screen whose whole
+#: point is "show me the wall" is worse than not claiming to show it.
+DCGM_PROFILING = os.environ.get("DCGM_PROFILING") == "1"
+
 
 #: Every metric family the process-path fleet exports, by the component that
 #: exports it. Read off `/api/v1/label/__name__/values` on a running fleet —
@@ -105,6 +124,12 @@ EXPORTED = {
         "DCGM_FI_DEV_GPU_TEMP",
         "DCGM_FI_DEV_SM_CLOCK",
         "DCGM_FI_DEV_MEMORY_CLOCK",
+        # Profiling fields. Only emitted by the real dcgm-exporter, and only
+        # when the host permits it — see DCGM_PROFILING above.
+        *(("DCGM_FI_PROF_PIPE_TENSOR_ACTIVE",
+           "DCGM_FI_PROF_DRAM_ACTIVE",
+           "DCGM_FI_PROF_NVLINK_TX_BYTES",
+           "DCGM_FI_PROF_PCIE_TX_BYTES") if DCGM_PROFILING else ()),
     ),
 }
 
@@ -826,6 +851,31 @@ def hardware() -> dict:
                     "compute-bound and decode is memory-bound, and every card "
                     "here does both — so the two lines crossing is the workload "
                     "changing shape, not the router moving it."),
+        *([
+            # The roofline, measured. Tensor cores busy with DRAM quiet is
+            # compute-bound; DRAM busy with tensor cores quiet is the bandwidth
+            # wall, and no amount of extra GPU moves it.
+            _panel(16, "Tensor-core activity vs DRAM activity",
+                   "avg by (gpu, pod) (DCGM_FI_PROF_PIPE_TENSOR_ACTIVE)",
+                   legend="tensor cores · GPU {{gpu}}",
+                   x=0, y=48, unit="percentunit", maximum=1,
+                   extra=[("avg by (gpu, pod) (DCGM_FI_PROF_DRAM_ACTIVE)",
+                           "HBM · GPU {{gpu}}")],
+                   desc="The roofline on your own card. Tensor cores high with "
+                        "HBM low is compute-bound — prefill. HBM high with "
+                        "tensor cores low IS the bandwidth wall, which is decode, "
+                        "and the case where another GPU buys you nothing."),
+            _panel(17, "Interconnect traffic",
+                   "sum by (gpu) (rate(DCGM_FI_PROF_NVLINK_TX_BYTES[1m]))",
+                   legend="NVLink TX · GPU {{gpu}}", x=12, y=48, unit="Bps",
+                   extra=[("sum by (gpu) (rate(DCGM_FI_PROF_PCIE_TX_BYTES[1m]))",
+                           "PCIe TX · GPU {{gpu}}")],
+                   desc="What a tensor-parallel split would cost. Near zero "
+                        "here because each engine owns a whole card and nothing "
+                        "crosses between them — which is the measurement that "
+                        "justifies not sharding this model."),
+        ] if DCGM_PROFILING else []),
+
         _panel(15, "Framebuffer free, per card",
                "min by (gpu, pod) (DCGM_FI_DEV_FB_FREE)",
                legend="GPU {{gpu}} · {{pod}}", x=12, y=40, unit="decmbytes",

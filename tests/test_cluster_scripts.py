@@ -31,7 +31,7 @@ SHELL_SCRIPTS = sorted(list(SETUP.glob("*.sh")) + list(RUNPOD_SETUP.glob("*.sh")
 MAKE_TARGETS = {"fleet-runpod", "fleet-runpod-down", "fleet-runpod-logs",
                 "fleet-runpod-status", "fleet-runpod-ssh",
                 "fleet-runpod-smoke-test", "test", "load", "app", "doctor",
-                "clean"}
+                "clean", "dcgm"}
 
 
 def test_there_are_shell_scripts_to_check() -> None:

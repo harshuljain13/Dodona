@@ -12,6 +12,7 @@
 # Then:
 #   make app            the voice app — AgentShip and the UI on :3000
 #   make load           a load test ON THE BOX, bundle pulled back
+#   make dcgm           install real DCGM; says if this host allows profiling
 #   make test           the control plane here, no GPU needed
 #   make clean          wipe the box back to bare metal
 #
@@ -23,7 +24,7 @@
 .DEFAULT_GOAL := help
 # `app` must be here: a directory of that name exists, so without it make
 # reports "`app' is up to date" and runs nothing.
-.PHONY: help fleet-runpod fleet-runpod-down fleet-runpod-logs fleet-runpod-status fleet-runpod-ssh fleet-runpod-smoke-test test load app doctor clean
+.PHONY: help fleet-runpod fleet-runpod-down dcgm fleet-runpod-logs fleet-runpod-status fleet-runpod-ssh fleet-runpod-smoke-test test load app doctor clean
 
 SHELL := /usr/bin/env bash
 SETUP := infra/setup
@@ -50,6 +51,7 @@ help:
 	@echo "  Use it"
 	@echo "   make app            voice + text app on :3000, through the gateway"
 	@echo "   make load           load test ON THE BOX  (ARGS=\"--sessions 32\")"
+	@echo "   make dcgm           real DCGM; says if this host allows profiling"
 	@echo ""
 	@echo "  Stop it"
 	@echo "   make fleet-runpod-down  stop the fleet"
@@ -99,6 +101,13 @@ fleet-runpod-ssh:
 # something that has been broken while looking fine from outside.
 fleet-runpod-smoke-test:
 	@bash $(SETUP)/up.sh fleet-runpod-smoke-test
+
+# Install the real DCGM exporter and report whether this box allows profiling.
+# nvidia-smi cannot see PIPE_TENSOR_ACTIVE or DRAM_ACTIVE at any privilege
+# level — they are a different interface, gated by a driver parameter on the
+# HOST that a rented container cannot change. This asks, and says so either way.
+dcgm:
+	@bash $(SETUP)/up.sh dcgm
 
 # On the box, so no tunnel sits in the latency path. Bundles land in
 # infra/metrics/<run>/load.json. Override anything:  make load ARGS="--sessions 32"

@@ -303,11 +303,37 @@ GPU_ROLES=""
 for _dev in "${!_role_of[@]}"; do
   GPU_ROLES="${GPU_ROLES:+$GPU_ROLES,}${_dev}=${_role_of[$_dev]}"
 done
-say "gpu exporter  —  :9400  (DCGM_FI_DEV_* from nvidia-smi)"
+# Real DCGM if this box allows profiling, nvidia-smi if it does not.
+#
+# The difference is four fields — PIPE_TENSOR_ACTIVE, DRAM_ACTIVE, NVLINK_TX,
+# PCIE_TX — and they are the ones the roofline and bandwidth-wall arguments
+# need. nvidia-smi cannot see them at any privilege level; they come from a
+# different interface, gated by a driver parameter set on the HOST. A rented
+# container cannot change that, so it is asked rather than assumed.
+#
+# DCGM_PROFILING is exported either way, and dashboards.py reads it: panels for
+# fields this box cannot report are simply not generated, so there are no blank
+# graphs on the one screen whose argument depends on them.
+export DCGM_PROFILING=0
+if bash "$ROOT/infra/runpod-cluster/setup/dcgm.sh" --probe >/dev/null 2>&1; then
+  export DCGM_PROFILING=1
+fi
+
+if [[ "$DCGM_PROFILING" == "1" ]] && command -v dcgm-exporter >/dev/null 2>&1; then
+  say "dcgm-exporter  —  :9400  (full DCGM, profiling fields included)"
+  supervise gpu-exporter dcgm-exporter --address ":9400"
+  sleep 1
+else
+  if command -v dcgmi >/dev/null 2>&1; then
+    note "DCGM is installed but profiling is restricted on this host —"
+    note "  falling back to nvidia-smi. bash infra/runpod-cluster/setup/dcgm.sh for why."
+  fi
+  say "gpu exporter  —  :9400  (DCGM_FI_DEV_* from nvidia-smi)"
 note "roles: $GPU_ROLES"
-supervise gpu-exporter "$PY" "$ROOT/infra/runpod-cluster/observability/gpu_exporter.py" \
-  --port 9400 --roles "$GPU_ROLES"
-sleep 1
+  supervise gpu-exporter "$PY" "$ROOT/infra/runpod-cluster/observability/gpu_exporter.py" \
+    --port 9400 --roles "$GPU_ROLES"
+  sleep 1
+fi
 
 if command -v prometheus >/dev/null 2>&1; then
   say "prometheus  —  :9090"
