@@ -40,7 +40,7 @@ params:
   # up and answers from memory instead, which is the hardest kind of failure to
   # notice out loud. AgentShip measured it as: streaming on -> 0 tool calls,
   # off -> 1.
-  streaming: false
+  streaming: true
   # Spoken answers are short. This also keeps a turn inside the 30s budget when
   # research runs long.
   max_tokens: 400

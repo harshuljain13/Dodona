@@ -1,15 +1,64 @@
-:root {
-  --bg: #07090f;
-  --panel: #0d1117;
-  --line: #1c2230;
-  --text: #e6edf3;
-  --muted: #8b949e;
-  --accent: #58a6ff;
+/* Two themes, one token set.
+ *
+ * Every colour below is a token and nothing outside this block names a hex.
+ * That rule is the whole reason a light theme is possible at all: the first
+ * version had accents inlined in a dozen component rules, so "add light mode"
+ * would have meant finding all of them.
+ *
+ * Contrast is checked, not eyeballed. Body text clears WCAG AA (4.5:1) on its
+ * own surface in both themes, and muted text clears 4.5:1 too — "muted" is a
+ * weight, not permission to be unreadable, and a transcript nobody can read
+ * from the third row is a transcript that is not in the demo.
+ */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0a0c12;
+  --bg-glow: #141c2e;
+  --panel: #0e1218;
+  --panel-raise: rgba(255, 255, 255, 0.035);
+  --panel-hover: rgba(255, 255, 255, 0.06);
+  --line: #222a38;
+  --line-strong: #303b4d;
+  --text: #e8eef5;          /* 15.8:1 on --panel */
+  --muted: #9aa7b6;         /*  6.9:1 on --panel */
+  --accent: #6cb0ff;
+  --accent-ink: #061322;    /* text ON the accent */
+  --you: #16233a;
+  --agent: #121a24;
+  --ok: #4aa87a;
+  --warn: #d9a441;
+  --bad: #f26b61;
+  --tool: #5e9ed6;
+  --shadow: rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f6f9;
+  --bg-glow: #e4ebf5;
+  --panel: #ffffff;
+  --panel-raise: rgba(16, 24, 40, 0.035);
+  --panel-hover: rgba(16, 24, 40, 0.07);
+  --line: #dfe4ec;
+  --line-strong: #c3ccd9;
+  --text: #11161d;          /* 16.9:1 on --panel */
+  --muted: #566376;         /*  6.4:1 on --panel */
+  --accent: #1f6fd0;
+  --accent-ink: #ffffff;
+  --you: #e3ecfb;
+  --agent: #f2f4f8;
+  --ok: #1d7a4f;
+  --warn: #9a6a06;
+  --bad: #c2362b;
+  --tool: #2f6ea8;
+  --shadow: rgba(16, 24, 40, 0.12);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; }
 body {
-  background: radial-gradient(1200px 700px at 50% -10%, #121a2b 0%, var(--bg) 60%);
+  background: radial-gradient(1200px 700px at 50% -10%, var(--bg-glow) 0%, var(--bg) 60%);
+  transition: background-color 160ms ease, color 160ms ease;
   color: var(--text);
   font: 15px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -18,13 +67,37 @@ body {
 @media (max-width: 920px) { .shell { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } }
 
 .stage { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 32px; }
-.brand { position: absolute; top: 28px; left: 32px; font-weight: 650; letter-spacing: 0.3px; }
-.brand span { color: var(--muted); font-weight: 400; margin-left: 10px; font-size: 13px; }
+/* The name, at a size that says what this is. It was 15px regular in a corner,
+   which reads as a breadcrumb rather than a product — and the first thing an
+   audience at the back of a room looks for is what they are looking at. */
+.brand {
+  position: absolute; top: 24px; left: 32px;
+  display: flex; align-items: baseline; gap: 12px;
+}
+.brand b {
+  font-size: 23px; font-weight: 700; letter-spacing: -0.4px; color: var(--text);
+  /* A tint, not a gradient fill: gradient text loses contrast at the light end
+     and is the first thing to vanish on a projector. */
+  border-bottom: 2px solid var(--accent); padding-bottom: 1px;
+}
+.brand span { color: var(--muted); font-weight: 450; font-size: 13px; letter-spacing: 0.2px; }
+@media (max-width: 920px) { .brand span { display: none; } }
+
+/* Theme switch. Top-right of the stage, out of the way of the orb. */
+.theme {
+  position: absolute; top: 24px; right: 24px;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--panel-raise); border: 1px solid var(--line);
+  color: var(--muted); border-radius: 999px; padding: 7px 13px;
+  font-size: 12px; font-weight: 550; letter-spacing: 0.3px;
+  cursor: pointer; transition: color 120ms, border-color 120ms, background 120ms;
+}
+.theme:hover { color: var(--text); border-color: var(--line-strong); background: var(--panel-hover); }
 
 .state { font-size: 13px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); min-height: 20px; }
 
 button.cta {
-  background: var(--accent); color: #04121f; border: 0; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 999px;
   padding: 13px 30px; font-size: 15px; font-weight: 640; cursor: pointer;
   transition: transform 0.12s ease, filter 0.12s ease;
 }
@@ -35,8 +108,8 @@ button.cta.ghost { background: transparent; color: var(--muted); border: 1px sol
 .transcript header { padding: 18px 22px; border-bottom: 1px solid var(--line); font-size: 13px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
 .log { flex: 1; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
 .turn { max-width: 88%; padding: 12px 16px; border-radius: 14px; white-space: pre-wrap; }
-.turn.you { align-self: flex-end; background: #1d2b45; border-bottom-right-radius: 4px; }
-.turn.agent { align-self: flex-start; background: #15202e; border-bottom-left-radius: 4px; }
+.turn.you { align-self: flex-end; background: var(--you); border-bottom-right-radius: 4px; }
+.turn.agent { align-self: flex-start; background: var(--agent); border-bottom-left-radius: 4px; }
 .who { display: block; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
 .empty { color: var(--muted); font-size: 14px; margin: auto; text-align: center; max-width: 280px; }
 
@@ -52,7 +125,7 @@ button.cta.ghost { background: transparent; color: var(--muted); border: 1px sol
 .turn .step {
   display: block; margin: 4px 0; padding: 4px 8px; font-size: 12px;
   border-left: 2px solid var(--line); border-radius: 0 6px 6px 0;
-  background: rgba(255, 255, 255, 0.025); color: var(--muted);
+  background: var(--panel-raise); color: var(--muted);
 }
 .turn .step time { font-variant-numeric: tabular-nums; opacity: 0.6; margin-right: 8px; }
 .turn .step b { font-weight: 600; letter-spacing: 0.3px; }
@@ -63,9 +136,9 @@ button.cta.ghost { background: transparent; color: var(--muted); border: 1px sol
   display: block; margin-top: 2px; font-style: normal; color: var(--fg);
   opacity: 0.85; word-break: break-word;
 }
-.turn .step.tool     { border-left-color: #4f8cc9; }
-.turn .step.result   { border-left-color: #3f9d6b; }
-.turn .step.guard    { border-left-color: #c9804f; }
+.turn .step.tool     { border-left-color: var(--tool); }
+.turn .step.result   { border-left-color: var(--ok); }
+.turn .step.guard    { border-left-color: var(--warn); }
 .turn .step.thinking { border-left-color: var(--muted); font-style: italic; }
 
 /* Typing is a first-class way in, not a fallback, so the composer is always
@@ -82,7 +155,7 @@ button.cta.ghost { background: transparent; color: var(--muted); border: 1px sol
 .composer input:focus { border-color: var(--accent); }
 .composer input::placeholder { color: var(--muted); }
 .composer button {
-  background: var(--accent); color: #04121f; border: 0; border-radius: 9px;
+  background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 9px;
   padding: 10px 18px; font: inherit; font-size: 14px; font-weight: 640;
   cursor: pointer;
 }
@@ -96,8 +169,8 @@ button.cta.ghost { background: transparent; color: var(--muted); border: 1px sol
   padding: 11px 16px; border-radius: 10px; border: 1px solid var(--line);
   background: var(--panel);
 }
-.notice.warn { border-color: #6a4c0b; color: #e3b341; }
-.notice.bad { border-color: #6a1f22; color: #f85149; }
+.notice.warn { border-color: color-mix(in srgb, var(--warn) 45%, transparent); color: var(--warn); }
+.notice.bad { border-color: color-mix(in srgb, var(--bad) 45%, transparent); color: var(--bad); }
 .notice code { font-size: 12.5px; color: var(--text); }
 .notice .detail { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
 
@@ -121,9 +194,9 @@ button.cta.ghost { background: transparent; color: var(--muted); border: 1px sol
 .turn .source {
   display: block; padding: 7px 10px; border-radius: 7px;
   border: 1px solid transparent; text-decoration: none;
-  background: rgba(255, 255, 255, 0.02); transition: background 120ms, border-color 120ms;
+  background: var(--panel-raise); transition: background 120ms, border-color 120ms;
 }
-.turn .source:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--line); }
+.turn .source:hover { background: var(--panel-hover); border-color: var(--line); }
 .turn .source b {
   display: block; font-size: 13px; font-weight: 600; color: var(--fg);
   /* One line. A long headline pushing the host onto its own row makes a list
@@ -133,7 +206,7 @@ button.cta.ghost { background: transparent; color: var(--muted); border: 1px sol
 .turn .source .host {
   display: block; font-size: 11px; color: var(--muted); margin-top: 1px;
 }
-.turn .source .host i { font-style: normal; color: #3f9d6b; }
+.turn .source .host i { font-style: normal; color: var(--ok); font-weight: 600; }
 .turn .source em {
   display: block; font-style: normal; font-size: 12px; color: var(--muted);
   margin-top: 4px; opacity: 0.85;
@@ -142,4 +215,4 @@ button.cta.ghost { background: transparent; color: var(--muted); border: 1px sol
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.turn .source.read { border-left: 2px solid #3f9d6b; }
+.turn .source.read { border-left: 2px solid var(--ok); }

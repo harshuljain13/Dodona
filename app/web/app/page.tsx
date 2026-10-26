@@ -165,6 +165,43 @@ function explain(raw: string, channel: "voice" | "text" = "voice"): string {
   return "The voice socket did not open. The AgentShip service is part of `make app` — is it still running?";
 }
 
+// Light / dark, remembered.
+//
+// The attribute is already correct before this mounts — layout.tsx sets it in a
+// blocking script — so this only has to READ it and offer the swap. Starting
+// from `null` and filling it in an effect keeps the server and client render
+// identical, which is what stops the toggle itself causing the hydration
+// mismatch the script exists to avoid.
+function ThemeToggle() {
+  const [theme, setTheme] = useState<"light" | "dark" | null>(null);
+
+  useEffect(() => {
+    const current = document.documentElement.getAttribute("data-theme");
+    setTheme(current === "light" ? "light" : "dark");
+  }, []);
+
+  const flip = () => {
+    const next = theme === "light" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", next);
+    try {
+      localStorage.setItem("dodona-theme", next);
+    } catch {
+      // Private browsing. The theme still applies for this session.
+    }
+    setTheme(next);
+  };
+
+  // Renders nothing until the effect has run, so the first client render
+  // matches the server's.
+  if (!theme) return <button className="theme" aria-hidden suppressHydrationWarning />;
+
+  return (
+    <button className="theme" onClick={flip} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}>
+      {theme === "light" ? "◐ Dark" : "◑ Light"}
+    </button>
+  );
+}
+
 export default function Page() {
   const [state, setState] = useState<State>("disconnected");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -707,8 +744,10 @@ export default function Page() {
     <div className="shell">
       <div className="stage">
         <div className="brand">
-          Dodona<span>voice deep research, on one GPU</span>
+          <b>Dodona</b>
+          <span>voice deep research, on one GPU</span>
         </div>
+        <ThemeToggle />
         {connected ? (
           <>
             <Orb state={state} level={level} />
