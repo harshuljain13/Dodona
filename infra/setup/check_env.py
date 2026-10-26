@@ -80,6 +80,15 @@ PLACEHOLDER = re.compile(r"xxxx|YOUR_|your_|<.*>", re.I)
 ASSIGN = re.compile(r"^\s*(?:export\s+)?([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$")
 
 
+def _looks_like_a_key(path: str) -> bool:
+    """A PEM private key, not a config file that happens to live in ~/.ssh."""
+    try:
+        with open(path, "rb") as handle:
+            return handle.read(40).startswith(b"-----BEGIN")
+    except OSError:
+        return False
+
+
 def read_env(path: str) -> dict[str, str]:
     """Parse `NAME=value` and `export NAME=value`, stripping one layer of quotes."""
     values: dict[str, str] = {}
@@ -133,6 +142,26 @@ def main() -> int:
     key = os.path.expanduser(os.path.expandvars(resolve(values, "SSH_KEY")))
     if key and not os.path.isfile(key):
         print(f"  MISSING   {'SSH_KEY file':<20} no key at {key}")
+        # Name the keys that DO exist. The template defaults to
+        # ~/.ssh/dodona_ed25519 because PREREQUISITES tells you to create that
+        # one — but plenty of people already have a key and use it, and then
+        # this error names a file they never meant to have. Pointing at the
+        # real candidates turns a dead end into a one-line edit.
+        ssh_dir = os.path.expanduser("~/.ssh")
+        if os.path.isdir(ssh_dir):
+            found = sorted(
+                os.path.join(ssh_dir, n) for n in os.listdir(ssh_dir)
+                if not n.endswith((".pub", ".known_hosts"))
+                and n not in ("known_hosts", "known_hosts.old", "config", "authorized_keys")
+                and os.path.isfile(os.path.join(ssh_dir, n))
+                # A private key is small and starts with a PEM header.
+                and os.path.getsize(os.path.join(ssh_dir, n)) < 16_000
+                and _looks_like_a_key(os.path.join(ssh_dir, n))
+            )
+            if found:
+                print(f"            {'':<20} you do have: {', '.join(found)}")
+                print(f"            {'':<20} set SSH_KEY to one of those, or make the "
+                      f"key PREREQUISITES step 3 names")
         bad += 1
     elif key and (os.stat(key).st_mode & 0o077):
         # ssh silently refuses a world-readable key.
