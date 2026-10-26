@@ -78,6 +78,17 @@ class Metrics:
         self.kv_evict_total = 0
         self.place_total: dict[str, int] = defaultdict(int)
         self.latency: dict[str, Histogram] = {stage: Histogram() for stage in STAGES}
+        #: Requests the client gave up on, by reason. Distinct from a shed:
+        #: nothing refused these, the caller left — and counting them as
+        #: completions overstates success while counting them as errors
+        #: overstates failure. A voice session that hangs up mid-answer is the
+        #: common case and is nobody's fault.
+        self.aborted_total: dict[str, int] = defaultdict(int)
+        #: How long an admitted request waited before a replica took it. Queue
+        #: DEPTH says how many are waiting; this says how long the oldest has
+        #: been — and a p99 age is the number that tells you a queue is not
+        #: draining, which depth alone cannot.
+        self.queue_age = Histogram()
         self.replicas: dict[str, list[Snapshot]] = {"prefill": [], "decode": []}
 
     def inc_requests(self) -> None:
@@ -111,6 +122,14 @@ class Metrics:
 
     def inc_overflow(self) -> None:
         self.overflow_total += 1
+
+    def inc_aborted(self, reason: str = "client_gone") -> None:
+        """The caller left before the answer did."""
+        self.aborted_total[reason] += 1
+
+    def observe_queue_age(self, seconds: float) -> None:
+        """Arrival to a replica accepting it, in seconds."""
+        self.queue_age.observe(max(0.0, float(seconds)))
 
     def inc_completed(self) -> None:
         self.completed_total += 1
@@ -180,6 +199,18 @@ class Metrics:
             lines.append('orch_shed_total{reason="no_eligible_pod",code="503"} 0')
         for (reason, code), n in sorted(self.shed_total.items()):
             lines.append(f'orch_shed_total{{reason="{reason}",code="{code}"}} {n}')
+
+        # Always emitted, even at zero. A counter that appears only once it
+        # fires makes its panel read "No data" on a healthy fleet, which is
+        # indistinguishable from a broken scrape.
+        lines.append("# TYPE orch_aborted_total counter")
+        if not self.aborted_total:
+            lines.append('orch_aborted_total{reason="client_gone"} 0')
+        for reason, n in sorted(self.aborted_total.items()):
+            lines.append(f'orch_aborted_total{{reason="{reason}"}} {n}')
+
+        lines.append("# TYPE orch_queue_age_seconds histogram")
+        lines.extend(self.queue_age.render("orch_queue_age_seconds", include_type=False))
         lines += [
             "# TYPE orch_pick_total counter",
             f"orch_pick_total {self.pick_total}",

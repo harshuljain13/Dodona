@@ -8,6 +8,7 @@ import urllib.request
 from typing import Any
 
 from router.kvbus import KVBus
+from gateway.metrics import METRICS
 from gateway.types import (KV_HARD_CEILING, KV_SATURATION, Request, SliceOOM,
                            Snapshot, request_messages)
 
@@ -146,6 +147,12 @@ class FakeWorker:
         req = self._reqs.pop(req_id, None)
         if req is not None:
             req.aborted = True
+            # Counted once, and only for work that was actually in flight — an
+            # abort for a request we never held is a duplicate cancel, not a
+            # lost answer. Distinct from a shed: nothing refused this, the
+            # caller left, and a voice session hung up mid-answer is the common
+            # case and nobody's fault.
+            METRICS.inc_aborted("client_gone")
 
     def snapshot(self) -> Snapshot:
         used = self.kv_used

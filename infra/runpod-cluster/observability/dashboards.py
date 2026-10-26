@@ -69,6 +69,8 @@ EXPORTED = {
         "orch_pick_unknown_snapshot_total",
         "orch_sticky_total",
         "orch_request_duration_seconds",
+        "orch_queue_age_seconds",
+        "orch_aborted_total",
         "orch_kv_free_ratio",
         "orch_kv_transfer_total",
         "orch_kv_transfer_tokens",
@@ -506,6 +508,27 @@ def gateway() -> dict:
                desc="A sticky pick sends a request back to the replica that "
                     "already holds its prefix, so the KV does not have to be "
                     "recomputed. Compare with prefix cache hits on 3 · KV."),
+        _panel(18, "Queue age p50 / p95 / p99",
+               "histogram_quantile(0.50, sum by (le) "
+               "(rate(orch_queue_age_seconds_bucket[5m]))) * 1000",
+               legend="p50", x=0, y=56, unit="ms",
+               extra=[("histogram_quantile(0.95, sum by (le) "
+                       "(rate(orch_queue_age_seconds_bucket[5m]))) * 1000", "p95"),
+                      ("histogram_quantile(0.99, sum by (le) "
+                       "(rate(orch_queue_age_seconds_bucket[5m]))) * 1000", "p99")],
+               desc="How long a request waited before a replica took it. Queue "
+                    "DEPTH says how many are waiting; this says how long — and "
+                    "a depth that is flat while the age climbs is a queue that "
+                    "is not draining, which depth alone cannot tell you."),
+        _panel(19, "Abandoned by the caller",
+               "sum by (reason) (rate(orch_aborted_total[5m]))",
+               legend="{{reason}}", x=12, y=56, unit="reqps",
+               desc="Requests the client gave up on — NOT a shed. Nothing "
+                    "refused these; the caller left, which for a voice session "
+                    "hung up mid-answer is nobody's fault. Counting them as "
+                    "completions overstates success and as errors overstates "
+                    "failure, so they are their own line."),
+
         _panel(13, "Picks on a stale snapshot",
                "sum(rate(orch_pick_unknown_snapshot_total[5m]))", legend="stale",
                x=12, y=32, unit="reqps",

@@ -75,6 +75,13 @@ class Gateway:
             self.refresh_metrics()
             METRICS.observe_duration("gateway", time.perf_counter() - t0)
             return result.to_response()
+        # Everything up to here is the decision: guard, admit, place. The
+        # moment a replica is chosen is the moment the wait ends, so that is
+        # the queue AGE — distinct from queue depth, which says how many are
+        # waiting but never how long the oldest has been. A depth that is flat
+        # and an age that is climbing is a queue that is not draining, and only
+        # one of those two numbers can tell you.
+        METRICS.observe_queue_age(time.perf_counter() - t0)
         try:
             hop, completion = enqueue(result, req)
         except SliceOOM:
