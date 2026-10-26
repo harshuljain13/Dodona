@@ -102,9 +102,14 @@ hops=$(curl -sf -m 5 localhost:50051/metrics 2>/dev/null \
   | awk '/^orch_kv_transfer_total/ { v=$NF } END { printf "%d", v+0 }')
 if curl -sf -m 5 localhost:50051/metrics >/dev/null 2>&1; then
   # Zero is the honest answer while decode re-prefills; it is not a failure.
-  ok "mooncake  :50051  answering, ${hops:-0} hops recorded"
+  if [[ "$LAB_TOPOLOGY" == "aggregated" ]]; then
+    # One pool, so queue.py never calls the bus: zero is correct, not a fault.
+    ok "ledger    :50051  answering  (aggregated: no hops to record)"
+  else
+    ok "ledger    :50051  answering, ${hops:-0} hop(s) recorded as decisions"
+  fi
 else
-  bad "mooncake  :50051  NOT ANSWERING"
+  bad "ledger    :50051  NOT ANSWERING"
   problems=$(( problems + 1 ))
 fi
 

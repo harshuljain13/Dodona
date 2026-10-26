@@ -234,7 +234,7 @@ wait_for() {
 # tokens and bytes; it does not move KV blocks, because decode re-prefills.
 check_ports
 
-say "mooncake  —  :50051  (the hop ledger)"
+say "ledger  —  :50051  (records KV routing decisions)"
 supervise mooncake "$PY" -m router.mooncake
 sleep 1
 
