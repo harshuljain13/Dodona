@@ -681,7 +681,20 @@ export default function Page() {
         // no speech to cut off — so the only thing it can do is destroy the
         // turn. Sending nothing is how the browser declines to offer it.
         // Barge-in during the answer is untouched.
-        if (researching.current) return;
+        // Send SILENCE while researching — never nothing.
+        //
+        // This used to `return`, which stopped the stream mid-flight. A
+        // streaming recogniser carries acoustic and timing state across a
+        // continuous stream, so a hole is not a pause to it — it is a
+        // discontinuity. The transcript was accurate at first and degraded
+        // after the first research turn, worsening with each one: "LLM
+        // inference" came back as "alarm Wind friends".
+        //
+        // Silence does what the gate was for — no words reach the recogniser,
+        // so a stray syllable cannot cancel a turn between a tool call and its
+        // result — while the stream stays unbroken and the timeline keeps
+        // advancing at real-time cadence.
+        const gated = researching.current;
         const input = e.inputBuffer.getChannelData(0);
         const out16 = new Int16Array(Math.floor(input.length / ratio));
         for (let i = 0; i < out16.length; i++) {
@@ -717,7 +730,9 @@ export default function Page() {
             s = input[lo] * (1 - frac) + input[hi] * frac;
           }
           s = Math.max(-1, Math.min(1, s));
-          out16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+          // `gated` zeroes the sample but still emits it, so the buffer keeps
+          // its length and the stream keeps its cadence.
+          out16[i] = gated ? 0 : s < 0 ? s * 0x8000 : s * 0x7fff;
         }
         ws.send(out16.buffer);
       };
